@@ -1,0 +1,127 @@
+{
+  "nav": {
+    "clips": "クリップ",
+    "videos": "動画",
+    "settings": "設定",
+    "collapseSidebar": "サイドバーを折りたたむ",
+    "expandSidebar": "サイドバーを展開"
+  },
+  "settings": {
+    "title": "設定",
+    "videoDirectory": "動画フォルダ",
+    "noDirectorySelected": "フォルダが選択されていません",
+    "change": "変更",
+    "rescanFolder": "フォルダを再スキャン",
+    "scanning": "スキャン中...",
+    "language": "言語",
+    "theme": "テーマ",
+    "themeLight": "ライト",
+    "themeDark": "ダーク",
+    "themeSystem": "システム",
+    "done": "完了",
+    "thumbnailPreview": "プログレスバーでサムネイル表示"
+  },
+  "languages": {
+    "zh": "简体中文",
+    "en": "English",
+    "ja": "日本語"
+  },
+  "videos": {
+    "noVideosTitle": "動画が見つかりません",
+    "noVideosDesc": "選択したフォルダをスキャンしましたが、動画ファイル（.mp4, .webm, .mov, .m4v）を含むサブフォルダが見つかりませんでした。",
+    "clipCount": "{{count}} 件のクリップ"
+  },
+  "videoDetail": {
+    "videoNotFound": "動画が見つかりません",
+    "videoReadError": "ローカルディスクから元の動画ファイルを読み込めませんでした。",
+    "loadError": "動画の読み込みエラー",
+    "videoUnavailable": "動画を利用できません",
+    "videoUnavailableDesc": "ファイルが移動、名前変更、または削除された可能性があります。",
+    "backToVideos": "動画一覧に戻る",
+    "clipCount": "{{count}} 件のクリップ"
+  },
+  "clipsFeed": {
+    "title": "クリップフィード",
+    "randomFeed": "ランダム再生",
+    "noClipsTitle": "クリップがまだ作成されていません",
+    "noClipsDesc": "「動画」タブに移動し、動画を選択してハサミツールでお気に入りのクリップを作成してください。",
+    "readError": "ディスクから動画ファイルを読み込めませんでした",
+    "clipDeletedOrUnavailable": "直前に再生していたクリップは削除されたか利用できなくなりました。",
+    "clipUnavailable": "クリップを利用できません",
+    "skipToNext": "次のクリップへスキップ"
+  },
+  "clipPanel": {
+    "addClips": "クリップを追加",
+    "editClip": "クリップを編集",
+    "closePanel": "クリップパネルを閉じる",
+    "existingClips": "作成済みクリップ ({{count}})"
+  },
+  "clipForm": {
+    "start": "開始",
+    "end": "終了",
+    "synchronize": "現在時刻を同期",
+    "errorInvalidStart": "開始時刻の形式が無効です（HH:MM:SS を使用）",
+    "errorInvalidEnd": "終了時刻の形式が無効です（HH:MM:SS を使用）",
+    "errorEndBeforeStart": "終了時刻は開始時刻より後である必要があります",
+    "errorTooShort": "クリップの長さは0.1秒以上必要です",
+    "errorExceedsDuration": "終了時刻が動画の長さを超えています ({{duration}})",
+    "errorSaveFailed": "クリップの保存に失敗しました",
+    "addClip": "クリップを追加",
+    "saveClip": "クリップを保存"
+  },
+  "clipItem": {
+    "jumpToStart": "クリップ開始位置へ移動",
+    "editClip": "クリップを編集",
+    "deleteClip": "クリップを削除"
+  },
+  "clipList": {
+    "noClips": "この動画にはまだクリップがありません。",
+    "noClipsHint": "上記で開始・終了時刻を設定して追加してください。"
+  },
+  "deleteModal": {
+    "title": "このクリップを削除しますか？",
+    "cancel": "キャンセル",
+    "delete": "削除"
+  },
+  "emptyState": {
+    "browserNotSupportedTitle": "ブラウザがサポートされていません",
+    "browserNotSupportedDesc": "お使いのブラウザはローカルフォルダへのアクセスをサポートしていません。<br /><strong>Google Chrome</strong> または <strong>Microsoft Edge</strong> をご利用ください。",
+    "scanningTitle": "動画フォルダをスキャン中...",
+    "noClipsTitle": "クリップがありません",
+    "noClipsDesc": "動画ページで動画を選択し、ハサミツールを使って最初のクリップを作成してください。",
+    "permissionRequiredTitle": "アクセス権限が必要です",
+    "permissionRequiredDesc": "下のボタンをクリックして、ローカルフォルダへのアクセスを再許可してください：",
+    "authorizeFolder": "フォルダを許可",
+    "selectFolderTitle": "ローカル動画フォルダを選択",
+    "selectFolderDesc": "動画サブフォルダを含むルートフォルダを選択してください。すべてのクリップと処理はお使いのパソコン内でのみ保持されます。",
+    "selectFolderBtn": "フォルダを選択"
+  },
+  "player": {
+    "loading": "動画を読み込み中...",
+    "addOrEditClips": "クリップの追加・編集",
+    "previous": "前へ",
+    "next": "次へ",
+    "play": "再生",
+    "pause": "一時停止",
+    "containMode": "全体表示モード",
+    "coverMode": "全画面表示モード",
+    "switchToContain": "全体表示に切り替え",
+    "switchToCover": "全画面表示に切り替え",
+    "showTimer": "タイマーを表示",
+    "hideTimer": "タイマーを非表示",
+    "showTimerAria": "カウントダウンタイマーを表示",
+    "hideTimerAria": "カウントダウンタイマーを非表示",
+    "fullscreen": "全画面表示",
+    "exitFullscreen": "全画面表示を解除",
+    "volume": "音量",
+    "mute": "ミュート",
+    "unmute": "ミュート解除"
+  },
+  "common": {
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "delete": "削除",
+    "save": "保存",
+    "loading": "読み込み中..."
+  }
+}

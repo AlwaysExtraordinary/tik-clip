@@ -1,0 +1,127 @@
+{
+  "nav": {
+    "clips": "片段",
+    "videos": "视频",
+    "settings": "设置",
+    "collapseSidebar": "收起侧边栏",
+    "expandSidebar": "展开侧边栏"
+  },
+  "settings": {
+    "title": "设置",
+    "videoDirectory": "视频目录",
+    "noDirectorySelected": "未选择目录",
+    "change": "更改",
+    "rescanFolder": "重新扫描文件夹",
+    "scanning": "正在扫描...",
+    "language": "语言",
+    "theme": "主题",
+    "themeLight": "浅色",
+    "themeDark": "深色",
+    "themeSystem": "跟随系统",
+    "done": "完成",
+    "thumbnailPreview": "进度条显示缩略图"
+  },
+  "languages": {
+    "zh": "简体中文",
+    "en": "English",
+    "ja": "日本語"
+  },
+  "videos": {
+    "noVideosTitle": "未找到视频",
+    "noVideosDesc": "已扫描选中的文件夹，但未找到包含视频文件（.mp4, .webm, .mov, .m4v）的子文件夹。",
+    "clipCount": "{{count}} 个片段"
+  },
+  "videoDetail": {
+    "videoNotFound": "未找到该视频",
+    "videoReadError": "无法从本地磁盘读取原始视频文件。",
+    "loadError": "加载视频出错",
+    "videoUnavailable": "视频不可用",
+    "videoUnavailableDesc": "该文件可能已被移动、重命名或从文件夹中删除。",
+    "backToVideos": "返回视频列表",
+    "clipCount": "{{count}} 个片段"
+  },
+  "clipsFeed": {
+    "title": "片段流",
+    "randomFeed": "随机流",
+    "noClipsTitle": "尚未创建任何片段",
+    "noClipsDesc": "请前往「视频」标签页，选择一个视频并使用剪刀工具标记你喜爱的片段。",
+    "readError": "无法从磁盘读取视频文件",
+    "clipDeletedOrUnavailable": "此前播放的片段已被删除或不再可用。",
+    "clipUnavailable": "片段不可用",
+    "skipToNext": "跳至下一个片段"
+  },
+  "clipPanel": {
+    "addClips": "添加片段",
+    "editClip": "编辑片段",
+    "closePanel": "关闭片段面板",
+    "existingClips": "已有片段 ({{count}})"
+  },
+  "clipForm": {
+    "start": "开始",
+    "end": "结束",
+    "synchronize": "同步当前",
+    "errorInvalidStart": "开始时间格式无效（请使用 HH:MM:SS）",
+    "errorInvalidEnd": "结束时间格式无效（请使用 HH:MM:SS）",
+    "errorEndBeforeStart": "结束时间必须大于开始时间",
+    "errorTooShort": "片段长度至少需为 0.1 秒",
+    "errorExceedsDuration": "结束时间超出视频总时长 ({{duration}})",
+    "errorSaveFailed": "保存片段失败",
+    "addClip": "添加片段",
+    "saveClip": "保存片段"
+  },
+  "clipItem": {
+    "jumpToStart": "跳转至片段起点",
+    "editClip": "编辑片段",
+    "deleteClip": "删除片段"
+  },
+  "clipList": {
+    "noClips": "此视频尚未创建任何片段。",
+    "noClipsHint": "在上方设置开始和结束时间以添加片段。"
+  },
+  "deleteModal": {
+    "title": "确定要删除此片段吗？",
+    "cancel": "取消",
+    "delete": "删除"
+  },
+  "emptyState": {
+    "browserNotSupportedTitle": "浏览器不受支持",
+    "browserNotSupportedDesc": "您的浏览器不支持访问本地文件夹。<br />请使用 <strong>Google Chrome</strong> 或 <strong>Microsoft Edge</strong>。",
+    "scanningTitle": "正在扫描视频目录...",
+    "noClipsTitle": "暂无片段",
+    "noClipsDesc": "前往视频页面，选择视频并使用剪刀工具创建您的第一个片段。",
+    "permissionRequiredTitle": "需要授予访问权限",
+    "permissionRequiredDesc": "点击下方按钮重新授权访问本地文件夹：",
+    "authorizeFolder": "授权文件夹",
+    "selectFolderTitle": "选择本地视频文件夹",
+    "selectFolderDesc": "选择包含视频子文件夹的根目录。所有片段及处理均完全保存在您的本地电脑上。",
+    "selectFolderBtn": "选择文件夹"
+  },
+  "player": {
+    "loading": "正在加载视频...",
+    "addOrEditClips": "添加或编辑片段",
+    "previous": "上一个",
+    "next": "下一个",
+    "play": "播放",
+    "pause": "暂停",
+    "containMode": "适应模式",
+    "coverMode": "填充模式",
+    "switchToContain": "切换为适应画面",
+    "switchToCover": "切换为填充画面",
+    "showTimer": "显示倒计时",
+    "hideTimer": "隐藏倒计时",
+    "showTimerAria": "显示倒计时器",
+    "hideTimerAria": "隐藏倒计时器",
+    "fullscreen": "全屏",
+    "exitFullscreen": "退出全屏",
+    "volume": "音量",
+    "mute": "静音",
+    "unmute": "取消静音"
+  },
+  "common": {
+    "cancel": "取消",
+    "confirm": "确定",
+    "delete": "删除",
+    "save": "保存",
+    "loading": "加载中..."
+  }
+}

@@ -1,0 +1,144 @@
+@import 'tailwindcss';
+@import '@heroui/styles';
+
+@theme {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-active: var(--surface-active);
+  --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-foreground: var(--danger-foreground);
+
+  --shadow-subtle: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+  --shadow-card: 0 4px 12px 0 rgba(0, 0, 0, 0.05);
+  --shadow-floating: 0 12px 32px -4px rgba(0, 0, 0, 0.12), 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+}
+
+:root {
+  /* 浅色主题 - 极简中性灰石色调风格 */
+  --background: #f3f4f6; /* 浅色中性灰 */
+  --surface: #e4e5e7; /* 柔和卡片背景 */
+  --surface-hover: #dadce0;
+  --surface-active: #d1d5db;
+  --foreground: #111827; /* 深石板灰 */
+  --foreground-muted: #6b7280; /* 次要文本 */
+  --border: #dcdee2; /* 边框色 */
+  --border-strong: #c3c6cc;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-foreground: #ffffff;
+  --danger: #ef4444;
+  --danger-hover: #dc2626;
+  --danger-foreground: #ffffff;
+
+  /* HeroUI v3 语义变量映射 (浅色) */
+  --muted: var(--foreground-muted);
+  --default: var(--surface-hover);
+  --default-foreground: var(--foreground);
+  --default-hover: var(--surface-active);
+  --field-border: var(--border);
+  --focus: var(--accent);
+  --backdrop: rgba(0, 0, 0, 0.4);
+}
+
+.dark {
+  /* 深色主题 - 沉稳深炭灰风格 */
+  --background: #121214;
+  --surface: #1c1c20;
+  --surface-hover: #26262c;
+  --surface-active: #303038;
+  --foreground: #f3f4f6;
+  --foreground-muted: #9ca3af;
+  --border: #26262c;
+  --border-strong: #373740;
+  --accent: #3b82f6;
+  --accent-hover: #60a5fa;
+  --accent-foreground: #ffffff;
+  --danger: #ef4444;
+  --danger-hover: #f87171;
+  --danger-foreground: #ffffff;
+
+  /* HeroUI v3 语义变量映射 (深色) */
+  --muted: var(--foreground-muted);
+  --default: var(--surface-hover);
+  --default-foreground: var(--foreground);
+  --default-hover: var(--surface-active);
+  --field-border: var(--border);
+  --focus: var(--accent);
+  --backdrop: rgba(0, 0, 0, 0.6);
+}
+
+body {
+  font-family:
+    'Plus Jakarta Sans',
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* 自定义极简滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--foreground-muted) / 0.25);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--foreground-muted) / 0.4);
+}
+
+/* 自定义滑块输入控件样式 */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type='range']:focus {
+  outline: none;
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 9999px;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 14px;
+  width: 14px;
+  border-radius: 50%;
+  background: currentColor;
+  margin-top: -4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s ease;
+}
+
+input[type='range']:hover::-webkit-slider-thumb {
+  transform: scale(1.2);
+}

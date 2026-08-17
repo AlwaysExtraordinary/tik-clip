@@ -1,0 +1,131 @@
+{
+  "nav": {
+    "clips": "Clips",
+    "videos": "Videos",
+    "settings": "Settings",
+    "collapseSidebar": "Collapse Sidebar",
+    "expandSidebar": "Expand Sidebar"
+  },
+  "settings": {
+    "title": "Settings",
+    "videoDirectory": "Video Directory",
+    "noDirectorySelected": "No directory selected",
+    "change": "Change",
+    "rescanFolder": "Rescan Folder",
+    "scanning": "Scanning...",
+    "language": "Language",
+    "theme": "Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System",
+    "done": "Done",
+    "thumbnailPreview": "Progress Bar Thumbnails"
+  },
+  "languages": {
+    "zh": "简体中文",
+    "en": "English",
+    "ja": "日本語"
+  },
+  "videos": {
+    "noVideosTitle": "No Videos Found",
+    "noVideosDesc": "We scanned the selected folder but found no subfolders containing video files (.mp4, .webm, .mov, .m4v).",
+    "clipCount_one": "{{count}} clip",
+    "clipCount_other": "{{count}} clips",
+    "clipCount": "{{count}} clips"
+  },
+  "videoDetail": {
+    "videoNotFound": "Video not found",
+    "videoReadError": "Original video file could not be read from disk.",
+    "loadError": "Error loading video",
+    "videoUnavailable": "Video unavailable",
+    "videoUnavailableDesc": "The file may have been moved, renamed, or deleted from your folder.",
+    "backToVideos": "Back to Videos",
+    "clipCount_one": "{{count}} clip",
+    "clipCount_other": "{{count}} clips",
+    "clipCount": "{{count}} clips"
+  },
+  "clipsFeed": {
+    "title": "Clips Feed",
+    "randomFeed": "Random Feed",
+    "noClipsTitle": "No Clips Created Yet",
+    "noClipsDesc": "Go to the Videos tab, choose a video, and use the Scissors tool to mark your favorite clips.",
+    "readError": "Could not read video file from disk",
+    "clipDeletedOrUnavailable": "The previously playing clip was deleted or is no longer available.",
+    "clipUnavailable": "Clip Unavailable",
+    "skipToNext": "Skip to Next Clip"
+  },
+  "clipPanel": {
+    "addClips": "Add Clips",
+    "editClip": "Edit Clip",
+    "closePanel": "Close clip panel",
+    "existingClips": "Existing Clips ({{count}})"
+  },
+  "clipForm": {
+    "start": "start",
+    "end": "end",
+    "synchronize": "Synchronize",
+    "errorInvalidStart": "Invalid start time format (use HH:MM:SS)",
+    "errorInvalidEnd": "Invalid end time format (use HH:MM:SS)",
+    "errorEndBeforeStart": "End time must be greater than start time",
+    "errorTooShort": "Clip length must be at least 0.1s",
+    "errorExceedsDuration": "End time exceeds video duration ({{duration}})",
+    "errorSaveFailed": "Failed to save clip",
+    "addClip": "Add Clip",
+    "saveClip": "Save Clip"
+  },
+  "clipItem": {
+    "jumpToStart": "Jump to clip start",
+    "editClip": "Edit clip",
+    "deleteClip": "Delete clip"
+  },
+  "clipList": {
+    "noClips": "No clips created for this video yet.",
+    "noClipsHint": "Set start & end times above to add one."
+  },
+  "deleteModal": {
+    "title": "Delete this clip?",
+    "cancel": "Cancel",
+    "delete": "Delete"
+  },
+  "emptyState": {
+    "browserNotSupportedTitle": "Browser Not Supported",
+    "browserNotSupportedDesc": "Your browser does not support local folder access.<br />Please use <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong>.",
+    "scanningTitle": "Scanning Video Directory...",
+    "noClipsTitle": "No Clips Yet",
+    "noClipsDesc": "Go to the Videos page, select a video, and use the scissors tool to create your first clip.",
+    "permissionRequiredTitle": "Permission Required",
+    "permissionRequiredDesc": "Click below to re-authorize access to your local folder:",
+    "authorizeFolder": "Authorize Folder",
+    "selectFolderTitle": "Select Local Video Folder",
+    "selectFolderDesc": "Choose a root folder containing your video subfolders. All clips and processing stay strictly on your computer.",
+    "selectFolderBtn": "Select Folder"
+  },
+  "player": {
+    "loading": "Loading video...",
+    "addOrEditClips": "Add or Edit Clips",
+    "previous": "Previous",
+    "next": "Next",
+    "play": "Play",
+    "pause": "Pause",
+    "containMode": "Contain Mode",
+    "coverMode": "Cover Mode",
+    "switchToContain": "Switch to Contain",
+    "switchToCover": "Switch to Cover",
+    "showTimer": "Show Timer",
+    "hideTimer": "Hide Timer",
+    "showTimerAria": "Show Countdown Timer",
+    "hideTimerAria": "Hide Countdown Timer",
+    "fullscreen": "Fullscreen",
+    "exitFullscreen": "Exit Fullscreen",
+    "volume": "Volume",
+    "mute": "Mute",
+    "unmute": "Unmute"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "save": "Save",
+    "loading": "Loading..."
+  }
+}
