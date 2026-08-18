@@ -29,8 +29,6 @@
   "videos": {
     "noVideosTitle": "No Videos Found",
     "noVideosDesc": "We scanned the selected folder but found no subfolders containing video files (.mp4, .webm, .mov, .m4v).",
-    "clipCount_one": "{{count}} clip",
-    "clipCount_other": "{{count}} clips",
     "clipCount": "{{count}} clips"
   },
   "videoDetail": {
@@ -40,8 +38,6 @@
     "videoUnavailable": "Video unavailable",
     "videoUnavailableDesc": "The file may have been moved, renamed, or deleted from your folder.",
     "backToVideos": "Back to Videos",
-    "clipCount_one": "{{count}} clip",
-    "clipCount_other": "{{count}} clips",
     "clipCount": "{{count}} clips"
   },
   "clipsFeed": {

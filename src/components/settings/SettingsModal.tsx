@@ -71,7 +71,12 @@ export const SettingsModal: React.FC = () => {
               {/* 重新扫描 */}
               {directoryHandle && (
                 <div className="flex justify-end -mt-2">
-                  <div className="text-xs flex gap-1.5 items-center py-1 px-2 hover:bg-surface-hover rounded-full cursor-pointer">
+                  <div
+                    className="text-xs flex gap-1.5 items-center py-1 px-2 hover:bg-surface-hover rounded-full cursor-pointer"
+                    onClick={() => {
+                      if (!isScanning) performScan(directoryHandle);
+                    }}
+                  >
                     <Icon
                       icon="lucide:refresh-cw"
                       className={`w-3.5 h-3.5 ${isScanning ? 'animate-spin' : ''}`}

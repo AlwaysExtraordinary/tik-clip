@@ -68,27 +68,17 @@ export const VideosPage: React.FC = () => {
   return (
     <div className="w-full h-full flex flex-col overflow-hidden">
       {/* 可滚动网格容器 */}
-      <div className="flex-1 overflow-y-auto pr-1">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6 pb-8">
+      <div className="flex-1 overflow-y-auto">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6 pb-8">
           {videos.map((video) => (
-            <div
-              key={video.id}
-              onClick={() => navigate(`/videos/${video.id}`)}
-              className="group flex flex-col cursor-pointer transition-transform duration-200 hover:-translate-y-1 select-none"
-            >
+            <div key={video.id} className=" flex flex-col transition-transform duration-200">
               {/* 缩略图容器 */}
-              <VideoThumbnail
-                thumbnailBlob={video.thumbnail}
-                alt={video.name}
-                className="shadow-subtle group-hover:shadow-card transition-shadow duration-200"
-              />
-
+              <div onClick={() => navigate(`/videos/${video.id}`)}>
+                <VideoThumbnail thumbnailBlob={video.thumbnail} alt={video.name} />
+              </div>
               {/* 缩略图下方的视频信息 */}
               <div className="mt-2.5 px-0.5 text-center">
-                <h3
-                  className="text-xs font-semibold text-foreground truncate group-hover:text-accent transition-colors"
-                  title={video.name}
-                >
+                <h3 className="text-xs font-semibold text-foreground truncate" title={video.name}>
                   {video.name}
                 </h3>
                 <p className="text-[11px] text-foreground-muted font-medium mt-0.5">
