@@ -1,8 +1,15 @@
-<h1 align="center">
+<div align="center">
   <img src="./docs/images/player.png" alt="Tik-Clip" width="600" /><br>
-  <h3 align="center"> 一个优雅的本地视频播放器</h3>
+  <h3 align="center"> 一个优雅的本地视频播放器，精选片段，通过随机视频流播放</h3>
   <br>
-</h1>
+  <img src="./docs/images/cut_scene.png" alt="Tik-Clip" width="600"/><br>
+  <p align="center">编辑你喜欢的片段</p>
+  <img src="./docs/images/clips_scene.png" alt="Tik-Clip" width="600"/><br>
+  <p align="center">像tiktok/抖音一样浏览片段</p>
+  <img src="./docs/images/setting_scene.png" alt="Tik-Clip" width="600"/><br>
+  <p align="center">多语言，深浅色主题，缩略图，更多功能开发中...</p>
+
+</div>
 
 # 使用教程
 
