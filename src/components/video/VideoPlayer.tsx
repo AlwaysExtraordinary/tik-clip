@@ -67,11 +67,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [internalFullscreen, setInternalFullscreen] = useState(false);
-  const [controlsVisible, setControlsVisible] = useState(true);
+  const [controlsVisible, setControlsVisible] = useState(false);
 
   const isFullscreen = isFullscreenProp !== undefined ? isFullscreenProp : internalFullscreen;
 
   const hideControlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 鼠标是否正悬浮在控制条上
+  const isHoveringControlsRef = useRef(false);
 
   const {
     toggleClipPanel,
@@ -143,31 +145,57 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [seekTargetTime, requestSeek]);
 
-  // 管理控制器自动隐藏的无操作定时器
-  const resetHideTimer = useCallback(() => {
-    setControlsVisible(true);
+  // 清除自动隐藏定时器
+  const clearHideTimer = useCallback(() => {
     if (hideControlsTimerRef.current) {
       clearTimeout(hideControlsTimerRef.current);
+      hideControlsTimerRef.current = null;
     }
-    if (isPlaying) {
-      hideControlsTimerRef.current = setTimeout(() => {
+  }, []);
+
+  // 显示控制栏并在 1 秒无操作后自动隐藏（悬浮在控制栏或剪辑按钮上时保持显示）
+  const showControlsWithTimeout = useCallback(() => {
+    setControlsVisible(true);
+    clearHideTimer();
+    hideControlsTimerRef.current = setTimeout(() => {
+      if (!isHoveringControlsRef.current) {
         setControlsVisible(false);
-      }, 3000);
-    }
-  }, [isPlaying]);
-
-  useEffect(() => {
-    resetHideTimer();
-    return () => {
-      if (hideControlsTimerRef.current) {
-        clearTimeout(hideControlsTimerRef.current);
       }
-    };
-  }, [isPlaying, resetHideTimer]);
+    }, 1000);
+  }, [clearHideTimer]);
 
-  const handleMouseMove = () => {
-    resetHideTimer();
-  };
+  // 控制栏及剪辑按钮的悬浮进入事件
+  const handleControlsMouseEnter = useCallback(() => {
+    isHoveringControlsRef.current = true;
+    clearHideTimer();
+    setControlsVisible(true);
+  }, [clearHideTimer]);
+
+  // 控制栏及剪辑按钮的悬浮离开事件
+  const handleControlsMouseLeave = useCallback(() => {
+    isHoveringControlsRef.current = false;
+    showControlsWithTimeout();
+  }, [showControlsWithTimeout]);
+
+  // 鼠标在播放容器内移动
+  const handleMouseMove = useCallback(() => {
+    if (isHoveringControlsRef.current) return;
+    showControlsWithTimeout();
+  }, [showControlsWithTimeout]);
+
+  // 鼠标移出播放区域立即隐藏
+  const handleMouseLeave = useCallback(() => {
+    isHoveringControlsRef.current = false;
+    clearHideTimer();
+    setControlsVisible(false);
+  }, [clearHideTimer]);
+
+  // 组件卸载时清理定时器
+  useEffect(() => {
+    return () => {
+      clearHideTimer();
+    };
+  }, [clearHideTimer]);
 
   // 播放控制处理函数
   const handleTogglePlay = useCallback(() => {
@@ -184,6 +212,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       video.pause();
     }
   }, [isClipMode, startTime, endTime]);
+
+  // 点击视频区域切换播放状态并唤出控制栏（1秒无操作自动隐藏）
+  const handleVideoClick = useCallback(() => {
+    handleTogglePlay();
+    showControlsWithTimeout();
+  }, [handleTogglePlay, showControlsWithTimeout]);
 
   const handleSeek = useCallback(
     (target: number) => {
@@ -305,15 +339,15 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     <div
       ref={containerRef}
       onMouseMove={handleMouseMove}
-      onClick={resetHideTimer}
+      onMouseLeave={handleMouseLeave}
       className={`relative w-full h-full bg-surface ${
         isFullscreen ? 'rounded-none border-0' : 'rounded-3xl border border-border/40'
-      } overflow-hidden shadow-card select-none  ${className}`}
+      } overflow-hidden shadow-card select-none ${className}`}
     >
       {/* 视频播放器元素（独占全屏容器） */}
       <div
         className="absolute inset-0 w-full h-full flex items-center justify-center overflow-hidden"
-        onClick={handleTogglePlay}
+        onClick={handleVideoClick}
       >
         {videoUrl ? (
           <video
@@ -340,9 +374,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         {showScissorsButton && (
           <div
             className={`absolute top-5 right-5 z-20 transition-opacity duration-300 ${
-              controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+              controlsVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
             }`}
             onClick={(e) => e.stopPropagation()}
+            onMouseEnter={handleControlsMouseEnter}
+            onMouseLeave={handleControlsMouseLeave}
           >
             <button
               onClick={toggleClipPanel}
@@ -350,7 +386,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               title={t('player.addOrEditClips')}
               className={cn(
                 'w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md border transition-all duration-200 shadow-card',
-                ' bg-surface/80 text-foreground border-border/60 hover:bg-surface-hover hover:scale-105 cursor-pointer'
+                'bg-surface/80 text-foreground border-border/60 hover:bg-surface-hover hover:scale-105 cursor-pointer'
               )}
             >
               <Icon icon="lucide:scissors" className="w-5 h-5" />
@@ -366,6 +402,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             ? 'opacity-100 translate-y-0 pointer-events-auto'
             : 'opacity-0 translate-y-3 pointer-events-none'
         }`}
+        onMouseEnter={handleControlsMouseEnter}
+        onMouseLeave={handleControlsMouseLeave}
       >
         <VideoControls
           isPlaying={isPlaying}
