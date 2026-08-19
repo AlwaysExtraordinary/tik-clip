@@ -100,6 +100,10 @@ export async function scanVideoDirectory(
           const file = await dataJsonHandle.getFile();
           const text = await file.text();
           const parsed = JSON.parse(text);
+          if (parsed.hidden === true) {
+            // 该视频已标记为隐藏，跳过扫描
+            continue;
+          }
           if (parsed.name && typeof parsed.name === 'string' && parsed.name.trim()) {
             displayName = parsed.name.trim();
           }

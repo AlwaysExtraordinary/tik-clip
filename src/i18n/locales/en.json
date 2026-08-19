@@ -29,7 +29,11 @@
   "videos": {
     "noVideosTitle": "No Videos Found",
     "noVideosDesc": "We scanned the selected folder but found no subfolders containing video files (.mp4, .webm, .mov, .m4v).",
-    "clipCount": "{{count}} clips"
+    "clipCount": "{{count}} clips",
+    "viewCover": "View Cover",
+    "rename": "Rename",
+    "noCover": "No cover image",
+    "hide": "Hide"
   },
   "videoDetail": {
     "videoNotFound": "Video not found",

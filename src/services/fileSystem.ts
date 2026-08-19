@@ -143,3 +143,35 @@ export async function syncVideoClipsToDataJson(
 
   await saveVideoDataJson(rootHandle, video.folderName, updatedData);
 }
+
+/**
+ * 更新指定视频子目录 data.json 中的视频名称
+ */
+export async function updateVideoNameInDataJson(
+  rootHandle: FileSystemDirectoryHandle,
+  folderName: string,
+  name: string
+): Promise<void> {
+  const existingData = (await getDataJsonFromHandle(rootHandle, folderName)) || {};
+  const updatedData: Record<string, unknown> = {
+    ...existingData,
+    name,
+  };
+  await saveVideoDataJson(rootHandle, folderName, updatedData);
+}
+
+/**
+ * 在指定视频子目录的 data.json 中设置 hidden: true 隐藏视频
+ */
+export async function hideVideoInDataJson(
+  rootHandle: FileSystemDirectoryHandle,
+  folderName: string
+): Promise<void> {
+  const existingData = (await getDataJsonFromHandle(rootHandle, folderName)) || {};
+  const updatedData: Record<string, unknown> = {
+    ...existingData,
+    hidden: true,
+  };
+  await saveVideoDataJson(rootHandle, folderName, updatedData);
+}
+

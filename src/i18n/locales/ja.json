@@ -29,7 +29,11 @@
   "videos": {
     "noVideosTitle": "動画が見つかりません",
     "noVideosDesc": "選択したフォルダをスキャンしましたが、動画ファイル（.mp4, .webm, .mov, .m4v）を含むサブフォルダが見つかりませんでした。",
-    "clipCount": "{{count}} 件のクリップ"
+    "clipCount": "{{count}} 件のクリップ",
+    "viewCover": "カバーを見る",
+    "rename": "名前を変更",
+    "noCover": "カバー画像がありません",
+    "hide": "隠し"
   },
   "videoDetail": {
     "videoNotFound": "動画が見つかりません",
