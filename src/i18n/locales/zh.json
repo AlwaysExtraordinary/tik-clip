@@ -29,7 +29,11 @@
   "videos": {
     "noVideosTitle": "未找到视频",
     "noVideosDesc": "已扫描选中的文件夹，但未找到包含视频文件（.mp4, .webm, .mov, .m4v）的子文件夹。",
-    "clipCount": "{{count}} 个片段"
+    "clipCount": "{{count}} 个片段",
+    "viewCover": "查看封面",
+    "rename": "重命名",
+    "noCover": "暂无封面",
+    "hide": "隐藏"
   },
   "videoDetail": {
     "videoNotFound": "未找到该视频",

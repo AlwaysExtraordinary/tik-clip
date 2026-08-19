@@ -1,6 +1,7 @@
 # 注意事项
 
 1. 禁止使用tailwind css的font-mono类名
+2. 使用HeroUI构建页面时，不要添加组件已存在的css样式，尽量只添加有必要使用的tailwind css类。
 
 # Git 提交规范
 
