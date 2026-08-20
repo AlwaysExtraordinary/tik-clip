@@ -103,13 +103,44 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
     window.addEventListener('mouseup', handleMouseUp);
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    const delta = e.deltaY < 0 ? 0.05 : -0.05;
-    const nextVol = Math.max(0, Math.min(1, activeVol + delta));
-    onVolumeChange(nextVol);
-  };
+  const currentVolRef = useRef(activeVol);
+  const onVolumeChangeRef = useRef(onVolumeChange);
+
+  useEffect(() => {
+    currentVolRef.current = activeVol;
+  }, [activeVol]);
+
+  useEffect(() => {
+    onVolumeChangeRef.current = onVolumeChange;
+  }, [onVolumeChange]);
+
+  // 使用原生 wheel 事件监听阻止事件向外冒泡至父容器（避免触发视频切换），并平滑低灵敏度调节音量
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const handleNativeWheel = (e: WheelEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+
+      let deltaY = e.deltaY;
+      if (e.deltaMode === 1) deltaY *= 20;
+      else if (e.deltaMode === 2) deltaY *= 100;
+
+      // 降低灵敏度：鼠标滚轮单格约 3%，触控板平滑渐变
+      const step = -deltaY * 0.0003;
+      if (step === 0) return;
+
+      const nextVol = Math.max(0, Math.min(1, Number((currentVolRef.current + step).toFixed(4))));
+      currentVolRef.current = nextVol;
+      onVolumeChangeRef.current(nextVol);
+    };
+
+    el.addEventListener('wheel', handleNativeWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', handleNativeWheel);
+    };
+  }, []);
 
   return (
     <div
@@ -130,7 +161,6 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
             : 'opacity-0 scale-95 translate-y-2 pointer-events-none'
         )}
         onClick={(e) => e.stopPropagation()}
-        onWheel={handleWheel}
       >
         {/* 音量百分比文本 */}
         <span className="text-[11px] font-semibold text-foreground/80 mb-2 select-none tracking-tight">
@@ -168,7 +198,6 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
       {/* 控制栏主音量按钮 */}
       <VideoControlButton
         onClick={onToggleMute}
-        onWheel={handleWheel}
         aria-label={isMuted ? t('player.unmute') : t('player.mute')}
         title={isMuted ? t('player.unmute') : `${t('player.volume')} (${displayPercent}%)`}
         icon={getVolumeIcon()}

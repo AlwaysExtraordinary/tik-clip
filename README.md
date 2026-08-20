@@ -1,6 +1,10 @@
 <div align="center">
   <img src="./docs/images/player.png" alt="Tik-Clip" width="600" /><br>
-  <h3 align="center"> 一个优雅的本地视频播放器，精选片段，通过随机视频流播放</h3>
+  <h3 align="center">
+    <p align="center"><img src="./src/assets/svg/tik-clip.svg" alt="Tik-Clip" width="80"/></p>
+    <br>
+   TikClip - 一个优雅的本地视频播放器，精选片段，通过随机视频流播放
+  </h3>
   <br>
   <img src="./docs/images/cut_scene.png" alt="Tik-Clip" width="600"/><br>
   <p align="center">编辑你喜欢的片段</p>
