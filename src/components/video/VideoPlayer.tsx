@@ -342,7 +342,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       onMouseLeave={handleMouseLeave}
       className={`relative w-full h-full bg-surface ${
         isFullscreen ? 'rounded-none border-0' : 'rounded-3xl border border-border/40'
-      } overflow-hidden shadow-card select-none ${className}`}
+      } overflow-hidden select-none ${className}`}
     >
       {/* 视频播放器元素（独占全屏容器） */}
       <div

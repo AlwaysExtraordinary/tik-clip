@@ -76,7 +76,7 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
     <div
       className={cn(
         'w-full flex items-center gap-2 sm:gap-3 px-4 sm:px-5 py-2.5 sm:py-3',
-        'bg-surface/85 backdrop-blur-md border border-border/40 rounded-2xl',
+        'bg-surface/85 backdrop-blur-md border border-border/40 rounded-full',
         'shadow-floating select-none transition-all duration-200'
       )}
       onClick={(e) => e.stopPropagation()}

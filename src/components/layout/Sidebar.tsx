@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { cn } from '@/utils/cn';
+import brandIconLight from '@/assets/svg/tik-clip-text-light.svg';
+import brandIconDark from '@/assets/svg/tik-clip-text-dark.svg';
 
 export const Sidebar: React.FC = () => {
   const { t } = useTranslation();
@@ -37,21 +39,28 @@ export const Sidebar: React.FC = () => {
         !isMobile && [
           'relative h-full z-20 shrink-0',
           isOpen
-            ? 'w-34 opacity-100 translate-x-0 py-6 px-3 border-r border-border/40'
-            : 'w-0 opacity-0 -translate-x-full py-6 px-0 border-r-0 overflow-hidden pointer-events-none',
+            ? 'w-40 opacity-100 translate-x-0 py-4 px-3 border-r border-border/40'
+            : 'w-0 opacity-0 -translate-x-full py-4 px-0 border-r-0 overflow-hidden pointer-events-none',
         ]
       )}
     >
       {/* 顶部区域：收起按钮 + 导航标签 */}
       <div className="flex flex-col items-center gap-3 w-full">
         {/* 收起侧边栏按钮 */}
-        <div className="w-full flex items-center justify-end pb-0.5">
+        <div className="w-full flex items-center justify-between pb-0.5">
+          {/* 品牌图标 */}
+          <div className="pl-1">
+            <img src={brandIconLight} className="w-20 dark:hidden" alt="Tik Clip" />
+            <img src={brandIconDark} className="w-20 hidden dark:block" alt="Tik Clip" />
+          </div>
+
+          {/* 收起按钮图标 */}
           <button
             onClick={closeSidebar}
             aria-label={t('nav.collapseSidebar')}
             title={t('nav.collapseSidebar')}
             className={cn(
-              'w-8 h-8 rounded-lg flex items-center justify-center text-foreground-muted hover:text-foreground ',
+              'w-7 h-7 rounded-lg flex items-center justify-center text-foreground-muted hover:text-foreground ',
               ' hover:bg-surface-hover active:bg-surface-active transition-all duration-150 cursor-pointer'
             )}
           >

@@ -228,7 +228,7 @@ export const ClipsPage: React.FC = () => {
     <div className="w-full h-full flex flex-col overflow-hidden">
       {/* 视频 / 片段标题头部 */}
       <div className="flex items-center justify-between pb-3 select-none">
-        <div className="flex items-center ml-8 gap-2 truncate">
+        <div className="flex items-center gap-2 truncate">
           <span className="text-sm font-semibold text-foreground truncate">
             {currentShuffleItem?.video.name || t('clipsFeed.title')}
           </span>
