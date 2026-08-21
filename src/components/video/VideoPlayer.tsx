@@ -340,13 +340,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       ref={containerRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className={`relative w-full h-full bg-surface ${
-        isFullscreen ? 'rounded-none border-0' : 'rounded-3xl border border-border/40'
+      className={`bg-surface relative h-full w-full ${
+        isFullscreen ? 'rounded-none border-0' : 'border-border/40 rounded-3xl border'
       } overflow-hidden select-none ${className}`}
     >
       {/* 视频播放器元素（独占全屏容器） */}
       <div
-        className="absolute inset-0 w-full h-full flex items-center justify-center overflow-hidden"
+        className="absolute inset-0 flex h-full w-full items-center justify-center overflow-hidden"
         onClick={handleVideoClick}
       >
         {videoUrl ? (
@@ -359,13 +359,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             onPause={() => setIsPlaying(false)}
             playsInline
             style={{ objectFit: activeFitMode }}
-            className={`block w-full h-full min-w-full min-h-full ${
+            className={`block h-full min-h-full w-full min-w-full ${
               activeFitMode === 'cover' ? 'object-cover' : 'object-contain'
             }`}
           />
         ) : (
-          <div className="flex flex-col items-center justify-center text-foreground-muted gap-2">
-            <Icon icon="lucide:video" className="w-12 h-12 opacity-30" />
+          <div className="text-foreground-muted flex flex-col items-center justify-center gap-2">
+            <Icon icon="lucide:video" className="h-12 w-12 opacity-30" />
             <p className="text-xs font-medium">{t('player.loading')}</p>
           </div>
         )}
@@ -374,7 +374,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         {showScissorsButton && (
           <div
             className={`absolute top-5 right-5 z-20 transition-opacity duration-300 ${
-              controlsVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+              controlsVisible ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
             }`}
             onClick={(e) => e.stopPropagation()}
             onMouseEnter={handleControlsMouseEnter}
@@ -385,11 +385,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               aria-label={t('player.addOrEditClips')}
               title={t('player.addOrEditClips')}
               className={cn(
-                'w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md border transition-all duration-200 shadow-card',
-                'bg-surface/80 text-foreground border-border/60 hover:bg-surface-hover hover:scale-105 cursor-pointer'
+                'shadow-card flex size-8 items-center justify-center rounded-full border backdrop-blur-md transition-all duration-200 sm:size-9 md:size-10',
+                'bg-surface/80 text-foreground border-border/60 hover:bg-surface-hover cursor-pointer hover:scale-105'
               )}
             >
-              <Icon icon="lucide:scissors" className="w-5 h-5" />
+              <Icon icon="lucide:scissors" className="size-4 sm:size-4.5 md:size-5" />
             </button>
           </div>
         )}
@@ -397,10 +397,10 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
       {/* 底部悬浮控制栏 */}
       <div
-        className={`absolute bottom-0 inset-x-0 p-3 sm:p-4 z-20 transition-all duration-300 ${
+        className={`absolute inset-x-0 bottom-0 z-20 p-3 transition-all duration-300 sm:p-4 ${
           controlsVisible
-            ? 'opacity-100 translate-y-0 pointer-events-auto'
-            : 'opacity-0 translate-y-3 pointer-events-none'
+            ? 'pointer-events-auto translate-y-0 opacity-100'
+            : 'pointer-events-none translate-y-3 opacity-0'
         }`}
         onMouseEnter={handleControlsMouseEnter}
         onMouseLeave={handleControlsMouseLeave}

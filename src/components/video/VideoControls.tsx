@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import { useTranslation } from 'react-i18next';
 import { VideoProgressBar } from '@/components/video/VideoProgressBar';
@@ -64,6 +64,23 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
   videoUrl,
 }) => {
   const { t } = useTranslation();
+  // 更多操作菜单状态
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  // 点击菜单外部自动关闭移动端悬浮菜单
+  useEffect(() => {
+    if (!isMoreOpen) return;
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
+        setIsMoreOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handleClickOutside);
+    return () => {
+      document.removeEventListener('pointerdown', handleClickOutside);
+    };
+  }, [isMoreOpen]);
 
   const displayCurrentTime =
     clipDuration !== undefined
@@ -75,9 +92,9 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
   return (
     <div
       className={cn(
-        'w-full flex items-center gap-2 sm:gap-3 px-4 sm:px-5 py-2.5 sm:py-3',
-        'bg-surface/85 backdrop-blur-md border border-border/40 rounded-full',
-        'shadow-floating select-none transition-all duration-200'
+        'flex w-full items-center gap-1.5 px-2.5 py-1.5 sm:gap-2 sm:px-3.5 sm:py-2 md:gap-3 md:px-5 md:py-2.5',
+        'bg-surface/85 border-border/40 rounded-full border backdrop-blur-md',
+        'shadow-floating transition-all duration-200 select-none'
       )}
       onClick={(e) => e.stopPropagation()}
     >
@@ -97,12 +114,15 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
         aria-label={isPlaying ? t('player.pause') : t('player.play')}
         title={isPlaying ? t('player.pause') : t('player.play')}
         className={cn(
-          'w-9 h-9 sm:w-10 sm:h-10 rounded-full border-[1.5px] border-foreground/80 cursor-pointer',
-          'flex items-center justify-center text-foreground/80 hover:border-foreground',
-          'hover:scale-105 active:scale-95 transition-all shadow-subtle shrink-0'
+          'border-foreground/80 h-8 w-8 cursor-pointer rounded-full border-[1.5px] sm:h-9 sm:w-9 md:h-10 md:w-10',
+          'text-foreground/80 hover:border-foreground flex items-center justify-center',
+          'shadow-subtle shrink-0 transition-all hover:scale-105 active:scale-95'
         )}
       >
-        <Icon icon={isPlaying ? 'lucide:pause' : 'lucide:play'} className="w-4 h-4 sm:w-5 sm:h-5" />
+        <Icon
+          icon={isPlaying ? 'lucide:pause' : 'lucide:play'}
+          className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5"
+        />
       </button>
 
       {/* 下一个按钮 */}
@@ -115,7 +135,7 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
       />
 
       {/* 进度条调节器 */}
-      <div className="flex-1 flex items-center mx-1 sm:mx-2 min-w-0">
+      <div className="mx-0.5 flex min-w-0 flex-1 items-center sm:mx-1 md:mx-2">
         <VideoProgressBar
           currentTime={currentTime}
           duration={duration}
@@ -127,13 +147,14 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
       </div>
 
       {/* 时间显示 */}
-      <div className="text-xs font-semibold text-foreground whitespace-nowrap hidden sm:block shrink-0">
+      <div className="text-foreground shrink-0 text-xs font-semibold whitespace-nowrap">
         {formatTime(displayCurrentTime)} / {formatTime(displayTotalDuration)}
       </div>
 
-      {/* 画面比例模式切换 (Contain / Cover) */}
+      {/* 画面比例模式切换 (Contain / Cover) - 桌面端 */}
       {onToggleFitMode && (
         <VideoControlButton
+          className="hidden sm:inline-flex"
           onClick={onToggleFitMode}
           aria-label={fitMode === 'cover' ? t('player.switchToContain') : t('player.switchToCover')}
           title={fitMode === 'cover' ? t('player.containMode') : t('player.coverMode')}
@@ -141,9 +162,10 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
         />
       )}
 
-      {/* 倒计时显示开关（仅片段模式展示） */}
+      {/* 倒计时显示开关（仅片段模式展示） - 桌面端 */}
       {showCountdownToggle && onToggleCountdown && (
         <VideoControlButton
+          className="hidden sm:inline-flex"
           onClick={onToggleCountdown}
           aria-label={showCountdown ? t('player.hideTimerAria') : t('player.showTimerAria')}
           title={showCountdown ? t('player.hideTimer') : t('player.showTimer')}
@@ -152,7 +174,7 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
         />
       )}
 
-      {/* 音量控制按钮 */}
+      {/* 音量控制按钮（所有尺寸常驻显示） */}
       {onVolumeChange && onToggleMute && (
         <VolumeControl
           volume={volume}
@@ -162,13 +184,81 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
         />
       )}
 
-      {/* 全屏按钮 */}
+      {/* 全屏按钮 - 桌面端 */}
       <VideoControlButton
+        className="hidden sm:inline-flex"
         onClick={onToggleFullscreen}
         aria-label={isFullscreen ? t('player.exitFullscreen') : t('player.fullscreen')}
         title={isFullscreen ? t('player.exitFullscreen') : t('player.fullscreen')}
         icon={isFullscreen ? 'lucide:minimize' : 'lucide:maximize'}
       />
+
+      {/* 移动端更多操作悬浮菜单 (< sm) */}
+      <div ref={moreMenuRef} className="relative flex items-center justify-center sm:hidden">
+        {/* 垂直悬浮菜单面板 */}
+        <div
+          className={cn(
+            'absolute bottom-full left-1/2 z-30 mb-3 -translate-x-1/2',
+            'flex w-9 flex-col items-center gap-1.5 rounded-full p-1.5',
+            'bg-surface/95 border-border/50 shadow-floating border backdrop-blur-md select-none',
+            'origin-bottom transition-all duration-200',
+            isMoreOpen
+              ? 'pointer-events-auto translate-y-0 scale-100 opacity-100'
+              : 'pointer-events-none translate-y-2 scale-95 opacity-0'
+          )}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* 画面比例模式切换 */}
+          {onToggleFitMode && (
+            <VideoControlButton
+              onClick={() => {
+                onToggleFitMode();
+                setIsMoreOpen(false);
+              }}
+              aria-label={
+                fitMode === 'cover' ? t('player.switchToContain') : t('player.switchToCover')
+              }
+              title={fitMode === 'cover' ? t('player.containMode') : t('player.coverMode')}
+              icon={fitMode === 'cover' ? 'lucide:crop' : 'lucide:rectangle-horizontal'}
+            />
+          )}
+
+          {/* 倒计时显示开关 */}
+          {showCountdownToggle && onToggleCountdown && (
+            <VideoControlButton
+              onClick={() => {
+                onToggleCountdown();
+                setIsMoreOpen(false);
+              }}
+              aria-label={showCountdown ? t('player.hideTimerAria') : t('player.showTimerAria')}
+              title={showCountdown ? t('player.hideTimer') : t('player.showTimer')}
+              icon={showCountdown ? 'lucide:timer' : 'lucide:timer-off'}
+              isActive={showCountdown}
+            />
+          )}
+
+          {/* 全屏按钮 */}
+          <VideoControlButton
+            onClick={() => {
+              onToggleFullscreen();
+              setIsMoreOpen(false);
+            }}
+            aria-label={isFullscreen ? t('player.exitFullscreen') : t('player.fullscreen')}
+            title={isFullscreen ? t('player.exitFullscreen') : t('player.fullscreen')}
+            icon={isFullscreen ? 'lucide:minimize' : 'lucide:maximize'}
+          />
+        </div>
+
+        {/* 更多按钮 */}
+        <VideoControlButton
+          onClick={() => setIsMoreOpen((prev) => !prev)}
+          aria-label={t('common.more')}
+          title={t('common.more')}
+          icon="lucide:ellipsis"
+          aria-expanded={isMoreOpen}
+          aria-haspopup="menu"
+        />
+      </div>
     </div>
   );
 };
@@ -181,7 +271,7 @@ interface VideoControlButtonProps extends React.ButtonHTMLAttributes<HTMLButtonE
 
 export const VideoControlButton: React.FC<VideoControlButtonProps> = ({
   icon,
-  iconClassName = 'w-5 h-5',
+  iconClassName = 'w-4 h-4 sm:w-4.5 sm:h-4.5 md:w-5 md:h-5',
   isActive = true,
   className,
   children,
@@ -191,8 +281,8 @@ export const VideoControlButton: React.FC<VideoControlButtonProps> = ({
     <button
       type="button"
       className={cn(
-        'p-1.5 rounded-full hover:bg-foreground/10 transition-colors shrink-0 cursor-pointer',
-        ' disabled:opacity-30 disabled:pointer-events-none',
+        'hover:bg-foreground/10 shrink-0 cursor-pointer rounded-full p-1 transition-colors sm:p-1.5',
+        'disabled:pointer-events-none disabled:opacity-30',
         isActive
           ? 'text-foreground/80 hover:text-foreground'
           : 'text-foreground/40 hover:text-foreground/70',
