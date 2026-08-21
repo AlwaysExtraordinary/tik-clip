@@ -7,7 +7,7 @@ interface ClipListProps {
   clips: Clip[];
   editingClipId?: string | null;
   onStartEdit: (clip: Clip) => void;
-  onDeleteClip: (clipId: string) => void;
+  onDeleteClip: (clip: Clip) => void;
 }
 
 export const ClipList: React.FC<ClipListProps> = ({
