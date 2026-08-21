@@ -20,15 +20,15 @@ export const ClipList: React.FC<ClipListProps> = ({
 
   if (clips.length === 0) {
     return (
-      <div className="py-8 text-center text-foreground-muted">
+      <div className="text-foreground-muted py-8 text-center">
         <p className="text-xs">{t('clipList.noClips')}</p>
-        <p className="text-[11px] opacity-70 mt-1">{t('clipList.noClipsHint')}</p>
+        <p className="mt-1 text-[11px] opacity-70">{t('clipList.noClipsHint')}</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-320px)] pr-1">
+    <div className="max-h-[calc(100vh-320px)] space-y-2 overflow-y-auto">
       {clips.map((clip) => (
         <ClipItem
           key={clip.id}

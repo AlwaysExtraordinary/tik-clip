@@ -22,7 +22,7 @@ export const VideoDetailPage: React.FC = () => {
   const navigate = useNavigate();
 
   const { directoryHandle, isHandleRestoring } = useDirectory();
-  const { isClipPanelOpen } = usePlayerStore();
+  const { isClipPanelOpen, setIsClipPanelOpen, setEditingClip } = usePlayerStore();
 
   const [video, setVideo] = useState<Video | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -132,8 +132,8 @@ export const VideoDetailPage: React.FC = () => {
 
   if (isHandleRestoring || isLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center text-foreground-muted">
-        <Icon icon="lucide:loader-2" className="w-8 h-8 animate-spin opacity-50" />
+      <div className="text-foreground-muted flex flex-1 items-center justify-center">
+        <Icon icon="lucide:loader-2" className="h-8 w-8 animate-spin opacity-50" />
       </div>
     );
   }
@@ -145,17 +145,17 @@ export const VideoDetailPage: React.FC = () => {
   // 处理视频不存在或读取错误的情况
   if (error || !video) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-surface/40 rounded-3xl border border-border/40">
-        <div className="w-12 h-12 rounded-full bg-danger/10 text-danger flex items-center justify-center mb-3">
-          <Icon icon="lucide:alert-circle" className="w-6 h-6" />
+      <div className="bg-surface/40 border-border/40 flex flex-1 flex-col items-center justify-center rounded-3xl border p-8 text-center">
+        <div className="bg-danger/10 text-danger mb-3 flex h-12 w-12 items-center justify-center rounded-full">
+          <Icon icon="lucide:alert-circle" className="h-6 w-6" />
         </div>
-        <h3 className="text-sm font-semibold mb-1">{error || t('videoDetail.videoUnavailable')}</h3>
-        <p className="text-xs text-foreground-muted mb-4 max-w-sm">
+        <h3 className="mb-1 text-sm font-semibold">{error || t('videoDetail.videoUnavailable')}</h3>
+        <p className="text-foreground-muted mb-4 max-w-sm text-xs">
           {t('videoDetail.videoUnavailableDesc')}
         </p>
         <button
           onClick={() => navigate('/videos')}
-          className="px-4 py-2 rounded-2xl bg-surface-hover text-xs font-semibold hover:bg-surface-active transition-colors cursor-pointer"
+          className="bg-surface-hover hover:bg-surface-active cursor-pointer rounded-2xl px-4 py-2 text-xs font-semibold transition-colors"
         >
           {t('videoDetail.backToVideos')}
         </button>
@@ -164,7 +164,22 @@ export const VideoDetailPage: React.FC = () => {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full min-h-0 p-4 md:p-6 lg:p-8">
+    <div className="flex h-full min-h-0 flex-1 flex-col p-4 md:p-6 lg:p-8">
+      {/* 移动端片段面板背景遮罩 */}
+      <div
+        onClick={() => {
+          setIsClipPanelOpen(false);
+          setEditingClip(null);
+        }}
+        aria-hidden="true"
+        className={cn(
+          'fixed inset-0 z-40 bg-black/40 backdrop-blur-xs transition-opacity duration-300 md:hidden',
+          isClipPanelOpen
+            ? 'pointer-events-auto opacity-100'
+            : 'pointer-events-none hidden opacity-0'
+        )}
+      />
+
       {/* 顶部返回导航栏 */}
       <div className="flex items-center justify-between pb-3 select-none">
         <div className="flex items-center gap-2.5 truncate">
@@ -176,12 +191,12 @@ export const VideoDetailPage: React.FC = () => {
             aria-label={t('videoDetail.backToVideos')}
             className="size-7"
           >
-            <Icon icon="lucide:arrow-left" className="w-4 h-4" />
+            <Icon icon="lucide:arrow-left" className="h-4 w-4" />
           </Button>
-          <span className="text-md font-semibold text-foreground truncate" title={video.name}>
+          <span className="text-md text-foreground truncate font-semibold" title={video.name}>
             {video.name}
           </span>
-          <span className="text-xs text-foreground-muted hidden sm:inline">
+          <span className="text-foreground-muted hidden text-xs sm:inline">
             ({t('videoDetail.clipCount', { count: clips.length })})
           </span>
         </div>
@@ -190,12 +205,12 @@ export const VideoDetailPage: React.FC = () => {
       {/* 主内容区域：视频播放器 + 片段面板 */}
       <div
         className={cn(
-          'flex-1 flex min-h-0 min-w-0 relative transition-all duration-300 ease-in-out',
-          isClipPanelOpen ? 'gap-4' : 'gap-0'
+          'relative flex min-h-0 min-w-0 flex-1 transition-all duration-300 ease-in-out',
+          isClipPanelOpen ? 'md:gap-4' : 'gap-0'
         )}
       >
         {/* 视频播放器容器 */}
-        <div className="flex-1 h-full min-w-0 flex">
+        <div className="flex h-full min-w-0 flex-1">
           <VideoPlayer
             file={videoFile}
             showScissorsButton={true}
@@ -209,12 +224,16 @@ export const VideoDetailPage: React.FC = () => {
         <div
           className={cn(
             'h-full shrink-0 transition-all duration-300 ease-in-out',
+            // 移动端样式：从右侧悬浮滑出
+            'fixed inset-y-0 right-0 z-50 w-80 max-w-[85vw] p-3 sm:w-88 sm:p-4',
+            // 桌面端样式：常规 flex 侧边栏与折叠过渡
+            'md:static md:inset-auto md:z-auto md:max-w-none md:p-0',
             isClipPanelOpen
-              ? 'w-80 sm:w-88 opacity-100 translate-x-0'
-              : 'w-0 opacity-0 translate-x-[calc(100%+3rem)] pointer-events-none'
+              ? 'translate-x-0 opacity-100 md:w-88'
+              : 'pointer-events-none translate-x-full opacity-0 md:w-0 md:translate-x-[calc(100%+3rem)]'
           )}
         >
-          <div className="w-80 sm:w-88 h-full">
+          <div className="h-full w-full md:w-88">
             <ClipPanel
               videoDuration={video.duration}
               currentVideoTime={currentVideoTime}
