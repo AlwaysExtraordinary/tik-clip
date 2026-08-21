@@ -32,7 +32,7 @@ export const Sidebar: React.FC = () => {
         'flex flex-col justify-between items-center select-none bg-background transition-all duration-300 ease-in-out',
         // 移动端样式：悬浮抽屉
         isMobile && [
-          'fixed inset-y-0 left-0 z-50 w-44 py-6 px-3.5 border-r border-border/40 shadow-floating bg-surface/95 backdrop-blur-md',
+          'fixed inset-y-0 left-0 z-50 w-44 py-6 px-3.5 border-r border-border/40 shadow-floating backdrop-blur-md',
           isOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none',
         ],
         // 桌面端样式：常规 flex 侧边栏与折叠过渡
@@ -47,7 +47,7 @@ export const Sidebar: React.FC = () => {
       {/* 顶部区域：收起按钮 + 导航标签 */}
       <div className="flex flex-col items-center gap-3 w-full">
         {/* 收起侧边栏按钮 */}
-        <div className="w-full flex items-center justify-between pb-0.5">
+        <div className="w-full flex items-center justify-start pb-0.5">
           {/* 品牌图标 */}
           <div className="pl-1">
             <img src={brandIconLight} className="w-20 dark:hidden" alt="Tik Clip" />
@@ -55,7 +55,7 @@ export const Sidebar: React.FC = () => {
           </div>
 
           {/* 收起按钮图标 */}
-          <button
+          {/* <button
             onClick={closeSidebar}
             aria-label={t('nav.collapseSidebar')}
             title={t('nav.collapseSidebar')}
@@ -65,7 +65,7 @@ export const Sidebar: React.FC = () => {
             )}
           >
             <Icon icon="lucide:panel-left-close" className="w-4.5 h-4.5" />
-          </button>
+          </button> */}
         </div>
 
         <NavTab to="/clips" icon="lucide:zap" text={t('nav.clips')} onClick={handleNavClick} />
@@ -78,7 +78,18 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {/* 底部设置按钮 */}
-      <div className="flex flex-col items-center w-full">
+      <div className="flex justify-center gap-2 items-center w-full">
+        <button
+          onClick={closeSidebar}
+          aria-label={t('nav.collapseSidebar')}
+          title={t('nav.collapseSidebar')}
+          className="w-10 h-10 rounded-full flex items-center justify-center text-foreground-muted 
+          hover:text-foreground bg-surface/60 hover:bg-surface-hover active:bg-surface-active transition-all 
+          duration-150 shadow-subtle cursor-pointer"
+        >
+          <Icon icon="lucide:panel-left-close" className="w-5 h-5" />
+        </button>
+
         <button
           onClick={handleSettingsClick}
           aria-label={t('nav.settings')}

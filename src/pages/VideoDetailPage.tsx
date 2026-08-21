@@ -140,6 +140,7 @@ export const VideoDetailPage: React.FC = () => {
     return <EmptyState type="permission-needed" />;
   }
 
+  // 处理视频不存在或读取错误的情况
   if (error || !video) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-surface/40 rounded-3xl border border-border/40">
@@ -161,7 +162,7 @@ export const VideoDetailPage: React.FC = () => {
   }
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden">
+    <div className="flex-1 flex flex-col overflow-hidden p-4 md:p-6 lg:p-8">
       {/* 顶部返回导航栏 */}
       <div className="flex items-center justify-between pb-3 select-none">
         <div className="flex items-center gap-2.5 truncate">
