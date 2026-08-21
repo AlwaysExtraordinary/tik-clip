@@ -10,6 +10,7 @@ import { useDirectory } from '@/hooks/useDirectory';
 import { Icon } from '@iconify/react';
 import { Dropdown, Input, Modal, useOverlayState } from '@heroui/react';
 import { updateVideoNameInDataJson, hideVideoInDataJson } from '@/services/fileSystem';
+import { ConfirmModal } from '@/components/general/ConfirmModal';
 
 export const VideosPage: React.FC = () => {
   const { t } = useTranslation();
@@ -27,6 +28,11 @@ export const VideosPage: React.FC = () => {
   const [previewCoverVideo, setPreviewCoverVideo] = useState<Video | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
 
+  // 隐藏视频确认弹窗状态
+  const [isShowHideConfirm, setIsShowHideConfirm] = useState<boolean>(false);
+  const [hideConfirmVideo, setHideConfirmVideo] = useState<Video | null>(null);
+
+  // 加载视频列表
   useEffect(() => {
     let active = true;
 
@@ -219,12 +225,13 @@ export const VideosPage: React.FC = () => {
                               type="button"
                               className="p-1 rounded-md hover:bg-surface-hover transition-colors text-foreground-muted hover:text-foreground
                                cursor-pointer flex items-center justify-center opacity-0 group-hover:opacity-100 ease-in transition-opacity duration-200"
-                              aria-label={t('common.more', '更多')}
+                              aria-label={t('common.more')}
                             >
                               <Icon icon="lucide:ellipsis" className="size-3.5" />
                             </button>
                           </Dropdown.Trigger>
 
+                          {/* 操作列表 */}
                           <Dropdown.Popover className="min-w-30">
                             <Dropdown.Menu
                               onAction={(key) => {
@@ -233,16 +240,19 @@ export const VideosPage: React.FC = () => {
                                   setPreviewCoverVideo(video);
                                 } else if (key === 'delete') {
                                   // 隐藏视频
-                                  handleDeleteVideo(video);
+                                  setHideConfirmVideo(video);
+                                  setIsShowHideConfirm(true);
                                 }
                               }}
                             >
+                              {/* 查看封面 */}
                               <Dropdown.Item id="view-cover">
                                 <div className="flex items-center gap-2 w-full text-xs font-medium text-foreground">
                                   <Icon icon="lucide:image" className="size-3.5" />
                                   <div>{t('videos.viewCover')}</div>
                                 </div>
                               </Dropdown.Item>
+                              {/* 隐藏视频 */}
                               <Dropdown.Item id="delete">
                                 <div className="flex items-center gap-2 w-full text-xs font-medium text-danger">
                                   <Icon icon="lucide:eye-off" className="size-3.5" />
@@ -292,6 +302,27 @@ export const VideosPage: React.FC = () => {
           </Modal.Container>
         </Modal.Backdrop>
       </Modal>
+
+      {/* 隐藏视频确认弹窗 */}
+      <ConfirmModal
+        isOpen={isShowHideConfirm}
+        onClose={() => {
+          setHideConfirmVideo(null);
+          setIsShowHideConfirm(false);
+        }}
+        onConfirm={async () => {
+          if (hideConfirmVideo) {
+            await handleDeleteVideo(hideConfirmVideo);
+            setHideConfirmVideo(null);
+            setIsShowHideConfirm(false);
+          }
+        }}
+        title={t('videos.hideConfirmTitle')}
+        content={t('videos.hideConfirmContent')}
+        confirmText={t('videos.confirmHide')}
+        confirmVariant="danger"
+        iconName="lucide:eye-off"
+      />
     </div>
   );
 };

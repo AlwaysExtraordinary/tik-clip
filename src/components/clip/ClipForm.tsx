@@ -22,7 +22,7 @@ export const ClipForm: React.FC<ClipFormProps> = ({
   onCancelEdit,
 }) => {
   const { t } = useTranslation();
-  const { editingPoint, setEditingPoint } = usePlayerStore();
+  const { setEditingPoint } = usePlayerStore();
 
   const [startStr, setStartStr] = useState('00:00:00');
   const [endStr, setEndStr] = useState('00:01:00');
@@ -55,6 +55,7 @@ export const ClipForm: React.FC<ClipFormProps> = ({
     setErrorMessage(null);
   };
 
+  // 提交片段格式校验
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -102,9 +103,9 @@ export const ClipForm: React.FC<ClipFormProps> = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       {/* 时间范围输入框容器 */}
-      <div className="flex items-center justify-between gap-2 p-3 bg-background rounded-2xl border border-border">
+      <div className="flex items-center justify-between gap-2 px-3 py-4 bg-background rounded-2xl border border-border mb-6">
         {/* 开始时间字段 */}
-        <div className="flex-1 flex flex-col items-center gap-1.5">
+        <div className="flex-1 flex flex-col items-center gap-2">
           <div className="w-full">
             <Input
               value={startStr}
@@ -113,9 +114,7 @@ export const ClipForm: React.FC<ClipFormProps> = ({
                 setErrorMessage(null);
               }}
               onFocus={() => setEditingPoint('start')}
-              className={`w-full text-center text-xs font-semibold ${
-                editingPoint === 'start' ? 'ring-1 ring-accent border-accent' : ''
-              }`}
+              className="w-full text-center text-xs font-semibold"
               placeholder="00:00:00"
             />
           </div>
@@ -132,10 +131,10 @@ export const ClipForm: React.FC<ClipFormProps> = ({
         </div>
 
         {/* 分隔短横线 */}
-        <span className="text-foreground-muted font-bold text-sm px-1 mb-6">—</span>
+        <span className="text-foreground-muted font-bold text-sm px-1 mb-16">—</span>
 
         {/* 结束时间字段 */}
-        <div className="flex-1 flex flex-col items-center gap-1.5">
+        <div className="flex-1 flex flex-col items-center gap-2">
           <div className="w-full">
             <Input
               value={endStr}
@@ -144,9 +143,7 @@ export const ClipForm: React.FC<ClipFormProps> = ({
                 setErrorMessage(null);
               }}
               onFocus={() => setEditingPoint('end')}
-              className={`w-full text-center text-xs font-semibold ${
-                editingPoint === 'end' ? 'ring-1 ring-accent border-accent' : ''
-              }`}
+              className="w-full text-center text-xs font-semibold"
               placeholder="00:01:00"
             />
           </div>
@@ -169,7 +166,7 @@ export const ClipForm: React.FC<ClipFormProps> = ({
       )}
 
       {/* 提交按钮组 */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 w-92/100 m-auto">
         {editingClip && (
           <Button
             type="button"

@@ -13,6 +13,8 @@ import { VideoPlayer } from '@/components/video/VideoPlayer';
 import { ClipPanel } from '@/components/clip/ClipPanel';
 import { EmptyState } from '@/components/video/EmptyState';
 import { usePlayerStore } from '@/stores/playerStore';
+import { cn } from '@/utils/cn';
+import { Button } from '@heroui/react';
 
 export const VideoDetailPage: React.FC = () => {
   const { t } = useTranslation();
@@ -162,18 +164,21 @@ export const VideoDetailPage: React.FC = () => {
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden p-4 md:p-6 lg:p-8">
+    <div className="flex-1 flex flex-col h-full min-h-0 p-4 md:p-6 lg:p-8">
       {/* 顶部返回导航栏 */}
       <div className="flex items-center justify-between pb-3 select-none">
         <div className="flex items-center gap-2.5 truncate">
-          <button
+          <Button
+            isIconOnly
+            variant="tertiary"
+            size="sm"
             onClick={() => navigate('/videos')}
             aria-label={t('videoDetail.backToVideos')}
-            className="w-8 h-8 rounded-full flex items-center justify-center bg-surface hover:bg-surface-hover active:bg-surface-active text-foreground-muted hover:text-foreground transition-colors shadow-subtle shrink-0 cursor-pointer"
+            className="size-7"
           >
             <Icon icon="lucide:arrow-left" className="w-4 h-4" />
-          </button>
-          <span className="text-sm font-semibold text-foreground truncate" title={video.name}>
+          </Button>
+          <span className="text-md font-semibold text-foreground truncate" title={video.name}>
             {video.name}
           </span>
           <span className="text-xs text-foreground-muted hidden sm:inline">
@@ -183,7 +188,12 @@ export const VideoDetailPage: React.FC = () => {
       </div>
 
       {/* 主内容区域：视频播放器 + 片段面板 */}
-      <div className="flex-1 flex gap-4 overflow-hidden min-h-0">
+      <div
+        className={cn(
+          'flex-1 flex min-h-0 min-w-0 relative transition-all duration-300 ease-in-out',
+          isClipPanelOpen ? 'gap-4' : 'gap-0'
+        )}
+      >
         {/* 视频播放器容器 */}
         <div className="flex-1 h-full min-w-0 flex">
           <VideoPlayer
@@ -196,15 +206,24 @@ export const VideoDetailPage: React.FC = () => {
         </div>
 
         {/* 右侧片段面板 */}
-        {isClipPanelOpen && (
-          <ClipPanel
-            videoDuration={video.duration}
-            currentVideoTime={currentVideoTime}
-            clips={clips}
-            onSaveClip={handleSaveClip}
-            onDeleteClip={handleDeleteClip}
-          />
-        )}
+        <div
+          className={cn(
+            'h-full shrink-0 transition-all duration-300 ease-in-out',
+            isClipPanelOpen
+              ? 'w-80 sm:w-88 opacity-100 translate-x-0'
+              : 'w-0 opacity-0 translate-x-[calc(100%+3rem)] pointer-events-none'
+          )}
+        >
+          <div className="w-80 sm:w-88 h-full">
+            <ClipPanel
+              videoDuration={video.duration}
+              currentVideoTime={currentVideoTime}
+              clips={clips}
+              onSaveClip={handleSaveClip}
+              onDeleteClip={handleDeleteClip}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
