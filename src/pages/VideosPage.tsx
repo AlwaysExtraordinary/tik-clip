@@ -160,9 +160,9 @@ export const VideosPage: React.FC = () => {
   }
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden">
+    <div className="flex-1 flex flex-col overflow-hidden">
       {/* 可滚动网格容器 */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6 pb-8">
           {videos.map((video) => (
             <div key={video.id} className="flex flex-col transition-transform duration-200 group">

@@ -225,7 +225,7 @@ export const ClipsPage: React.FC = () => {
   }
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden">
+    <div className="flex-1 flex flex-col overflow-hidden p-4 md:p-6 lg:p-8">
       {/* 视频 / 片段标题头部 */}
       <div className="flex items-center justify-between pb-3 select-none">
         <div className="flex items-center gap-2 truncate">

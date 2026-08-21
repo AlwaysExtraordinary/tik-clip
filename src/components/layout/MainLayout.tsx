@@ -44,7 +44,7 @@ export const MainLayout: React.FC = () => {
         aria-label={t('nav.expandSidebar')}
         title={t('nav.expandSidebar')}
         className={cn(
-          `fixed top-2.5 left-3 md:top-3 z-30 w-8 h-8 rounded-lg hover:bg-surface-hover active:bg-surface-active
+          `fixed bottom-2.5 left-3 z-30 w-7 h-7 rounded-lg hover:bg-surface-hover active:bg-surface-active
            text-foreground-muted hover:text-foreground backdrop-blur-md flex items-center 
            justify-center active:scale-95 transition-all duration-300 cursor-pointer `,
           !isOpen
@@ -58,8 +58,8 @@ export const MainLayout: React.FC = () => {
       {/* 主内容区域 */}
       <main
         className={clsx(
-          'flex-1 h-full overflow-hidden relative flex flex-col transition-all duration-300 ease-in-out',
-          'p-4 pt-10 md:p-6 lg:p-8'
+          'flex-1 h-full overflow-hidden relative flex flex-col transition-all duration-300 ease-in-out'
+          // 'p-4 md:p-6 lg:p-8'
         )}
       >
         <Outlet />
