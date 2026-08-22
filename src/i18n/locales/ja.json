@@ -129,7 +129,9 @@
     "exitFullscreen": "全画面表示を解除",
     "volume": "音量",
     "mute": "ミュート",
-    "unmute": "ミュート解除"
+    "unmute": "ミュート解除",
+    "fastForwarding": "早送り中",
+    "xTimes": "{{x}}倍速"
   },
   "common": {
     "cancel": "キャンセル",
