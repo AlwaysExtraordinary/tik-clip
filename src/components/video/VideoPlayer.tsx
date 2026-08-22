@@ -68,6 +68,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [duration, setDuration] = useState(0);
   const [internalFullscreen, setInternalFullscreen] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(false);
+  const [isFastForwarding, setIsFastForwarding] = useState(false);
+  const wasPausedBeforeFastForwardRef = useRef(false);
 
   const isFullscreen = isFullscreenProp !== undefined ? isFullscreenProp : internalFullscreen;
 
@@ -240,6 +242,33 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     [handleSeek]
   );
 
+  // 长按右方向键 3 倍速播放处理
+  const handleFastForwardStart = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    wasPausedBeforeFastForwardRef.current = video.paused;
+    video.playbackRate = 3;
+    if (video.paused) {
+      if (isClipMode && endTime !== undefined && video.currentTime >= endTime - 0.05) {
+        video.currentTime = startTime || 0;
+      }
+      video.play().catch(console.error);
+    }
+    setIsFastForwarding(true);
+  }, [isClipMode, startTime, endTime]);
+
+  const handleFastForwardEnd = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.playbackRate = 1;
+    if (wasPausedBeforeFastForwardRef.current) {
+      video.pause();
+    }
+    setIsFastForwarding(false);
+  }, []);
+
   const handleToggleFullscreen = useCallback(() => {
     if (onToggleFullscreenProp) {
       onToggleFullscreenProp();
@@ -273,6 +302,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       onTogglePlay: handleTogglePlay,
       onSeekBackward: (sec) => handleSeekOffset(-(sec || 3)),
       onSeekForward: (sec) => handleSeekOffset(sec || 3),
+      onFastForwardStart: handleFastForwardStart,
+      onFastForwardEnd: handleFastForwardEnd,
       onPrevious,
       onNext,
       onToggleFullscreen: handleToggleFullscreen,
@@ -281,10 +312,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     enableKeyboardShortcuts
   );
 
-  // 当处于退出动画阶段时立即暂停并静音
+  // 当处于退出动画阶段时立即暂停、重置倍速并静音
   useEffect(() => {
     if (isExiting && videoRef.current) {
+      videoRef.current.playbackRate = 1;
       videoRef.current.pause();
+      setIsFastForwarding(false);
     }
   }, [isExiting]);
 
@@ -296,6 +329,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setDuration(video.duration || 0);
     video.volume = volume;
     video.muted = isMuted;
+    video.playbackRate = isFastForwarding ? 3 : 1;
 
     if (isClipMode && startTime !== undefined) {
       const targetTime =
@@ -365,8 +399,20 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           />
         ) : (
           <div className="text-foreground-muted flex flex-col items-center justify-center gap-2">
-            <Icon icon="lucide:video" className="h-12 w-12 opacity-30" />
+            <Icon icon="lucide:video" className="size-12 opacity-30" />
             <p className="text-xs font-medium">{t('player.loading')}</p>
+          </div>
+        )}
+
+        {/* 长按 3 倍速播放提示徽章 */}
+        {isFastForwarding && (
+          <div
+            className="pointer-events-none absolute top-6 left-1/2 z-30 flex -translate-x-1/2 select-none items-center 
+            gap-1.5 rounded-full border border-white/15 bg-black/70 px-4 py-1.5 text-xs font-medium text-white 
+            shadow-xl backdrop-blur-md sm:text-sm"
+          >
+            <Icon icon="lucide:fast-forward" className="text-primary size-4 animate-pulse" />
+            <span>{t('player.xTimes', { x: 3 }) + t('player.fastForwarding')}</span>
           </div>
         )}
 

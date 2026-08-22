@@ -129,7 +129,9 @@
     "exitFullscreen": "Exit Fullscreen",
     "volume": "Volume",
     "mute": "Mute",
-    "unmute": "Unmute"
+    "unmute": "Unmute",
+    "fastForwarding": "Fast Forwarding",
+    "xTimes": "{{x}} Times "
   },
   "common": {
     "cancel": "Cancel",

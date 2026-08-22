@@ -129,7 +129,9 @@
     "exitFullscreen": "退出全屏",
     "volume": "音量",
     "mute": "静音",
-    "unmute": "取消静音"
+    "unmute": "取消静音",
+    "fastForwarding": "快进中",
+    "xTimes": "{{x}}倍速"
   },
   "common": {
     "cancel": "取消",
