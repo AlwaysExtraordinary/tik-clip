@@ -15,7 +15,7 @@ import { useClipsFeedStore } from '@/stores/clipsFeedStore';
 
 export const ClipsPage: React.FC = () => {
   const { t } = useTranslation();
-  const { directoryHandle, isHandleRestoring } = useDirectory();
+  const { directoryHandle, isScanning, isHandleRestoring } = useDirectory();
 
   const {
     shuffleQueue,
@@ -29,10 +29,10 @@ export const ClipsPage: React.FC = () => {
     setLastPlaybackTime,
     setFileError,
     setSelectedTag,
+    resetFeed,
   } = useClipsFeedStore();
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasNoClips, setHasNoClips] = useState(false);
+  const [totalVideoCount, setTotalVideoCount] = useState<number>(0);
   const [allItems, setAllItems] = useState<ShuffleItem[]>([]);
 
   // 提取所有已有片段中的全部不重复标签
@@ -50,133 +50,152 @@ export const ClipsPage: React.FC = () => {
     return Array.from(tagSet).sort();
   }, [allItems]);
 
-  // 初始化片段列表和随机播放队列
-  const initializeClips = useCallback(async () => {
-    if (!directoryHandle) return;
-    setIsLoading(true);
-    try {
-      const [allClips, allVideos] = await Promise.all([getAllClips(), getAllVideos()]);
-      const store = useClipsFeedStore.getState();
+  // 从文件系统加载视频文件
+  const loadVideoFile = useCallback(
+    async (item: ShuffleItem): Promise<File | null> => {
+      if (!directoryHandle) return null;
+      try {
+        return await getVideoFileFromHandle(
+          directoryHandle,
+          item.video.folderName,
+          item.video.fileName
+        );
+      } catch (err) {
+        console.error('Failed to load video file for clip:', err);
+        return null;
+      }
+    },
+    [directoryHandle]
+  );
 
-      if (allClips.length === 0) {
-        setAllItems([]);
-        setHasNoClips(true);
-        store.resetFeed();
+  // 激活并播放指定片段项
+  const playItem = useCallback(
+    async (item: ShuffleItem) => {
+      setCurrentShuffleItem(item);
+      setLastPlaybackTime(item.clip.startTime);
+      setFileError(null);
+      const file = await loadVideoFile(item);
+      if (!file) {
+        setFileError(t('clipsFeed.readError'));
+        setCurrentVideoFile(null);
+      } else {
+        setCurrentVideoFile(file);
+      }
+    },
+    [
+      loadVideoFile,
+      setCurrentShuffleItem,
+      setLastPlaybackTime,
+      setFileError,
+      setCurrentVideoFile,
+      t,
+    ]
+  );
+
+  // 当目录变更或扫描完成时加载数据
+  useEffect(() => {
+    let active = true;
+
+    async function loadData() {
+      if (!directoryHandle || isScanning) {
         return;
       }
 
-      const videoMap = new Map<string, Video>();
-      allVideos.forEach((v) => videoMap.set(v.id, v));
+      try {
+        const [allClips, allVideos] = await Promise.all([getAllClips(), getAllVideos()]);
+        if (!active) return;
 
-      const items: ShuffleItem[] = [];
-      for (const clip of allClips) {
-        const video = videoMap.get(clip.videoId);
-        if (video) {
-          items.push({ clip, video });
+        setTotalVideoCount(allVideos.length);
+
+        if (allVideos.length === 0 || allClips.length === 0) {
+          setAllItems([]);
+          resetFeed();
+          return;
         }
-      }
 
-      setAllItems(items);
+        const videoMap = new Map<string, Video>();
+        allVideos.forEach((v) => videoMap.set(v.id, v));
 
-      if (items.length === 0) {
-        setHasNoClips(true);
-        store.resetFeed();
-        return;
-      }
+        const items: ShuffleItem[] = [];
+        for (const clip of allClips) {
+          const video = videoMap.get(clip.videoId);
+          if (video) {
+            items.push({ clip, video });
+          }
+        }
 
-      // 根据当前已选 tag 筛选播放列表
-      const curTag = store.selectedTag;
-      const targetItems =
-        !curTag || curTag === 'all'
-          ? items
-          : items.filter((item) => item.clip.tags?.includes(curTag));
+        setAllItems(items);
 
-      if (targetItems.length === 0) {
-        setHasNoClips(true);
-        store.setCurrentShuffleItem(null);
-        store.setCurrentVideoFile(null);
-        return;
-      }
+        if (items.length === 0) {
+          resetFeed();
+          return;
+        }
 
-      setHasNoClips(false);
+        // 根据当前已选 tag 筛选播放列表
+        const store = useClipsFeedStore.getState();
+        const curTag = store.selectedTag;
+        const targetItems =
+          !curTag || curTag === 'all'
+            ? items
+            : items.filter((item) => item.clip.tags?.includes(curTag));
 
-      // 检查当前全局 Store 中是否已有正在播放的片段
-      const existingItem = store.currentShuffleItem;
-      if (existingItem) {
-        const matchedItem = targetItems.find((it) => it.clip.id === existingItem.clip.id);
+        if (targetItems.length === 0) {
+          setCurrentShuffleItem(null);
+          setCurrentVideoFile(null);
+          return;
+        }
+
+        // 检查当前已播放片段是否仍然有效且匹配当前筛选
+        const existingItem = store.currentShuffleItem;
+        const matchedItem = existingItem
+          ? targetItems.find((it) => it.clip.id === existingItem.clip.id)
+          : null;
+
         if (matchedItem) {
-          // 当前片段依然存在且符合当前 tag：同步队列数据，加载对应文件
           store.shuffleQueue.syncItems(targetItems, matchedItem.clip.id);
           store.setCurrentShuffleItem(matchedItem);
           store.setFileError(null);
-          try {
-            const file = await getVideoFileFromHandle(
-              directoryHandle,
-              matchedItem.video.folderName,
-              matchedItem.video.fileName
-            );
+          if (!store.currentVideoFile) {
+            const file = await loadVideoFile(matchedItem);
+            if (!file) {
+              store.setFileError(t('clipsFeed.readError'));
+            }
             store.setCurrentVideoFile(file);
-          } catch (err) {
-            console.error('Failed to load video file for clip:', err);
-            store.setFileError(t('clipsFeed.readError'));
-            store.setCurrentVideoFile(null);
           }
         } else {
-          // 当前片段不在筛选列表中或已被删除：以 targetItems 重新初始化
+          // 重新初始化洗牌队列并从首个片段开始播放
           store.shuffleQueue.setItems(targetItems);
           const first = store.shuffleQueue.next();
           if (first) {
-            store.setCurrentShuffleItem(first);
-            store.setLastPlaybackTime(first.clip.startTime);
-            store.setFileError(null);
-            try {
-              const file = await getVideoFileFromHandle(
-                directoryHandle,
-                first.video.folderName,
-                first.video.fileName
-              );
-              store.setCurrentVideoFile(file);
-            } catch (err) {
-              console.error('Failed to load video file for clip:', err);
-              store.setFileError(t('clipsFeed.readError'));
-              store.setCurrentVideoFile(null);
-            }
+            await playItem(first);
           }
         }
-      } else {
-        // 首次进入：全量初始化洗牌队列并从第一个开始
-        store.shuffleQueue.setItems(targetItems);
-        const first = store.shuffleQueue.next();
-        if (first) {
-          store.setCurrentShuffleItem(first);
-          store.setLastPlaybackTime(first.clip.startTime);
-          store.setFileError(null);
-          try {
-            const file = await getVideoFileFromHandle(
-              directoryHandle,
-              first.video.folderName,
-              first.video.fileName
-            );
-            store.setCurrentVideoFile(file);
-          } catch (err) {
-            console.error('Failed to load video file for clip:', err);
-            store.setFileError(t('clipsFeed.readError'));
-            store.setCurrentVideoFile(null);
-          }
-        }
+      } catch (err) {
+        console.error('Error loading clips feed:', err);
       }
-    } catch (err) {
-      console.error('Error initializing clips feed:', err);
-    } finally {
-      setIsLoading(false);
     }
-  }, [directoryHandle, t]);
 
-  useEffect(() => {
-    if (directoryHandle) {
-      initializeClips();
+    if (!isScanning && directoryHandle) {
+      loadData();
+    } else if (!directoryHandle) {
+      setAllItems([]);
+      setTotalVideoCount(0);
+      resetFeed();
     }
-  }, [directoryHandle, initializeClips]);
+
+    return () => {
+      active = false;
+    };
+  }, [
+    directoryHandle,
+    isScanning,
+    loadVideoFile,
+    playItem,
+    resetFeed,
+    setCurrentShuffleItem,
+    setCurrentVideoFile,
+    t,
+  ]);
 
   // 切换标签筛选
   const handleTagChange = useCallback(
@@ -188,13 +207,11 @@ export const ClipsPage: React.FC = () => {
         : allItems.filter((item) => item.clip.tags?.includes(activeTag));
 
       if (targetItems.length === 0) {
-        setHasNoClips(true);
         setCurrentShuffleItem(null);
         setCurrentVideoFile(null);
         return;
       }
 
-      setHasNoClips(false);
       setFileError(null);
 
       const current = useClipsFeedStore.getState().currentShuffleItem;
@@ -206,75 +223,36 @@ export const ClipsPage: React.FC = () => {
         shuffleQueue.setItems(targetItems);
         const first = shuffleQueue.next();
         if (first) {
-          setCurrentShuffleItem(first);
-          setLastPlaybackTime(first.clip.startTime);
-          if (directoryHandle) {
-            try {
-              const file = await getVideoFileFromHandle(
-                directoryHandle,
-                first.video.folderName,
-                first.video.fileName
-              );
-              setCurrentVideoFile(file);
-            } catch (err) {
-              console.error('Failed to load video file for clip:', err);
-              setFileError(t('clipsFeed.readError'));
-              setCurrentVideoFile(null);
-            }
-          }
+          await playItem(first);
         }
       }
     },
     [
       allItems,
-      directoryHandle,
+      playItem,
       setCurrentShuffleItem,
       setCurrentVideoFile,
       setFileError,
-      setLastPlaybackTime,
       setSelectedTag,
       shuffleQueue,
-      t,
     ]
   );
 
   // 请求下一个片段数据供动画容器预先装载
   const handleRequestNext = useCallback(async (): Promise<FeedSlotData | null> => {
-    if (!directoryHandle) return null;
     const nextItem = shuffleQueue.next();
     if (!nextItem) return null;
-
-    try {
-      const file = await getVideoFileFromHandle(
-        directoryHandle,
-        nextItem.video.folderName,
-        nextItem.video.fileName
-      );
-      return { item: nextItem, file };
-    } catch (err) {
-      console.error('Failed to load next video file:', err);
-      return null;
-    }
-  }, [directoryHandle, shuffleQueue]);
+    const file = await loadVideoFile(nextItem);
+    return { item: nextItem, file };
+  }, [loadVideoFile, shuffleQueue]);
 
   // 请求上一个片段数据供动画容器预先装载
   const handleRequestPrevious = useCallback(async (): Promise<FeedSlotData | null> => {
-    if (!directoryHandle) return null;
     const prevItem = shuffleQueue.previous();
     if (!prevItem) return null;
-
-    try {
-      const file = await getVideoFileFromHandle(
-        directoryHandle,
-        prevItem.video.folderName,
-        prevItem.video.fileName
-      );
-      return { item: prevItem, file };
-    } catch (err) {
-      console.error('Failed to load previous video file:', err);
-      return null;
-    }
-  }, [directoryHandle, shuffleQueue]);
+    const file = await loadVideoFile(prevItem);
+    return { item: prevItem, file };
+  }, [loadVideoFile, shuffleQueue]);
 
   // 当动画滑动完成时同步当前状态
   const handleCommitItemChange = useCallback(
@@ -294,98 +272,50 @@ export const ClipsPage: React.FC = () => {
     [setLastPlaybackTime]
   );
 
-  // 跳过已被删除的片段
+  // 跳过已被删除或损坏的片段
   const handleSkipDeletedClip = useCallback(async () => {
-    if (!directoryHandle) return;
     const nextItem = shuffleQueue.next();
     if (nextItem) {
-      setFileError(null);
-      try {
-        const file = await getVideoFileFromHandle(
-          directoryHandle,
-          nextItem.video.folderName,
-          nextItem.video.fileName
-        );
-        handleCommitItemChange(nextItem, file);
-      } catch (err) {
-        console.error('Failed to load next video file:', err);
-        setFileError(t('clipsFeed.readError'));
-      }
+      await playItem(nextItem);
     } else {
-      setHasNoClips(true);
+      setCurrentShuffleItem(null);
     }
-  }, [directoryHandle, shuffleQueue, handleCommitItemChange, setFileError, t]);
+  }, [shuffleQueue, playItem, setCurrentShuffleItem]);
 
-  if (isHandleRestoring || (isLoading && !currentShuffleItem && !fileError && !hasNoClips)) {
-    return (
-      <div className="flex-1 flex items-center justify-center text-foreground-muted">
-        <Icon icon="lucide:loader-2" className="size-8 animate-spin opacity-50" />
-      </div>
-    );
-  }
-
-  if (!directoryHandle) {
+  // 无目录状态
+  if (isHandleRestoring || !directoryHandle) {
     return <EmptyState type="no-directory" />;
   }
 
-  if (hasNoClips || (!currentShuffleItem && !fileError)) {
+  // 扫描状态
+  if (isScanning) {
+    return <EmptyState type="scanning" />;
+  }
+
+  // 无片段状态：无片段
+  if (totalVideoCount === 0 && allItems.length === 0) {
+    return (
+      <EmptyState
+        type="no-videos"
+        title={t('videos.noVideosTitle')}
+        description={t('videos.noVideosDesc')}
+      />
+    );
+  }
+
+  // 无片段状态：片段列表为空
+  if (allItems.length === 0) {
     return (
       <div className="flex-1 flex flex-col overflow-hidden p-4 md:p-6 lg:p-8">
-        {/* 顶部栏 */}
         <div className="flex items-center justify-between pb-3 select-none">
-          <div className="flex items-center gap-2 truncate">
-            <span className="text-md font-semibold text-foreground truncate">
-              {t('clipsFeed.title')}
-            </span>
-          </div>
-
-          {/* 选择标签 */}
-          {allTags.length > 0 && (
-            <div className="shrink-0">
-              <Select
-                value={selectedTag || null}
-                onChange={(key) => {
-                  handleTagChange(key as string | null);
-                }}
-                placeholder={t('clipsFeed.selectTag')}
-                aria-label={t('clipsFeed.filterByTag')}
-                className="w-30"
-              >
-                <Select.Trigger className="text-xs rounded-full">
-                  <div className="flex items-center gap-1.5 min-w-0 truncate">
-                    <Icon icon="lucide:tag" className="size-3.5 text-foreground-muted shrink-0" />
-                    <Select.Value />
-                  </div>
-                  <Select.Indicator className="text-foreground-muted" />
-                </Select.Trigger>
-                <Select.Popover className="min-w-30">
-                  <ListBox>
-                    <ListBox.Item id="all" textValue={t('clipsFeed.default')}>
-                      <span>{t('clipsFeed.none')}</span>
-                      <ListBox.ItemIndicator className="text-accent" />
-                    </ListBox.Item>
-                    {allTags.map((tag) => (
-                      <ListBox.Item key={tag} id={tag} textValue={tag}>
-                        <span>{tag}</span>
-                        <ListBox.ItemIndicator className="text-accent" />
-                      </ListBox.Item>
-                    ))}
-                  </ListBox>
-                </Select.Popover>
-              </Select>
-            </div>
-          )}
+          <span className="text-md font-semibold text-foreground truncate">
+            {t('clipsFeed.title')}
+          </span>
         </div>
-
-        {/* 空状态提示 */}
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 h-full min-w-0 flex overflow-hidden">
           <EmptyState
             type="no-clips"
-            title={
-              !selectedTag || selectedTag === 'all'
-                ? t('clipsFeed.noClipsTitle')
-                : t('clipsFeed.noClipsForTag')
-            }
+            title={t('clipsFeed.noClipsTitle')}
             description={t('clipsFeed.noClipsDesc')}
           />
         </div>
@@ -395,9 +325,8 @@ export const ClipsPage: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden p-4 md:p-6 lg:p-8">
-      {/* 视频 / 片段标题头部与右上角 Tag 选择 */}
+      {/* 顶部栏：片段标题与标签列表 / 右上角 Tag 筛选器 */}
       <div className="flex items-center justify-between pb-3 select-none gap-3">
-        {/* 视频标题与标签 */}
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <span
             className="text-md font-semibold text-foreground truncate shrink-0"
@@ -405,17 +334,14 @@ export const ClipsPage: React.FC = () => {
           >
             {currentShuffleItem?.video.name || t('clipsFeed.title')}
           </span>
-          <ClipTagList tags={currentShuffleItem?.clip.tags} />
+          {currentShuffleItem && <ClipTagList tags={currentShuffleItem.clip.tags} />}
         </div>
 
-        {/* 右上角 Tag 选择器 */}
         {allTags.length > 0 && (
           <div className="shrink-0">
             <Select
               value={selectedTag || null}
-              onChange={(key) => {
-                handleTagChange(key as string | null);
-              }}
+              onChange={(key) => handleTagChange(key as string | null)}
               placeholder={t('clipsFeed.selectTag')}
               aria-label={t('clipsFeed.filterByTag')}
               className="w-30"
@@ -450,7 +376,7 @@ export const ClipsPage: React.FC = () => {
         )}
       </div>
 
-      {/* 主视频播放器容器（仿 TikTok 上下滑动切换） */}
+      {/* 主播放区域 / 空状态 / 错误状态 */}
       <div className="flex-1 h-full min-w-0 flex overflow-hidden">
         {fileError ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-surface rounded-3xl border border-border/40 shadow-card">
@@ -466,20 +392,24 @@ export const ClipsPage: React.FC = () => {
               {t('clipsFeed.skipToNext')}
             </button>
           </div>
+        ) : currentShuffleItem ? (
+          <ClipFeedContainer
+            key={directoryHandle.name}
+            currentSlot={{ item: currentShuffleItem, file: currentVideoFile }}
+            initialTime={lastPlaybackTime ?? currentShuffleItem.clip.startTime}
+            onCurrentTimeChange={handleCurrentTimeChange}
+            onRequestNext={handleRequestNext}
+            onRequestPrevious={handleRequestPrevious}
+            onCommitItemChange={handleCommitItemChange}
+            hasPrevious={true}
+            hasNext={true}
+          />
         ) : (
-          currentShuffleItem && (
-            <ClipFeedContainer
-              key="clip-feed-container"
-              currentSlot={{ item: currentShuffleItem, file: currentVideoFile }}
-              initialTime={lastPlaybackTime ?? currentShuffleItem.clip.startTime}
-              onCurrentTimeChange={handleCurrentTimeChange}
-              onRequestNext={handleRequestNext}
-              onRequestPrevious={handleRequestPrevious}
-              onCommitItemChange={handleCommitItemChange}
-              hasPrevious={true}
-              hasNext={true}
-            />
-          )
+          <EmptyState
+            type="no-clips"
+            title={t('clipsFeed.noClipsForTag')}
+            description={t('clipsFeed.noClipsDesc')}
+          />
         )}
       </div>
     </div>

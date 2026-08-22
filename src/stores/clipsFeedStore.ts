@@ -33,6 +33,7 @@ export const useClipsFeedStore = create<ClipsFeedState>((set) => ({
   setSelectedTag: (selectedTag) => set({ selectedTag }),
   resetFeed: () =>
     set({
+      shuffleQueue: new ShuffleQueue(),
       currentShuffleItem: null,
       currentVideoFile: null,
       lastPlaybackTime: null,

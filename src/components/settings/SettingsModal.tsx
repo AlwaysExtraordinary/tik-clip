@@ -57,7 +57,7 @@ export const SettingsModal: React.FC = () => {
                 </label>
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="flex items-center gap-1.5 min-w-0 px-3 py-1.5 bg-(--field-background) border border-border rounded-full">
-                    <Icon icon="lucide:folder" className="w-4 h-4 text-foreground-muted shrink-0" />
+                    <Icon icon="lucide:folder" className="size-4 text-foreground-muted shrink-0" />
                     <span className="text-sm truncate text-foreground">
                       {directoryName || t('settings.noDirectorySelected')}
                     </span>
@@ -79,7 +79,7 @@ export const SettingsModal: React.FC = () => {
                   >
                     <Icon
                       icon="lucide:refresh-cw"
-                      className={`w-3.5 h-3.5 ${isScanning ? 'animate-spin' : ''}`}
+                      className={`size-3.5 ${isScanning ? 'animate-spin' : ''}`}
                     />
                     {isScanning ? t('settings.scanning') : t('settings.rescanFolder')}
                   </div>
@@ -101,7 +101,7 @@ export const SettingsModal: React.FC = () => {
                 >
                   <Select.Trigger className=" text-sm rounded-full">
                     <div className="flex items-center gap-1.5">
-                      <Icon icon="lucide:languages" className="w-4 h-4 text-foreground-muted" />
+                      <Icon icon="lucide:languages" className="size-4 text-foreground-muted" />
                       <Select.Value />
                     </div>
                     <Select.Indicator className="text-foreground-muted" />
@@ -129,7 +129,7 @@ export const SettingsModal: React.FC = () => {
                     <Tabs.List>
                       {themes.map((tItem) => (
                         <Tabs.Tab key={tItem.id} id={tItem.id} className="w-25">
-                          <Icon icon={tItem.icon} className="w-4 h-4 mr-1" />
+                          <Icon icon={tItem.icon} className="size-4 mr-1" />
                           <span className="text-xs">{tItem.label}</span>
                           <Tabs.Indicator />
                         </Tabs.Tab>

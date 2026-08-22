@@ -8,20 +8,19 @@ import {
 } from '@/db/settings';
 import { promptDirectoryPicker, verifyDirectoryPermission } from '@/services/fileSystem';
 import { scanVideoDirectory } from '@/services/videoScanner';
+import { useClipsFeedStore } from '@/stores/clipsFeedStore';
 
 export function useDirectory() {
-  const {
-    directoryHandle,
-    directoryName,
-    isScanning,
-    scanProgress,
-    isHandleRestoring,
-    setDirectoryHandle,
-    setIsScanning,
-    setScanProgress,
-    setIsHandleRestoring,
-    setErrorMessage,
-  } = useAppStore();
+  const directoryHandle = useAppStore((s) => s.directoryHandle);
+  const directoryName = useAppStore((s) => s.directoryName);
+  const isScanning = useAppStore((s) => s.isScanning);
+  const scanProgress = useAppStore((s) => s.scanProgress);
+  const isHandleRestoring = useAppStore((s) => s.isHandleRestoring);
+  const setDirectoryHandle = useAppStore((s) => s.setDirectoryHandle);
+  const setIsScanning = useAppStore((s) => s.setIsScanning);
+  const setScanProgress = useAppStore((s) => s.setScanProgress);
+  const setIsHandleRestoring = useAppStore((s) => s.setIsHandleRestoring);
+  const setErrorMessage = useAppStore((s) => s.setErrorMessage);
 
   // 启动时尝试恢复目录句柄
   useEffect(() => {
@@ -63,9 +62,7 @@ export function useDirectory() {
       setIsScanning(true);
       setErrorMessage(null);
       try {
-        await scanVideoDirectory(handle, (prog) => {
-          setScanProgress(prog);
-        });
+        await scanVideoDirectory(handle);
       } catch (err: unknown) {
         console.error('Scan error:', err);
         setErrorMessage(err instanceof Error ? err.message : 'Error scanning directory');
@@ -83,6 +80,9 @@ export function useDirectory() {
       setErrorMessage(null);
       const handle = await promptDirectoryPicker();
       if (!handle) return false;
+
+      // 切换文件夹时完全重置 clips 全局状态
+      useClipsFeedStore.getState().resetFeed();
 
       await setStoredDirectoryHandle(handle);
       setDirectoryHandle(handle, handle.name);
@@ -115,6 +115,7 @@ export function useDirectory() {
   }, [selectDirectory, setDirectoryHandle, performScan]);
 
   const disconnectDirectory = useCallback(async () => {
+    useClipsFeedStore.getState().resetFeed();
     await clearStoredDirectory();
     setDirectoryHandle(null, '');
   }, [setDirectoryHandle]);

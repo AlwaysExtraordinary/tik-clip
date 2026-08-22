@@ -15,7 +15,6 @@ import { ConfirmModal } from '@/components/general/ConfirmModal';
 export const VideosPage: React.FC = () => {
   const { t } = useTranslation();
   const [videos, setVideos] = useState<Video[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
   const { directoryHandle, isScanning, isHandleRestoring } = useDirectory();
@@ -37,7 +36,6 @@ export const VideosPage: React.FC = () => {
     let active = true;
 
     async function loadVideos() {
-      setIsLoading(true);
       try {
         const list = await getAllVideos();
         if (active) {
@@ -45,10 +43,6 @@ export const VideosPage: React.FC = () => {
         }
       } catch (err) {
         console.error('Failed to load videos:', err);
-      } finally {
-        if (active) {
-          setIsLoading(false);
-        }
       }
     }
 
@@ -143,16 +137,16 @@ export const VideosPage: React.FC = () => {
     }
   };
 
-  if (isHandleRestoring || (isLoading && isScanning)) {
-    return <EmptyState type="no-directory" />;
-  }
-
-  if (!directoryHandle && videos.length === 0) {
+  if (isHandleRestoring || (!directoryHandle && videos.length === 0)) {
     return <EmptyState type="no-directory" />;
   }
 
   if (!directoryHandle && videos.length > 0) {
     return <EmptyState type="permission-needed" />;
+  }
+
+  if (isScanning) {
+    return <EmptyState type="scanning" />;
   }
 
   if (videos.length === 0) {
