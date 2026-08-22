@@ -13,7 +13,12 @@ interface ClipPanelProps {
   videoDuration: number;
   currentVideoTime: number;
   clips: Clip[];
-  onSaveClip: (startTime: number, endTime: number, clipId?: string) => Promise<boolean>;
+  onSaveClip: (
+    startTime: number,
+    endTime: number,
+    clipId?: string,
+    tags?: string[]
+  ) => Promise<boolean>;
   onDeleteClip: (clipId: string) => void;
 }
 
@@ -57,8 +62,8 @@ export const ClipPanel: React.FC<ClipPanelProps> = ({
               videoDuration={videoDuration}
               currentVideoTime={currentVideoTime}
               editingClip={editingClip}
-              onSaveClip={async (start, end, id) => {
-                const res = await onSaveClip(start, end, id);
+              onSaveClip={async (start, end, id, tags) => {
+                const res = await onSaveClip(start, end, id, tags);
                 if (res) {
                   setEditingClip(null);
                 }

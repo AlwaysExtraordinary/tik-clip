@@ -5,6 +5,7 @@ export interface Clip {
   videoId: string;
   startTime: number;
   endTime: number;
+  tags?: string[];
   createdAt: number;
   updatedAt: number;
 }

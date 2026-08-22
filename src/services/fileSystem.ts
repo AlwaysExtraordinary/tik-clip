@@ -136,6 +136,7 @@ export async function syncVideoClipsToDataJson(
       id: clip.id,
       startTime: clip.startTime,
       endTime: clip.endTime,
+      tags: clip.tags || [],
       createdAt: clip.createdAt,
       updatedAt: clip.updatedAt,
     })),
@@ -174,4 +175,3 @@ export async function hideVideoInDataJson(
   };
   await saveVideoDataJson(rootHandle, folderName, updatedData);
 }
-

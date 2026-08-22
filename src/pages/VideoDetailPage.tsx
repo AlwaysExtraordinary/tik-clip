@@ -73,7 +73,8 @@ export const VideoDetailPage: React.FC = () => {
   const handleSaveClip = async (
     startTime: number,
     endTime: number,
-    clipId?: string
+    clipId?: string,
+    tags?: string[]
   ): Promise<boolean> => {
     if (!videoId || !video) return false;
 
@@ -84,6 +85,7 @@ export const VideoDetailPage: React.FC = () => {
       videoId,
       startTime,
       endTime,
+      tags: tags || [],
       createdAt: existingClip?.createdAt || now,
       updatedAt: now,
     };

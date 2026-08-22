@@ -24,26 +24,42 @@ export const ClipItem: React.FC<ClipItemProps> = ({ clip, isEditing, onStartEdit
           : 'bg-background text-foreground hover:border-foreground/20 hover:bg-surface-hover'
       }`}
     >
-      {/* 时间范围文本（点击跳转预览） */}
-      <button
-        // onClick={() => requestSeek(clip.startTime)}
-        title={t('clipItem.jumpToStart')}
-        className={`text-xs font-medium tracking-tight flex items-center gap-1.5 transition-opacity cursor-pointer ${
-          isEditing ? 'text-background' : 'text-foreground'
-        }`}
-      >
-        <Icon icon="lucide:play-circle" className="w-3.5 h-3.5 opacity-60" />
-        {/* <span>{timeRangeText}</span> */}
-        <span>
-          <span className="hover:underline" onClick={() => requestSeek(clip.startTime)}>
-            {formatTime(clip.startTime)}
+      {/* 时间范围与标签 */}
+      <div className="flex flex-col gap-1 min-w-0 flex-1 mr-2">
+        <button
+          title={t('clipItem.jumpToStart')}
+          className={`text-xs font-medium tracking-tight flex items-center gap-1.5 transition-opacity cursor-pointer ${
+            isEditing ? 'text-background' : 'text-foreground'
+          }`}
+        >
+          <Icon icon="lucide:play-circle" className="size-3.5 opacity-60 shrink-0" />
+          <span className="truncate">
+            <span className="hover:underline" onClick={() => requestSeek(clip.startTime)}>
+              {formatTime(clip.startTime)}
+            </span>
+            <span> - </span>
+            <span className="hover:underline" onClick={() => requestSeek(clip.endTime)}>
+              {formatTime(clip.endTime)}
+            </span>
           </span>
-          <span> - </span>
-          <span className="hover:underline" onClick={() => requestSeek(clip.endTime)}>
-            {formatTime(clip.endTime)}
-          </span>
-        </span>
-      </button>
+        </button>
+        {clip.tags && clip.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 pl-5">
+            {clip.tags.map((tag) => (
+              <span
+                key={tag}
+                className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium leading-none ${
+                  isEditing
+                    ? 'bg-background/20 text-background'
+                    : 'bg-surface text-foreground-muted'
+                }`}
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* 操作按钮组 */}
       <div className="flex items-center gap-1">

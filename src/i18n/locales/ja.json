@@ -50,8 +50,12 @@
   "clipsFeed": {
     "title": "クリップフィード",
     "randomFeed": "ランダム再生",
+    "selectTag": "タグを選択",
+    "default": "デフォルト",
+    "filterByTag": "タグで絞り込み",
     "noClipsTitle": "クリップがまだ作成されていません",
     "noClipsDesc": "「動画」タブに移動し、動画を選択してハサミツールでお気に入りのクリップを作成してください。",
+    "noClipsForTag": "このタグのクリップはありません",
     "readError": "ディスクから動画ファイルを読み込めませんでした",
     "clipDeletedOrUnavailable": "直前に再生していたクリップは削除されたか利用できなくなりました。",
     "clipUnavailable": "クリップを利用できません",
@@ -66,6 +70,9 @@
   "clipForm": {
     "start": "開始",
     "end": "終了",
+    "tags": "タグ",
+    "addTag": "タグを追加",
+    "tagPlaceholder": "タグ名を入力",
     "synchronize": "現在時刻を同期",
     "errorInvalidStart": "開始時刻の形式が無効です（HH:MM:SS を使用）",
     "errorInvalidEnd": "終了時刻の形式が無効です（HH:MM:SS を使用）",
