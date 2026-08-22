@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
+import { cn } from '@/utils/cn';
 
 interface VideoThumbnailProps {
   thumbnailBlob?: Blob;
   alt: string;
   className?: string;
+  onOpenCoverPreview?: () => void;
 }
 
 export const VideoThumbnail: React.FC<VideoThumbnailProps> = ({
   thumbnailBlob,
   alt,
   className = '',
+  onOpenCoverPreview,
 }) => {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(false);
@@ -53,23 +56,36 @@ export const VideoThumbnail: React.FC<VideoThumbnailProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`relative w-full aspect-800/540 bg-surface overflow-hidden rounded-lg flex items-center
-        justify-center border border-border cursor-pointer shadow-subtle
-        transition-all duration-300 ease-out
-        hover:-translate-y-1 hover:shadow-card  ${className}`}
+      className={cn(
+        `bg-surface border-border shadow-subtle group/cover hover:shadow-card relative flex aspect-800/540 w-full 
+        cursor-pointer items-center justify-center overflow-hidden rounded-lg border transition-all
+        duration-300 ease-out hover:-translate-y-1 ${className}`
+      )}
     >
       {imageUrl ? (
         <img
           src={imageUrl}
           alt={alt}
-          className="w-full h-full object-cover transition-transform"
+          className="h-full w-full object-cover transition-transform"
           loading="lazy"
         />
       ) : (
-        <div className="flex flex-col items-center justify-center text-foreground-muted gap-1">
-          <Icon icon="lucide:film" className="w-8 h-8 opacity-40" />
+        <div className="text-foreground-muted flex flex-col items-center justify-center gap-1">
+          <Icon icon="lucide:film" className="h-8 w-8 opacity-40" />
         </div>
       )}
+
+      <div
+        className="bg-surface/40 backdrop-blur-md absolute top-1.5 right-1.5 rounded-full p-1 opacity-0 transition-opacity 
+        transition-colors duration-300 ease-out group-hover/cover:opacity-100 hover:bg-surface/80"
+        onClick={(e) => {
+          // 阻止事件冒泡，避免触发父级点击事件
+          e.stopPropagation();
+          onOpenCoverPreview?.();
+        }}
+      >
+        <Icon icon="lucide:maximize-2" className="text-foreground h-4 w-4" />
+      </div>
     </div>
   );
 };

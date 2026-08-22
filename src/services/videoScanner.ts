@@ -5,7 +5,7 @@ import { generateVideoThumbnail, getVideoDuration } from '@/services/thumbnail';
 import { deleteVideos, getVideoById, saveVideos } from '@/db/videos';
 import { db } from '@/db/database';
 
-const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.m4v'];
+const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.m4v','mkv'];
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.avif'];
 
 export interface ScanProgress {

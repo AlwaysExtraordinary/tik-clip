@@ -174,7 +174,12 @@ export const VideosPage: React.FC = () => {
             <div key={video.id} className="flex flex-col transition-transform duration-200 group">
               {/* 缩略图容器 */}
               <div onClick={() => navigate(`/videos/${video.id}`)}>
-                <VideoThumbnail thumbnailBlob={video.thumbnail} alt={video.name} />
+                <VideoThumbnail
+                  thumbnailBlob={video.thumbnail}
+                  alt={video.name}
+                  // 查看封面
+                  onOpenCoverPreview={() => setPreviewCoverVideo(video)}
+                />
               </div>
               {/* 缩略图下方的视频信息 */}
               <div className="mt-2.5 px-0.5 text-center">
@@ -235,23 +240,13 @@ export const VideosPage: React.FC = () => {
                           <Dropdown.Popover className="min-w-30">
                             <Dropdown.Menu
                               onAction={(key) => {
-                                if (key === 'view-cover') {
-                                  // 查看封面
-                                  setPreviewCoverVideo(video);
-                                } else if (key === 'delete') {
+                                if (key === 'delete') {
                                   // 隐藏视频
                                   setHideConfirmVideo(video);
                                   setIsShowHideConfirm(true);
                                 }
                               }}
                             >
-                              {/* 查看封面 */}
-                              <Dropdown.Item id="view-cover">
-                                <div className="flex items-center gap-2 w-full text-xs font-medium text-foreground">
-                                  <Icon icon="lucide:image" className="size-3.5" />
-                                  <div>{t('videos.viewCover')}</div>
-                                </div>
-                              </Dropdown.Item>
                               {/* 隐藏视频 */}
                               <Dropdown.Item id="delete">
                                 <div className="flex items-center gap-2 w-full text-xs font-medium text-danger">
@@ -280,7 +275,10 @@ export const VideosPage: React.FC = () => {
       <Modal state={coverModalState}>
         <Modal.Backdrop variant="blur">
           <Modal.Container placement="center">
-            <Modal.Dialog className="bg-transparent shadow-none p-0 rounded-xl sm:w-auto sm:h-auto sm:max-w-5xl sm:max-h-[90vh] sm:rounded-2xl ">
+            <Modal.Dialog
+              className="bg-transparent shadow-none p-0 rounded-xl sm:w-auto sm:h-auto sm:max-w-5xl 
+              sm:max-h-[90vh] sm:rounded-2xl "
+            >
               <Modal.CloseTrigger />
 
               {/* 封面图片展示区：按原比例 */}
