@@ -5,7 +5,7 @@ import { generateVideoThumbnail, getVideoDuration } from '@/services/thumbnail';
 import { deleteVideos, getVideoById, saveVideos } from '@/db/videos';
 import { db } from '@/db/database';
 
-const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.m4v','mkv'];
+const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.m4v', 'mkv'];
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.avif'];
 
 export interface ScanProgress {
@@ -128,6 +128,11 @@ export async function scanVideoDirectory(
                 videoId,
                 startTime: Number(c.startTime),
                 endTime: Number(c.endTime),
+                tags: Array.isArray(c.tags)
+                  ? c.tags
+                      .filter((t: unknown): t is string => typeof t === 'string' && t.trim() !== '')
+                      .map((t: string) => t.trim())
+                  : undefined,
                 createdAt: typeof c.createdAt === 'number' ? c.createdAt : Date.now(),
                 updatedAt: typeof c.updatedAt === 'number' ? c.updatedAt : Date.now(),
               }));

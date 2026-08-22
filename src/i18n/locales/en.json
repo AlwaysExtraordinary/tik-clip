@@ -50,8 +50,12 @@
   "clipsFeed": {
     "title": "Clips Feed",
     "randomFeed": "Random Feed",
+    "selectTag": "Select tag",
+    "default": "Default",
+    "filterByTag": "Filter by tag",
     "noClipsTitle": "No Clips Created Yet",
     "noClipsDesc": "Go to the Videos tab, choose a video, and use the Scissors tool to mark your favorite clips.",
+    "noClipsForTag": "No clips with this tag",
     "readError": "Could not read video file from disk",
     "clipDeletedOrUnavailable": "The previously playing clip was deleted or is no longer available.",
     "clipUnavailable": "Clip Unavailable",
@@ -66,6 +70,9 @@
   "clipForm": {
     "start": "start",
     "end": "end",
+    "tags": "Tags",
+    "addTag": "Add Tag",
+    "tagPlaceholder": "Tag name",
     "synchronize": "Synchronize",
     "errorInvalidStart": "Invalid start time format (use HH:MM:SS)",
     "errorInvalidEnd": "Invalid end time format (use HH:MM:SS)",
