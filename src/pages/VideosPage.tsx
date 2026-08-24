@@ -219,15 +219,11 @@ export const VideosPage: React.FC = () => {
 
                         {/* 操作列表 */}
                         <Dropdown>
-                          <Dropdown.Trigger>
-                            <button
-                              type="button"
-                              className="p-1 rounded-md hover:bg-surface-hover transition-colors text-foreground-muted hover:text-foreground
-                               cursor-pointer flex items-center justify-center opacity-0 group-hover:opacity-100 ease-in transition-opacity duration-200"
-                              aria-label={t('common.more')}
-                            >
-                              <Icon icon="lucide:ellipsis" className="size-3.5" />
-                            </button>
+                          <Dropdown.Trigger
+                            className="p-1 rounded-md hover:bg-surface-hover text-foreground-muted hover:text-foreground cursor-pointer flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                            aria-label={t('common.more')}
+                          >
+                            <Icon icon="lucide:ellipsis" className="size-3.5" />
                           </Dropdown.Trigger>
 
                           {/* 操作列表 */}
