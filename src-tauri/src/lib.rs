@@ -3,7 +3,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 pub struct WatcherState {
     watcher: Arc<Mutex<Option<RecommendedWatcher>>>,
@@ -97,6 +97,15 @@ mod stream;
 
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            #[cfg(target_os = "windows")]
+            {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.set_decorations(false);
+                }
+            }
+            Ok(())
+        })
         .register_asynchronous_uri_scheme_protocol("stream", |_ctx, request, responder| {
             std::thread::spawn(move || {
                 let response = match stream::handle_stream_request(request) {
