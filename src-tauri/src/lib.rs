@@ -93,9 +93,27 @@ fn stop_watching_directory(state: State<'_, WatcherState>) -> Result<(), String>
     Ok(())
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
+mod stream;
+
 pub fn run() {
     tauri::Builder::default()
+        .register_asynchronous_uri_scheme_protocol("stream", |_ctx, request, responder| {
+            std::thread::spawn(move || {
+                let response = match stream::handle_stream_request(request) {
+                    Ok(resp) => resp,
+                    Err(err) => {
+                        eprintln!("Stream protocol error: {:?}", err);
+                        tauri::http::Response::builder()
+                            .status(tauri::http::StatusCode::INTERNAL_SERVER_ERROR)
+                            .header(tauri::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+                            .header(tauri::http::header::CONTENT_TYPE, "text/plain")
+                            .body(err.to_string().into_bytes())
+                            .unwrap_or_else(|_| tauri::http::Response::new(Vec::new()))
+                    }
+                };
+                responder.respond(response);
+            });
+        })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())

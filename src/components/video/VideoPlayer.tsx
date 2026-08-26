@@ -359,6 +359,26 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     video.muted = isMuted;
     video.playbackRate = isFastForwarding ? 3 : 1;
 
+    // WebKit / Safari 下处理多音轨及确保音频轨道激活
+    const mediaWithTracks = video as HTMLVideoElement & {
+      audioTracks?: {
+        length: number;
+        [index: number]: { enabled: boolean; label?: string; language?: string };
+      };
+    };
+    if (mediaWithTracks.audioTracks && mediaWithTracks.audioTracks.length > 0) {
+      let anyEnabled = false;
+      for (let i = 0; i < mediaWithTracks.audioTracks.length; i++) {
+        if (mediaWithTracks.audioTracks[i].enabled) {
+          anyEnabled = true;
+          break;
+        }
+      }
+      if (!anyEnabled) {
+        mediaWithTracks.audioTracks[0].enabled = true;
+      }
+    }
+
     if (isClipMode && startTime !== undefined) {
       const targetTime =
         initialTime !== undefined &&

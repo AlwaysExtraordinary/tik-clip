@@ -69,7 +69,7 @@ export class TauriFileSystemAdapter implements IFileSystemAdapter {
       throw new Error('Directory path is missing in Tauri environment');
     }
     const fullPath = joinPath(target.path, folderName, fileName);
-    const streamUrl = convertFileSrc(fullPath);
+    const streamUrl = convertFileSrc(fullPath, 'stream');
     return {
       type: 'url',
       src: streamUrl,
@@ -311,7 +311,7 @@ export class TauriFileSystemAdapter implements IFileSystemAdapter {
         const videoStatInfo = await stat(videoFullPath);
         const videoLastModified = videoStatInfo.mtime ? new Date(videoStatInfo.mtime).getTime() : 0;
         const videoSize = videoStatInfo.size;
-        const videoStreamUrl = convertFileSrc(videoFullPath);
+        const videoStreamUrl = convertFileSrc(videoFullPath, 'stream');
 
         let thumbnailBlob: Blob | undefined = undefined;
         let duration = 0;

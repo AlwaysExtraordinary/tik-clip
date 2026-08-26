@@ -3899,7 +3899,9 @@ dependencies = [
 name = "tik-clip"
 version = "1.0.0"
 dependencies = [
+ "http-range",
  "notify",
+ "percent-encoding",
  "serde",
  "serde_json",
  "tauri",

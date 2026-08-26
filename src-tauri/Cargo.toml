@@ -7,7 +7,6 @@ edition = "2021"
 
 [lib]
 name = "tik_clip_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -21,3 +20,5 @@ tauri-plugin-global-shortcut = "2"
 notify = "7"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+http-range = "0.1"
+percent-encoding = "2"
