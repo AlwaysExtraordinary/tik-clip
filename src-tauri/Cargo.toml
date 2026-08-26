@@ -1,0 +1,23 @@
+[package]
+name = "tik-clip"
+version = "1.0.0"
+description = "A modern video clip manager and player"
+authors = ["Alwaysub"]
+edition = "2021"
+
+[lib]
+name = "tik_clip_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["protocol-asset", "tray-icon"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-global-shortcut = "2"
+notify = "7"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

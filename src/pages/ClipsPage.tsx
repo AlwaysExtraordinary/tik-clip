@@ -6,7 +6,7 @@ import { Video } from '@/types/video';
 import { ShuffleItem } from '@/types/clip';
 import { getAllVideos } from '@/db/videos';
 import { getAllClips } from '@/db/clips';
-import { getVideoFileFromHandle } from '@/services/fileSystem';
+import { getVideoMediaSource, VideoMediaSource } from '@/services/fileSystem/index';
 import { useDirectory } from '@/hooks/useDirectory';
 import { ClipFeedContainer, FeedSlotData } from '@/components/clip/ClipFeedContainer';
 import { ClipTagList } from '@/components/clip/ClipTagList';
@@ -15,17 +15,25 @@ import { useClipsFeedStore } from '@/stores/clipsFeedStore';
 
 export const ClipsPage: React.FC = () => {
   const { t } = useTranslation();
-  const { directoryHandle, isScanning, isHandleRestoring } = useDirectory();
+  const { directoryRef, directoryHandle, isScanning, isHandleRestoring } = useDirectory();
+  const activeDirectory = useMemo(
+    () =>
+      directoryRef ||
+      (directoryHandle ? { name: directoryHandle.name, handle: directoryHandle } : null),
+    [directoryRef, directoryHandle]
+  );
 
   const {
     shuffleQueue,
     currentShuffleItem,
     currentVideoFile,
+    currentVideoSrc,
     lastPlaybackTime,
     fileError,
     selectedTag,
     setCurrentShuffleItem,
     setCurrentVideoFile,
+    setCurrentVideoSrc,
     setLastPlaybackTime,
     setFileError,
     setSelectedTag,
@@ -50,22 +58,22 @@ export const ClipsPage: React.FC = () => {
     return Array.from(tagSet).sort();
   }, [allItems]);
 
-  // 从文件系统加载视频文件
-  const loadVideoFile = useCallback(
-    async (item: ShuffleItem): Promise<File | null> => {
-      if (!directoryHandle) return null;
+  // 从文件系统加载视频媒体源
+  const loadVideoSource = useCallback(
+    async (item: ShuffleItem): Promise<VideoMediaSource | null> => {
+      if (!activeDirectory) return null;
       try {
-        return await getVideoFileFromHandle(
-          directoryHandle,
+        return await getVideoMediaSource(
+          activeDirectory,
           item.video.folderName,
           item.video.fileName
         );
       } catch (err) {
-        console.error('Failed to load video file for clip:', err);
+        console.error('Failed to load video media source for clip:', err);
         return null;
       }
     },
-    [directoryHandle]
+    [activeDirectory]
   );
 
   // 激活并播放指定片段项
@@ -74,20 +82,23 @@ export const ClipsPage: React.FC = () => {
       setCurrentShuffleItem(item);
       setLastPlaybackTime(item.clip.startTime);
       setFileError(null);
-      const file = await loadVideoFile(item);
-      if (!file) {
+      const mediaSource = await loadVideoSource(item);
+      if (!mediaSource) {
         setFileError(t('clipsFeed.readError'));
         setCurrentVideoFile(null);
+        setCurrentVideoSrc(null);
       } else {
-        setCurrentVideoFile(file);
+        setCurrentVideoFile(mediaSource.file || null);
+        setCurrentVideoSrc(mediaSource.src || null);
       }
     },
     [
-      loadVideoFile,
+      loadVideoSource,
       setCurrentShuffleItem,
       setLastPlaybackTime,
       setFileError,
       setCurrentVideoFile,
+      setCurrentVideoSrc,
       t,
     ]
   );
@@ -97,7 +108,7 @@ export const ClipsPage: React.FC = () => {
     let active = true;
 
     async function loadData() {
-      if (!directoryHandle || isScanning) {
+      if (!activeDirectory || isScanning) {
         return;
       }
 
@@ -142,6 +153,7 @@ export const ClipsPage: React.FC = () => {
         if (targetItems.length === 0) {
           setCurrentShuffleItem(null);
           setCurrentVideoFile(null);
+          setCurrentVideoSrc(null);
           return;
         }
 
@@ -155,12 +167,13 @@ export const ClipsPage: React.FC = () => {
           store.shuffleQueue.syncItems(targetItems, matchedItem.clip.id);
           store.setCurrentShuffleItem(matchedItem);
           store.setFileError(null);
-          if (!store.currentVideoFile) {
-            const file = await loadVideoFile(matchedItem);
-            if (!file) {
+          if (!store.currentVideoFile && !store.currentVideoSrc) {
+            const mediaSource = await loadVideoSource(matchedItem);
+            if (!mediaSource) {
               store.setFileError(t('clipsFeed.readError'));
             }
-            store.setCurrentVideoFile(file);
+            store.setCurrentVideoFile(mediaSource?.file || null);
+            store.setCurrentVideoSrc(mediaSource?.src || null);
           }
         } else {
           // 重新初始化洗牌队列并从首个片段开始播放
@@ -175,9 +188,9 @@ export const ClipsPage: React.FC = () => {
       }
     }
 
-    if (!isScanning && directoryHandle) {
+    if (!isScanning && activeDirectory) {
       loadData();
-    } else if (!directoryHandle) {
+    } else if (!activeDirectory) {
       setAllItems([]);
       setTotalVideoCount(0);
       resetFeed();
@@ -187,13 +200,14 @@ export const ClipsPage: React.FC = () => {
       active = false;
     };
   }, [
-    directoryHandle,
+    activeDirectory,
     isScanning,
-    loadVideoFile,
+    loadVideoSource,
     playItem,
     resetFeed,
     setCurrentShuffleItem,
     setCurrentVideoFile,
+    setCurrentVideoSrc,
     t,
   ]);
 
@@ -209,6 +223,7 @@ export const ClipsPage: React.FC = () => {
       if (targetItems.length === 0) {
         setCurrentShuffleItem(null);
         setCurrentVideoFile(null);
+        setCurrentVideoSrc(null);
         return;
       }
 
@@ -232,6 +247,7 @@ export const ClipsPage: React.FC = () => {
       playItem,
       setCurrentShuffleItem,
       setCurrentVideoFile,
+      setCurrentVideoSrc,
       setFileError,
       setSelectedTag,
       shuffleQueue,
@@ -242,26 +258,35 @@ export const ClipsPage: React.FC = () => {
   const handleRequestNext = useCallback(async (): Promise<FeedSlotData | null> => {
     const nextItem = shuffleQueue.next();
     if (!nextItem) return null;
-    const file = await loadVideoFile(nextItem);
-    return { item: nextItem, file };
-  }, [loadVideoFile, shuffleQueue]);
+    const mediaSource = await loadVideoSource(nextItem);
+    return {
+      item: nextItem,
+      file: mediaSource?.file || null,
+      src: mediaSource?.src || null,
+    };
+  }, [loadVideoSource, shuffleQueue]);
 
   // 请求上一个片段数据供动画容器预先装载
   const handleRequestPrevious = useCallback(async (): Promise<FeedSlotData | null> => {
     const prevItem = shuffleQueue.previous();
     if (!prevItem) return null;
-    const file = await loadVideoFile(prevItem);
-    return { item: prevItem, file };
-  }, [loadVideoFile, shuffleQueue]);
+    const mediaSource = await loadVideoSource(prevItem);
+    return {
+      item: prevItem,
+      file: mediaSource?.file || null,
+      src: mediaSource?.src || null,
+    };
+  }, [loadVideoSource, shuffleQueue]);
 
   // 当动画滑动完成时同步当前状态
   const handleCommitItemChange = useCallback(
-    (item: ShuffleItem, file: File | null) => {
+    (item: ShuffleItem, file: File | null, src?: string | null) => {
       setCurrentShuffleItem(item);
       setCurrentVideoFile(file);
+      setCurrentVideoSrc(src || null);
       setLastPlaybackTime(item.clip.startTime);
     },
-    [setCurrentShuffleItem, setCurrentVideoFile, setLastPlaybackTime]
+    [setCurrentShuffleItem, setCurrentVideoFile, setCurrentVideoSrc, setLastPlaybackTime]
   );
 
   // 播放器时间更新时实时记录到 Store
@@ -283,7 +308,7 @@ export const ClipsPage: React.FC = () => {
   }, [shuffleQueue, playItem, setCurrentShuffleItem]);
 
   // 无目录状态
-  if (isHandleRestoring || !directoryHandle) {
+  if (isHandleRestoring || !activeDirectory) {
     return <EmptyState type="no-directory" />;
   }
 
@@ -394,8 +419,12 @@ export const ClipsPage: React.FC = () => {
           </div>
         ) : currentShuffleItem ? (
           <ClipFeedContainer
-            key={directoryHandle.name}
-            currentSlot={{ item: currentShuffleItem, file: currentVideoFile }}
+            key={activeDirectory.name}
+            currentSlot={{
+              item: currentShuffleItem,
+              file: currentVideoFile,
+              src: currentVideoSrc,
+            }}
             initialTime={lastPlaybackTime ?? currentShuffleItem.clip.startTime}
             onCurrentTimeChange={handleCurrentTimeChange}
             onRequestNext={handleRequestNext}

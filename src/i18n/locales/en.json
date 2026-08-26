@@ -34,6 +34,7 @@
     "rename": "Rename",
     "noCover": "No cover image",
     "hide": "Hide",
+    "revealInExplorer": "Reveal in File Manager",
     "hideConfirmTitle": "Are you sure you want to hide this video?",
     "hideConfirmContent": "Hidden videos can be restored by removing the hide field from the corresponding data.json file.",
     "confirmHide": "Confirm Hide"

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useTranslation } from 'react-i18next';
@@ -6,7 +6,12 @@ import { Video } from '@/types/video';
 import { Clip } from '@/types/clip';
 import { getVideoById } from '@/db/videos';
 import { getClipsByVideoId, saveClip, deleteClip } from '@/db/clips';
-import { getVideoFileFromHandle, syncVideoClipsToDataJson } from '@/services/fileSystem';
+import {
+  getVideoMediaSource,
+  syncVideoClipsToDataJson,
+  isTauri,
+  revealInFileManager,
+} from '@/services/fileSystem/index';
 import { generateClipId } from '@/utils/id';
 import { useDirectory } from '@/hooks/useDirectory';
 import { VideoPlayer } from '@/components/video/VideoPlayer';
@@ -21,11 +26,18 @@ export const VideoDetailPage: React.FC = () => {
   const { videoId } = useParams<{ videoId: string }>();
   const navigate = useNavigate();
 
-  const { directoryHandle, isHandleRestoring } = useDirectory();
+  const { directoryRef, directoryHandle, isHandleRestoring } = useDirectory();
+  const activeDirectory = useMemo(
+    () =>
+      directoryRef ||
+      (directoryHandle ? { name: directoryHandle.name, handle: directoryHandle } : null),
+    [directoryRef, directoryHandle]
+  );
   const { isClipPanelOpen, setIsClipPanelOpen, setEditingClip } = usePlayerStore();
 
   const [video, setVideo] = useState<Video | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const [clips, setClips] = useState<Clip[]>([]);
   const [currentVideoTime, setCurrentVideoTime] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,12 +60,13 @@ export const VideoDetailPage: React.FC = () => {
       const clipList = await getClipsByVideoId(videoId);
       setClips(clipList);
 
-      if (directoryHandle) {
+      if (activeDirectory) {
         try {
-          const file = await getVideoFileFromHandle(directoryHandle, v.folderName, v.fileName);
-          setVideoFile(file);
+          const mediaSource = await getVideoMediaSource(activeDirectory, v.folderName, v.fileName);
+          setVideoFile(mediaSource.file || null);
+          setVideoSrc(mediaSource.src || null);
         } catch (fileErr) {
-          console.error('Failed to load video file from disk:', fileErr);
+          console.error('Failed to load video media source from disk:', fileErr);
           setError(t('videoDetail.videoReadError'));
         }
       }
@@ -63,7 +76,7 @@ export const VideoDetailPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [videoId, directoryHandle, t]);
+  }, [videoId, activeDirectory, t]);
 
   useEffect(() => {
     loadVideoData();
@@ -96,9 +109,9 @@ export const VideoDetailPage: React.FC = () => {
       setClips(updatedList);
 
       // 同步持久化至当前视频子目录的 data.json
-      if (directoryHandle) {
+      if (activeDirectory) {
         try {
-          await syncVideoClipsToDataJson(directoryHandle, video, updatedList);
+          await syncVideoClipsToDataJson(activeDirectory, video, updatedList);
         } catch (syncErr) {
           console.warn('Failed to sync clips to data.json on save:', syncErr);
         }
@@ -120,9 +133,9 @@ export const VideoDetailPage: React.FC = () => {
       setClips(updatedList);
 
       // 同步持久化至当前视频子目录的 data.json
-      if (directoryHandle) {
+      if (activeDirectory) {
         try {
-          await syncVideoClipsToDataJson(directoryHandle, video, updatedList);
+          await syncVideoClipsToDataJson(activeDirectory, video, updatedList);
         } catch (syncErr) {
           console.warn('Failed to sync clips to data.json on delete:', syncErr);
         }
@@ -140,7 +153,7 @@ export const VideoDetailPage: React.FC = () => {
     );
   }
 
-  if (!directoryHandle) {
+  if (!activeDirectory) {
     return <EmptyState type="permission-needed" />;
   }
 
@@ -202,6 +215,23 @@ export const VideoDetailPage: React.FC = () => {
             ({t('videoDetail.clipCount', { count: clips.length })})
           </span>
         </div>
+
+        {isTauri() && activeDirectory?.path && (
+          <Button
+            isIconOnly
+            variant="tertiary"
+            size="sm"
+            onPress={() => {
+              const sep = activeDirectory.path?.includes('\\') ? '\\' : '/';
+              const fullPath = `${activeDirectory.path}${sep}${video.folderName}`;
+              revealInFileManager(fullPath);
+            }}
+            aria-label="在资源管理器中显示"
+            className="size-7 text-foreground-muted hover:text-foreground"
+          >
+            <Icon icon="lucide:folder-symlink" className="size-4" />
+          </Button>
+        )}
       </div>
 
       {/* 主内容区域：视频播放器 + 片段面板 */}
@@ -215,6 +245,7 @@ export const VideoDetailPage: React.FC = () => {
         <div className="flex h-full min-w-0 flex-1">
           <VideoPlayer
             file={videoFile}
+            src={videoSrc}
             showScissorsButton={true}
             onCurrentTimeChange={setCurrentVideoTime}
             hasPrevious={false}

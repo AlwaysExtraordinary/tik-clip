@@ -18,8 +18,14 @@ export const SettingsModal: React.FC = () => {
     showThumbnailPreview,
     setShowThumbnailPreview,
   } = useSettingsStore();
-  const { directoryName, selectDirectory, performScan, directoryHandle, isScanning } =
+  const { directoryName, selectDirectory, performScan, directoryRef, directoryHandle, isScanning } =
     useDirectory();
+  const activeDirectory = React.useMemo(
+    () =>
+      directoryRef ||
+      (directoryHandle ? { name: directoryHandle.name, handle: directoryHandle } : null),
+    [directoryRef, directoryHandle]
+  );
 
   const modalState = useOverlayState({
     isOpen: isSettingsOpen,
@@ -69,12 +75,12 @@ export const SettingsModal: React.FC = () => {
               </div>
 
               {/* 重新扫描 */}
-              {directoryHandle && (
+              {activeDirectory && (
                 <div className="flex justify-end -mt-2">
                   <div
                     className="text-xs flex gap-1.5 items-center py-1 px-2 hover:bg-surface-hover rounded-full cursor-pointer"
                     onClick={() => {
-                      if (!isScanning) performScan(directoryHandle);
+                      if (!isScanning) performScan(activeDirectory);
                     }}
                   >
                     <Icon

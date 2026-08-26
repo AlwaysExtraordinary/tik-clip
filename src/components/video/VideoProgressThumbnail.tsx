@@ -3,7 +3,7 @@ import { cn } from '@/utils/cn';
 import { formatTime } from '@/utils/time';
 
 interface VideoProgressThumbnailProps {
-  /** 视频源 URL（与主播放器共享同一 Object URL） */
+  /** 视频源 URL（与主播放器共享同一 Object URL 或 Tauri 资源 URL） */
   videoUrl: string;
   /** 要预览的绝对时间（秒） */
   hoverTime: number;
@@ -44,6 +44,7 @@ export const VideoProgressThumbnail: React.FC<VideoProgressThumbnailProps> = ({
   const cacheRef = useRef<Map<number, string>>(new Map());
   const lastSeekTimeRef = useRef<number>(-1);
   const throttleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const seekTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSeeking = useRef(false);
   const pendingTimeRef = useRef<number | null>(null);
 
@@ -53,8 +54,11 @@ export const VideoProgressThumbnail: React.FC<VideoProgressThumbnailProps> = ({
 
   // 初始化离屏 video 和 canvas
   useEffect(() => {
+    setIsReady(false);
     const video = document.createElement('video');
-    video.preload = 'metadata';
+    // 设置 crossOrigin 为 anonymous，防止 Tauri asset 协议跨域污染 Canvas 导致 toDataURL 失败
+    video.crossOrigin = 'anonymous';
+    video.preload = 'auto';
     video.muted = true;
     video.playsInline = true;
     // 隐藏在 DOM 外，不可见不可交互
@@ -71,7 +75,7 @@ export const VideoProgressThumbnail: React.FC<VideoProgressThumbnailProps> = ({
 
     const canvas = document.createElement('canvas');
     canvas.width = THUMB_BASE_WIDTH;
-    canvas.height = 90; // 初始值，loadeddata 后按实际比例更新
+    canvas.height = 90; // 初始值，loadedmetadata 后按实际比例更新
     canvasRef.current = canvas;
 
     const handleLoaded = () => {
@@ -90,14 +94,26 @@ export const VideoProgressThumbnail: React.FC<VideoProgressThumbnailProps> = ({
       setIsReady(true);
     };
 
-    video.addEventListener('loadeddata', handleLoaded);
+    if (video.readyState >= 1) {
+      handleLoaded();
+    } else {
+      video.addEventListener('loadedmetadata', handleLoaded);
+      video.addEventListener('loadeddata', handleLoaded);
+    }
 
     return () => {
+      video.removeEventListener('loadedmetadata', handleLoaded);
       video.removeEventListener('loadeddata', handleLoaded);
+      if (seekTimeoutRef.current) {
+        clearTimeout(seekTimeoutRef.current);
+        seekTimeoutRef.current = null;
+      }
       video.pause();
       video.removeAttribute('src');
       video.load();
-      document.body.removeChild(video);
+      if (video.parentNode) {
+        document.body.removeChild(video);
+      }
       offscreenVideoRef.current = null;
       canvasRef.current = null;
 
@@ -114,11 +130,16 @@ export const VideoProgressThumbnail: React.FC<VideoProgressThumbnailProps> = ({
     const canvas = canvasRef.current;
     if (!video || !canvas || video.readyState < 2) return null;
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
+    try {
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
 
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL('image/jpeg', 0.7);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/jpeg', 0.7);
+    } catch (err) {
+      console.warn('Failed to capture frame from video canvas:', err);
+      return null;
+    }
   }, []);
 
   /** LRU 淘汰：删除最早插入的 key */
@@ -138,7 +159,13 @@ export const VideoProgressThumbnail: React.FC<VideoProgressThumbnailProps> = ({
   const doSeek = useCallback(
     (quantizedTime: number) => {
       const video = offscreenVideoRef.current;
-      if (!video || !isReady) return;
+      if (!video) return;
+
+      // 如果尚未准备好元数据，记录待 seek 的时间，等 handleLoaded 触发时处理
+      if (!isReady) {
+        pendingTimeRef.current = quantizedTime;
+        return;
+      }
 
       // 已缓存则直接使用
       const cached = cacheRef.current.get(quantizedTime);
@@ -147,12 +174,33 @@ export const VideoProgressThumbnail: React.FC<VideoProgressThumbnailProps> = ({
         return;
       }
 
+      // 若当前帧时间与目标时间相差极小且 readyState >= 2，直接捕获
+      if (Math.abs(video.currentTime - quantizedTime) < 0.05 && video.readyState >= 2) {
+        const frame = captureFrame();
+        if (frame) {
+          cacheRef.current.set(quantizedTime, frame);
+          evictCache();
+          setThumbnailSrc(frame);
+          return;
+        }
+      }
+
       // 标记正在 seek
       isSeeking.current = true;
       lastSeekTimeRef.current = quantizedTime;
 
+      if (seekTimeoutRef.current) {
+        clearTimeout(seekTimeoutRef.current);
+        seekTimeoutRef.current = null;
+      }
+
       const handleSeeked = () => {
         video.removeEventListener('seeked', handleSeeked);
+        if (seekTimeoutRef.current) {
+          clearTimeout(seekTimeoutRef.current);
+          seekTimeoutRef.current = null;
+        }
+
         const frame = captureFrame();
         if (frame) {
           cacheRef.current.set(quantizedTime, frame);
@@ -169,15 +217,42 @@ export const VideoProgressThumbnail: React.FC<VideoProgressThumbnailProps> = ({
         }
       };
 
+      // 兜底超时，防止特定格式/协议下 seeked 未触发导致永久死锁
+      seekTimeoutRef.current = setTimeout(() => {
+        video.removeEventListener('seeked', handleSeeked);
+        seekTimeoutRef.current = null;
+        isSeeking.current = false;
+        if (pendingTimeRef.current !== null) {
+          const next = pendingTimeRef.current;
+          pendingTimeRef.current = null;
+          doSeekRef.current(next);
+        }
+      }, 1500);
+
       video.addEventListener('seeked', handleSeeked);
-      video.currentTime = quantizedTime;
+      try {
+        video.currentTime = quantizedTime;
+      } catch (err) {
+        console.warn('Failed to set video.currentTime:', err);
+        video.removeEventListener('seeked', handleSeeked);
+        if (seekTimeoutRef.current) {
+          clearTimeout(seekTimeoutRef.current);
+          seekTimeoutRef.current = null;
+        }
+        isSeeking.current = false;
+      }
     },
     [isReady, captureFrame, evictCache]
   );
 
   useEffect(() => {
     doSeekRef.current = doSeek;
-  }, [doSeek]);
+    if (isReady && pendingTimeRef.current !== null) {
+      const next = pendingTimeRef.current;
+      pendingTimeRef.current = null;
+      doSeek(next);
+    }
+  }, [doSeek, isReady]);
 
   // 响应 hoverTime 变化，节流后调用 doSeek
   useEffect(() => {
@@ -218,7 +293,6 @@ export const VideoProgressThumbnail: React.FC<VideoProgressThumbnailProps> = ({
   }, [hoverTime, doSeek]);
 
   // 计算缩略图位置（居中于悬浮位置，并限制不超出容器边界）
-  // const halfThumb = thumbSize.width / 2;
   const clampedLeft = Math.max(0, Math.min(position, containerWidth));
 
   // 量化时间用于显示
@@ -246,7 +320,7 @@ export const VideoProgressThumbnail: React.FC<VideoProgressThumbnailProps> = ({
           <img src={thumbnailSrc} alt="" className="w-full h-full object-cover" draggable={false} />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-surface">
-            <div className="w-4 h-4 rounded-full border-2 border-foreground/30 border-t-foreground/80 animate-spin" />
+            <div className="size-4 rounded-full border-2 border-foreground/30 border-t-foreground/80 animate-spin" />
           </div>
         )}
       </div>

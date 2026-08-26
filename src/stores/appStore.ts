@@ -1,7 +1,8 @@
 import { create } from 'zustand';
-import { ScanProgress } from '@/services/videoScanner';
+import { ScanProgress, DirectoryRef } from '@/services/fileSystem/index';
 
 interface AppState {
+  directoryRef: DirectoryRef | null;
   directoryHandle: FileSystemDirectoryHandle | null;
   directoryName: string;
   isScanning: boolean;
@@ -9,6 +10,7 @@ interface AppState {
   isHandleRestoring: boolean;
   errorMessage: string | null;
 
+  setDirectoryRef: (ref: DirectoryRef | null) => void;
   setDirectoryHandle: (handle: FileSystemDirectoryHandle | null, name?: string) => void;
   setIsScanning: (isScanning: boolean) => void;
   setScanProgress: (progress: ScanProgress | null) => void;
@@ -17,6 +19,7 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
+  directoryRef: null,
   directoryHandle: null,
   directoryName: '',
   isScanning: false,
@@ -24,8 +27,15 @@ export const useAppStore = create<AppState>((set) => ({
   isHandleRestoring: true,
   errorMessage: null,
 
+  setDirectoryRef: (ref) =>
+    set({
+      directoryRef: ref,
+      directoryHandle: ref?.handle || null,
+      directoryName: ref?.name || '',
+    }),
   setDirectoryHandle: (handle, name) =>
     set({
+      directoryRef: handle ? { name: name ?? handle.name, handle } : null,
       directoryHandle: handle,
       directoryName: name ?? (handle ? handle.name : ''),
     }),

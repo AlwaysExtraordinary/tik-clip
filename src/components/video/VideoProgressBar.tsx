@@ -41,8 +41,7 @@ export const VideoProgressBar: React.FC<VideoProgressBarProps> = ({
   const activeRelativeTime = Math.max(0, Math.min(totalLength, rawTime));
 
   // 滑块圆点与进度填充柱百分比 (0% ~ 100%)
-  const percentage =
-    totalLength > 0 ? (activeRelativeTime / totalLength) * 100 : 0;
+  const percentage = totalLength > 0 ? (activeRelativeTime / totalLength) * 100 : 0;
 
   const calculateTargetTime = useCallback(
     (e: React.MouseEvent | MouseEvent): { relativeTime: number; absoluteTime: number } => {
@@ -118,16 +117,13 @@ export const VideoProgressBar: React.FC<VideoProgressBarProps> = ({
       {/* 进度条背景轨道 */}
       <div className="w-full h-1.5 rounded-full bg-foreground/20 overflow-hidden relative transition-all duration-150 group-hover:h-2">
         {/* 已播放进度填充 (无过渡延迟，绝对与圆点同步) */}
-        <div
-          className="h-full bg-foreground rounded-full"
-          style={{ width: `${percentage}%` }}
-        />
+        <div className="h-full bg-foreground rounded-full" style={{ width: `${percentage}%` }} />
       </div>
 
       {/* 进度滑块圆点 (中心严格位于 percentage 处，左右不出界) */}
       <div
         className={cn(
-          'absolute w-3.5 h-3.5 bg-foreground rounded-full shadow-subtle -translate-x-1/2 pointer-events-none transition-transform duration-100',
+          'absolute size-3.5 bg-foreground rounded-full shadow-subtle -translate-x-1/2 pointer-events-none transition-transform duration-100',
           isDragging ? 'scale-125' : 'group-hover:scale-110'
         )}
         style={{ left: `${percentage}%` }}

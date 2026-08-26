@@ -1,48 +1,48 @@
 import { useEffect, useCallback } from 'react';
 import { useAppStore } from '@/stores/appStore';
+import { getStoredDirectoryRef, setStoredDirectoryRef, clearStoredDirectory } from '@/db/settings';
 import {
-  getStoredDirectoryHandle,
-  getStoredDirectoryName,
-  setStoredDirectoryHandle,
-  clearStoredDirectory,
-} from '@/db/settings';
-import { promptDirectoryPicker, verifyDirectoryPermission } from '@/services/fileSystem';
-import { scanVideoDirectory } from '@/services/videoScanner';
+  promptDirectoryPicker,
+  verifyDirectoryPermission,
+  scanVideoDirectory,
+  DirectoryRef,
+} from '@/services/fileSystem/index';
 import { useClipsFeedStore } from '@/stores/clipsFeedStore';
 
 export function useDirectory() {
+  const directoryRef = useAppStore((s) => s.directoryRef);
   const directoryHandle = useAppStore((s) => s.directoryHandle);
   const directoryName = useAppStore((s) => s.directoryName);
   const isScanning = useAppStore((s) => s.isScanning);
   const scanProgress = useAppStore((s) => s.scanProgress);
   const isHandleRestoring = useAppStore((s) => s.isHandleRestoring);
+  const setDirectoryRef = useAppStore((s) => s.setDirectoryRef);
   const setDirectoryHandle = useAppStore((s) => s.setDirectoryHandle);
   const setIsScanning = useAppStore((s) => s.setIsScanning);
   const setScanProgress = useAppStore((s) => s.setScanProgress);
   const setIsHandleRestoring = useAppStore((s) => s.setIsHandleRestoring);
   const setErrorMessage = useAppStore((s) => s.setErrorMessage);
 
-  // 启动时尝试恢复目录句柄
+  // 启动时尝试恢复目录
   useEffect(() => {
     let mounted = true;
 
     async function restore() {
       setIsHandleRestoring(true);
       try {
-        const storedHandle = await getStoredDirectoryHandle();
-        const storedName = await getStoredDirectoryName();
+        const storedRef = await getStoredDirectoryRef();
 
-        if (storedHandle && mounted) {
-          const hasPerm = await verifyDirectoryPermission(storedHandle, 'read');
+        if (storedRef && mounted) {
+          const hasPerm = await verifyDirectoryPermission(storedRef, 'read');
           if (hasPerm && mounted) {
-            setDirectoryHandle(storedHandle, storedName || storedHandle.name);
+            setDirectoryRef(storedRef);
           } else if (mounted) {
-            // 权限尚未激活，仅保存目录名以便界面提示
-            setDirectoryHandle(null, storedName || storedHandle.name);
+            // 权限尚未激活（Web 模式下需重新交互授权），仅保存目录名以便界面提示
+            setDirectoryRef({ name: storedRef.name });
           }
         }
       } catch (err) {
-        console.warn('Error restoring directory handle:', err);
+        console.warn('Error restoring directory:', err);
       } finally {
         if (mounted) {
           setIsHandleRestoring(false);
@@ -54,15 +54,17 @@ export function useDirectory() {
     return () => {
       mounted = false;
     };
-  }, [setDirectoryHandle, setIsHandleRestoring]);
+  }, [setDirectoryRef, setIsHandleRestoring]);
 
   // 扫描目录辅助方法
   const performScan = useCallback(
-    async (handle: FileSystemDirectoryHandle) => {
+    async (target: DirectoryRef | FileSystemDirectoryHandle) => {
       setIsScanning(true);
       setErrorMessage(null);
       try {
-        await scanVideoDirectory(handle);
+        await scanVideoDirectory(target, (progress) => {
+          setScanProgress(progress);
+        });
       } catch (err: unknown) {
         console.error('Scan error:', err);
         setErrorMessage(err instanceof Error ? err.message : 'Error scanning directory');
@@ -78,32 +80,32 @@ export function useDirectory() {
   const selectDirectory = useCallback(async () => {
     try {
       setErrorMessage(null);
-      const handle = await promptDirectoryPicker();
-      if (!handle) return false;
+      const ref = await promptDirectoryPicker();
+      if (!ref) return false;
 
       // 切换文件夹时完全重置 clips 全局状态
       useClipsFeedStore.getState().resetFeed();
 
-      await setStoredDirectoryHandle(handle);
-      setDirectoryHandle(handle, handle.name);
-      await performScan(handle);
+      await setStoredDirectoryRef(ref);
+      setDirectoryRef(ref);
+      await performScan(ref);
       return true;
     } catch (err: unknown) {
       console.error('Directory selection error:', err);
       setErrorMessage(err instanceof Error ? err.message : 'Failed to select directory');
       return false;
     }
-  }, [setDirectoryHandle, performScan, setErrorMessage]);
+  }, [setDirectoryRef, performScan, setErrorMessage]);
 
   // 重新授权已保存的目录
   const reauthorizeDirectory = useCallback(async () => {
     try {
-      const storedHandle = await getStoredDirectoryHandle();
-      if (storedHandle) {
-        const hasPerm = await verifyDirectoryPermission(storedHandle, 'readwrite');
+      const storedRef = await getStoredDirectoryRef();
+      if (storedRef) {
+        const hasPerm = await verifyDirectoryPermission(storedRef, 'readwrite');
         if (hasPerm) {
-          setDirectoryHandle(storedHandle, storedHandle.name);
-          await performScan(storedHandle);
+          setDirectoryRef(storedRef);
+          await performScan(storedRef);
           return true;
         }
       }
@@ -112,23 +114,49 @@ export function useDirectory() {
       console.error('Re-authorization error:', err);
       return await selectDirectory();
     }
-  }, [selectDirectory, setDirectoryHandle, performScan]);
+  }, [selectDirectory, setDirectoryRef, performScan]);
+
+  const openDirectoryByPath = useCallback(
+    async (path: string) => {
+      try {
+        setErrorMessage(null);
+        const normalized = path.replace(/[\\/]+$/, '');
+        const parts = normalized.split(/[\\/]/);
+        const name = parts[parts.length - 1] || path;
+        const ref: DirectoryRef = { name, path };
+
+        useClipsFeedStore.getState().resetFeed();
+        await setStoredDirectoryRef(ref);
+        setDirectoryRef(ref);
+        await performScan(ref);
+        return true;
+      } catch (err: unknown) {
+        console.error('Open directory by path error:', err);
+        setErrorMessage(err instanceof Error ? err.message : 'Failed to open directory');
+        return false;
+      }
+    },
+    [setDirectoryRef, performScan, setErrorMessage]
+  );
 
   const disconnectDirectory = useCallback(async () => {
     useClipsFeedStore.getState().resetFeed();
     await clearStoredDirectory();
-    setDirectoryHandle(null, '');
-  }, [setDirectoryHandle]);
+    setDirectoryRef(null);
+  }, [setDirectoryRef]);
 
   return {
+    directoryRef,
     directoryHandle,
     directoryName,
     isScanning,
     scanProgress,
     isHandleRestoring,
     selectDirectory,
+    openDirectoryByPath,
     reauthorizeDirectory,
     performScan,
     disconnectDirectory,
+    setDirectoryHandle,
   };
 }

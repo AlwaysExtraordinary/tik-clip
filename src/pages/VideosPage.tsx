@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Video } from '@/types/video';
@@ -9,7 +9,12 @@ import { EmptyState } from '@/components/video/EmptyState';
 import { useDirectory } from '@/hooks/useDirectory';
 import { Icon } from '@iconify/react';
 import { Dropdown, Input, Modal, useOverlayState } from '@heroui/react';
-import { updateVideoNameInDataJson, hideVideoInDataJson } from '@/services/fileSystem';
+import {
+  updateVideoNameInDataJson,
+  hideVideoInDataJson,
+  isTauri,
+  revealInFileManager,
+} from '@/services/fileSystem/index';
 import { ConfirmModal } from '@/components/general/ConfirmModal';
 
 export const VideosPage: React.FC = () => {
@@ -17,7 +22,13 @@ export const VideosPage: React.FC = () => {
   const [videos, setVideos] = useState<Video[]>([]);
   const navigate = useNavigate();
 
-  const { directoryHandle, isScanning, isHandleRestoring } = useDirectory();
+  const { directoryRef, directoryHandle, isScanning, isHandleRestoring } = useDirectory();
+  const activeDirectory = useMemo(
+    () =>
+      directoryRef ||
+      (directoryHandle ? { name: directoryHandle.name, handle: directoryHandle } : null),
+    [directoryRef, directoryHandle]
+  );
 
   // 重命名状态
   const [editingVideoId, setEditingVideoId] = useState<string | null>(null);
@@ -106,9 +117,9 @@ export const VideosPage: React.FC = () => {
       console.error('Failed to update video name in DB:', err);
     }
 
-    if (directoryHandle) {
+    if (activeDirectory) {
       try {
-        await updateVideoNameInDataJson(directoryHandle, video.folderName, trimmed);
+        await updateVideoNameInDataJson(activeDirectory, video.folderName, trimmed);
       } catch (err) {
         console.warn('Failed to update data.json on video rename:', err);
       }
@@ -121,9 +132,9 @@ export const VideosPage: React.FC = () => {
     setVideos((prev) => prev.filter((v) => v.id !== video.id));
 
     // 写入 data.json hidden: true
-    if (directoryHandle) {
+    if (activeDirectory) {
       try {
-        await hideVideoInDataJson(directoryHandle, video.folderName);
+        await hideVideoInDataJson(activeDirectory, video.folderName);
       } catch (err) {
         console.warn('Failed to write hidden: true to data.json:', err);
       }
@@ -137,11 +148,11 @@ export const VideosPage: React.FC = () => {
     }
   };
 
-  if (isHandleRestoring || (!directoryHandle && videos.length === 0)) {
+  if (isHandleRestoring || (!activeDirectory && videos.length === 0)) {
     return <EmptyState type="no-directory" />;
   }
 
-  if (!directoryHandle && videos.length > 0) {
+  if (!activeDirectory && videos.length > 0) {
     return <EmptyState type="permission-needed" />;
   }
 
@@ -234,9 +245,23 @@ export const VideosPage: React.FC = () => {
                                   // 隐藏视频
                                   setHideConfirmVideo(video);
                                   setIsShowHideConfirm(true);
+                                } else if (key === 'reveal' && activeDirectory?.path) {
+                                  const sep = activeDirectory.path.includes('\\') ? '\\' : '/';
+                                  const fullPath = `${activeDirectory.path}${sep}${video.folderName}`;
+                                  revealInFileManager(fullPath);
                                 }
                               }}
                             >
+                              {/* 在系统文件管理器中打开 */}
+                              {isTauri() && activeDirectory?.path && (
+                                <Dropdown.Item id="reveal">
+                                  <div className="flex items-center gap-2 w-full text-xs font-medium text-foreground">
+                                    <Icon icon="lucide:folder-symlink" className="size-3.5" />
+                                    <div>{t('videos.revealInExplorer', '在资源管理器中显示')}</div>
+                                  </div>
+                                </Dropdown.Item>
+                              )}
+
                               {/* 隐藏视频 */}
                               <Dropdown.Item id="delete">
                                 <div className="flex items-center gap-2 w-full text-xs font-medium text-danger">

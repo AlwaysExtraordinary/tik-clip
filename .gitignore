@@ -43,3 +43,7 @@ next-env.d.ts
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Tauri / Rust
+src-tauri/target/
+src-tauri/gen/schemas/

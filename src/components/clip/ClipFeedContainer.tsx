@@ -4,7 +4,8 @@ import { VideoPlayer } from '@/components/video/VideoPlayer';
 
 export interface FeedSlotData {
   item: ShuffleItem;
-  file: File | null;
+  file?: File | null;
+  src?: string | null;
 }
 
 interface InternalSlot extends FeedSlotData {
@@ -15,7 +16,7 @@ interface ClipFeedContainerProps {
   currentSlot: FeedSlotData;
   onRequestNext: () => Promise<FeedSlotData | null>;
   onRequestPrevious: () => Promise<FeedSlotData | null>;
-  onCommitItemChange: (item: ShuffleItem, file: File | null) => void;
+  onCommitItemChange: (item: ShuffleItem, file: File | null, src?: string | null) => void;
   onCurrentTimeChange?: (time: number) => void;
   initialTime?: number;
   hasPrevious?: boolean;
@@ -41,6 +42,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
   const [slotA, setSlotA] = useState<InternalSlot | null>(() => ({
     item: currentSlot.item,
     file: currentSlot.file,
+    src: currentSlot.src,
     key: currentSlot.item.clip.id,
   }));
   const [slotB, setSlotB] = useState<InternalSlot | null>(null);
@@ -77,19 +79,22 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  // 外部强制更新 currentSlot（仅在 idle 状态生效，支持同步 file 与 item 变更）
+  // 外部强制更新 currentSlot（仅在 idle 状态生效，支持同步 file / src 与 item 变更）
   useEffect(() => {
     if (transitionState === 'idle') {
       const activeData = activeSlotId === 'A' ? slotA : slotB;
       if (
         !activeData ||
         activeData.item.clip.id !== currentSlot.item.clip.id ||
-        activeData.file !== currentSlot.file
+        activeData.file !== currentSlot.file ||
+        activeData.src !== currentSlot.src
       ) {
+        const isReady = Boolean(currentSlot.file || currentSlot.src);
         const newSlot: InternalSlot = {
           item: currentSlot.item,
           file: currentSlot.file,
-          key: `${currentSlot.item.clip.id}-${currentSlot.file ? 'ready' : 'empty'}`,
+          src: currentSlot.src,
+          key: `${currentSlot.item.clip.id}-${isReady ? 'ready' : 'empty'}`,
         };
         if (activeSlotId === 'A') {
           setSlotA(newSlot);
@@ -110,7 +115,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
 
       const targetData = targetSlotId === 'A' ? slotA : slotB;
       if (targetData) {
-        onCommitItemChange(targetData.item, targetData.file);
+        onCommitItemChange(targetData.item, targetData.file || null, targetData.src || null);
       }
 
       setActiveSlotId(targetSlotId);
@@ -340,6 +345,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
           <VideoPlayer
             key={slotA.key}
             file={slotA.file}
+            src={slotA.src}
             startTime={slotA.item.clip.startTime}
             endTime={slotA.item.clip.endTime}
             initialTime={slotA.item.clip.id === initialClipId ? initialTime : undefined}
@@ -373,6 +379,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
           <VideoPlayer
             key={slotB.key}
             file={slotB.file}
+            src={slotB.src}
             startTime={slotB.item.clip.startTime}
             endTime={slotB.item.clip.endTime}
             initialTime={slotB.item.clip.id === initialClipId ? initialTime : undefined}

@@ -1,15 +1,17 @@
 /**
- * 使用 HTMLVideoElement + Canvas API 的缩略图生成器
+ * 使用 HTMLVideoElement + Canvas API 的缩略图生成器（支持 File 对象或直接传入 URL 字符串）
  */
 
 export async function generateVideoThumbnail(
-  file: File
+  source: File | string
 ): Promise<{ blob: Blob; duration: number }> {
   return new Promise((resolve, reject) => {
+    const isFile = typeof source !== 'string';
     const video = document.createElement('video');
-    const url = URL.createObjectURL(file);
+    const url = isFile ? URL.createObjectURL(source) : source;
+    video.crossOrigin = 'anonymous';
     video.src = url;
-    video.preload = 'metadata';
+    video.preload = 'auto';
     video.muted = true;
     video.playsInline = true;
 
@@ -24,7 +26,9 @@ export async function generateVideoThumbnail(
       video.pause();
       video.removeAttribute('src');
       video.load();
-      URL.revokeObjectURL(url);
+      if (isFile) {
+        URL.revokeObjectURL(url);
+      }
     };
 
     video.onloadedmetadata = () => {
@@ -91,10 +95,12 @@ export async function generateVideoThumbnail(
 /**
  * 仅读取视频时长而不生成缩略图（用于已有封面图的情况）
  */
-export async function getVideoDuration(file: File): Promise<number> {
+export async function getVideoDuration(source: File | string): Promise<number> {
   return new Promise((resolve) => {
+    const isFile = typeof source !== 'string';
     const video = document.createElement('video');
-    const url = URL.createObjectURL(file);
+    const url = isFile ? URL.createObjectURL(source) : source;
+    video.crossOrigin = 'anonymous';
     video.src = url;
     video.preload = 'metadata';
     video.muted = true;
@@ -103,7 +109,9 @@ export async function getVideoDuration(file: File): Promise<number> {
     const cleanup = () => {
       video.removeAttribute('src');
       video.load();
-      URL.revokeObjectURL(url);
+      if (isFile) {
+        URL.revokeObjectURL(url);
+      }
     };
 
     video.onloadedmetadata = () => {

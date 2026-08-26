@@ -8,8 +8,11 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/utils/cn';
 
+import { useWakeLock } from '@/hooks/useWakeLock';
+
 interface VideoPlayerProps {
-  file: File | null;
+  file?: File | null;
+  src?: string | null;
   startTime?: number;
   endTime?: number;
   initialTime?: number;
@@ -33,6 +36,7 @@ interface VideoPlayerProps {
 
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   file,
+  src,
   startTime,
   endTime,
   initialTime,
@@ -57,13 +61,18 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const [videoUrl, setVideoUrl] = useState<string | null>(() =>
-    file ? URL.createObjectURL(file) : null
-  );
+  const [videoUrl, setVideoUrl] = useState<string | null>(() => {
+    if (src) return src;
+    if (file) return URL.createObjectURL(file);
+    return null;
+  });
   const activeUrlRef = useRef<string | null>(videoUrl);
+  const isCreatedBlobUrlRef = useRef<boolean>(!src && Boolean(file));
   const isFirstMountRef = useRef(true);
 
   const [isPlaying, setIsPlaying] = useState(false);
+  // 播放时阻止系统休眠 / 屏幕常亮
+  useWakeLock(isPlaying);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [internalFullscreen, setInternalFullscreen] = useState(false);
@@ -110,33 +119,52 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const isClipMode = startTime !== undefined && endTime !== undefined;
   const clipDuration = isClipMode ? Math.max(0.1, (endTime || 0) - (startTime || 0)) : undefined;
 
-  // 管理视频 Object URL 生命周期
+  // 管理视频 URL 生命周期
   useEffect(() => {
     if (isFirstMountRef.current) {
       isFirstMountRef.current = false;
       const initialUrl = activeUrlRef.current;
+      const isBlob = isCreatedBlobUrlRef.current;
       return () => {
-        if (initialUrl) {
+        if (initialUrl && isBlob) {
           URL.revokeObjectURL(initialUrl);
         }
       };
     }
 
-    if (!file) {
-      setVideoUrl(null);
-      activeUrlRef.current = null;
+    if (src) {
+      if (activeUrlRef.current && isCreatedBlobUrlRef.current) {
+        URL.revokeObjectURL(activeUrlRef.current);
+      }
+      activeUrlRef.current = src;
+      isCreatedBlobUrlRef.current = false;
+      setVideoUrl(src);
       return;
     }
 
-    const url = URL.createObjectURL(file);
-    activeUrlRef.current = url;
-    setVideoUrl(url);
+    if (file) {
+      if (activeUrlRef.current && isCreatedBlobUrlRef.current) {
+        URL.revokeObjectURL(activeUrlRef.current);
+      }
+      const url = URL.createObjectURL(file);
+      activeUrlRef.current = url;
+      isCreatedBlobUrlRef.current = true;
+      setVideoUrl(url);
 
-    return () => {
-      URL.revokeObjectURL(url);
-      activeUrlRef.current = null;
-    };
-  }, [file]);
+      return () => {
+        URL.revokeObjectURL(url);
+        activeUrlRef.current = null;
+        isCreatedBlobUrlRef.current = false;
+      };
+    }
+
+    if (activeUrlRef.current && isCreatedBlobUrlRef.current) {
+      URL.revokeObjectURL(activeUrlRef.current);
+    }
+    setVideoUrl(null);
+    activeUrlRef.current = null;
+    isCreatedBlobUrlRef.current = false;
+  }, [src, file]);
 
   // 处理来自外部状态的跳转请求（例如编辑片段或点击时间标签）
   useEffect(() => {
