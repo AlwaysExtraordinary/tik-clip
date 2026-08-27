@@ -34,7 +34,8 @@
     "rename": "重命名",
     "noCover": "暂无封面",
     "hide": "隐藏",
-    "revealInExplorer": "在资源管理器中显示",
+    "hideVideo": "隐藏视频",
+    "revealInExplorer": "在文件夹中显示",
     "hideConfirmTitle": "确定要隐藏视频吗？",
     "hideConfirmContent": "隐藏的视频可在对应的data.json文件中删除hide字段后恢复。",
     "confirmHide": "确认隐藏"

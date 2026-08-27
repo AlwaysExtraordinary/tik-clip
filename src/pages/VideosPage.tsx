@@ -16,6 +16,7 @@ import {
   revealInFileManager,
 } from '@/services/fileSystem/index';
 import { ConfirmModal } from '@/components/general/ConfirmModal';
+import { cn } from '@/utils/cn';
 
 export const VideosPage: React.FC = () => {
   const { t } = useTranslation();
@@ -41,6 +42,23 @@ export const VideosPage: React.FC = () => {
   // 隐藏视频确认弹窗状态
   const [isShowHideConfirm, setIsShowHideConfirm] = useState<boolean>(false);
   const [hideConfirmVideo, setHideConfirmVideo] = useState<Video | null>(null);
+
+  // 卡片操作列表
+  const videoActionList = [
+    {
+      text: t('videos.revealInExplorer'),
+      key: 'reveal',
+      iconName: 'lucide:folder-symlink',
+      isShow: isTauri() && activeDirectory?.path,
+    },
+    {
+      text: t('videos.hideVideo'),
+      key: 'delete',
+      iconName: 'lucide:image-off',
+      isShow: true,
+      textColorClass: 'text-danger',
+    },
+  ];
 
   // 加载视频列表
   useEffect(() => {
@@ -238,7 +256,7 @@ export const VideosPage: React.FC = () => {
                           </Dropdown.Trigger>
 
                           {/* 操作列表 */}
-                          <Dropdown.Popover className="min-w-30">
+                          <Dropdown.Popover className="min-w-30 rounded-xl">
                             <Dropdown.Menu
                               onAction={(key) => {
                                 if (key === 'delete') {
@@ -252,23 +270,27 @@ export const VideosPage: React.FC = () => {
                                 }
                               }}
                             >
-                              {/* 在系统文件管理器中打开 */}
-                              {isTauri() && activeDirectory?.path && (
-                                <Dropdown.Item id="reveal">
-                                  <div className="flex items-center gap-2 w-full text-xs font-medium text-foreground">
-                                    <Icon icon="lucide:folder-symlink" className="size-3.5" />
-                                    <div>{t('videos.revealInExplorer', '在资源管理器中显示')}</div>
-                                  </div>
-                                </Dropdown.Item>
-                              )}
-
-                              {/* 隐藏视频 */}
-                              <Dropdown.Item id="delete">
-                                <div className="flex items-center gap-2 w-full text-xs font-medium text-danger">
-                                  <Icon icon="lucide:eye-off" className="size-3.5" />
-                                  <div>{t('videos.hide')}</div>
-                                </div>
-                              </Dropdown.Item>
+                              {/* 操作列表 */}
+                              {videoActionList
+                                .filter((item) => item.isShow)
+                                .map((item) => (
+                                  <Dropdown.Item
+                                    id={item.key}
+                                    className="rounded-md px-1.5 py-1 min-h-0"
+                                  >
+                                    <div
+                                      className={cn(
+                                        'flex items-center gap-2 w-full text-xs font-medium rounded-xl',
+                                        item.textColorClass
+                                          ? item.textColorClass
+                                          : 'text-foreground'
+                                      )}
+                                    >
+                                      <Icon icon={item.iconName} className="size-4" />
+                                      <div>{item.text}</div>
+                                    </div>
+                                  </Dropdown.Item>
+                                ))}
                             </Dropdown.Menu>
                           </Dropdown.Popover>
                         </Dropdown>

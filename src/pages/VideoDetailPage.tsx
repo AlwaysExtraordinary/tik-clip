@@ -226,7 +226,7 @@ export const VideoDetailPage: React.FC = () => {
               const fullPath = `${activeDirectory.path}${sep}${video.folderName}`;
               revealInFileManager(fullPath);
             }}
-            aria-label="在资源管理器中显示"
+            aria-label={t('videos.revealInExplorer')}
             className="size-7 text-foreground-muted hover:text-foreground"
           >
             <Icon icon="lucide:folder-symlink" className="size-4" />

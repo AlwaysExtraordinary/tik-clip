@@ -49,6 +49,11 @@
   --field-border: var(--border);
   --focus: var(--accent);
   --backdrop: rgba(0, 0, 0, 0.4);
+
+  /* 字体 */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Plus Jakarta Sans', 'Roboto', 'HarmonyOS Sans SC',
+    'Segoe UI', sans-serif;
 }
 
 .dark {
@@ -90,13 +95,8 @@ body,
 
 body {
   font-family:
-    'Plus Jakarta Sans',
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    sans-serif;
+    -apple-system, BlinkMacSystemFont, 'Plus Jakarta Sans', 'Roboto', 'HarmonyOS Sans SC',
+    'Segoe UI', sans-serif;
   overflow: hidden;
   /* user-select: none; */
 }

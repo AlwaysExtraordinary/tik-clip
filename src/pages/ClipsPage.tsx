@@ -369,29 +369,34 @@ export const ClipsPage: React.FC = () => {
               onChange={(key) => handleTagChange(key as string | null)}
               placeholder={t('clipsFeed.selectTag')}
               aria-label={t('clipsFeed.filterByTag')}
-              className="w-30"
+              // className="w-30"
             >
-              <Select.Trigger className="text-xs">
+              <Select.Trigger className="text-xs rounded-full min-h-0 py-1.5">
                 <div className="flex items-center gap-1.5 min-w-0 truncate">
                   <Icon icon="lucide:tag" className="size-3.5 text-foreground-muted shrink-0" />
-                  <Select.Value className="max-sm:text-sm" />
+                  <Select.Value className="text-[11px] sm:text-[12px]" />
                 </div>
                 <Select.Indicator className="text-foreground-muted" />
               </Select.Trigger>
-              <Select.Popover className="min-w-30">
+              <Select.Popover className="min-w-30 rounded-xl">
                 <ListBox>
                   <ListBox.Item
                     id="all"
                     textValue={t('clipsFeed.default')}
-                    className="text-foreground-muted"
+                    className="text-foreground-muted text-[11px] sm:text-[12px] min-h-0 py-1 rounded-md"
                   >
                     <span>{t('clipsFeed.default')}</span>
                     <ListBox.ItemIndicator className="text-accent" />
                   </ListBox.Item>
                   {allTags.map((tag) => (
-                    <ListBox.Item key={tag} id={tag} textValue={tag}>
+                    <ListBox.Item
+                      key={tag}
+                      id={tag}
+                      textValue={tag}
+                      className="text-[11px] sm:text-[12px] min-h-0 py-1 rounded-md"
+                    >
                       <span>{tag}</span>
-                      <ListBox.ItemIndicator className="text-accent" />
+                      <ListBox.ItemIndicator className="text-accent " />
                     </ListBox.Item>
                   ))}
                 </ListBox>

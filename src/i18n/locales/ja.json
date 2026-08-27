@@ -34,7 +34,8 @@
     "rename": "名前を変更",
     "noCover": "カバー画像がありません",
     "hide": "隠し",
-    "revealInExplorer": "ファイルマネージャーで表示",
+    "hideVideo": "動画を非表示",
+    "revealInExplorer": "フォルダを開く",
     "hideConfirmTitle": "この動画を非表示にしますか？",
     "hideConfirmContent": "非表示にした動画は、対応するdata.jsonファイルからhideフィールドを削除することで復元できます。",
     "confirmHide": "非表示にする"
