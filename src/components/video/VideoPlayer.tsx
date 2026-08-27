@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { Icon } from '@iconify/react';
 import { VideoControls } from '@/components/video/VideoControls';
 import { ClipProgress } from '@/components/clip/ClipProgress';
@@ -32,6 +32,10 @@ interface VideoPlayerProps {
   onToggleCountdown?: () => void;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
+  /** 在文件管理器中打开视频所在目录（仅 Tauri 下可用） */
+  onRevealInExplorer?: () => void;
+  /** 跳转到视频详情页编辑当前片段（仅片段流页面可用） */
+  onGoToVideoDetail?: (currentTime?: number) => void;
 }
 
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -56,6 +60,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onToggleCountdown,
   isFullscreen: isFullscreenProp,
   onToggleFullscreen: onToggleFullscreenProp,
+  onRevealInExplorer,
+  onGoToVideoDetail,
 }) => {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -417,6 +423,43 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   };
 
+  /** 右上角操作按钮列表（通过 map 渲染） */
+  const topRightButtons = useMemo(() => {
+    const buttons: { key: string; icon: string; label: string; onClick: () => void }[] = [];
+
+    // 在文件管理器中打开（仅 Tauri 环境）
+    if (onRevealInExplorer) {
+      buttons.push({
+        key: 'reveal',
+        icon: 'lucide:folder-symlink',
+        label: t('videos.revealInExplorer'),
+        onClick: onRevealInExplorer,
+      });
+    }
+
+    // 跳转到视频详情页编辑当前片段（仅片段流页面）
+    if (onGoToVideoDetail) {
+      buttons.push({
+        key: 'go-to-detail',
+        icon: 'lucide:arrow-down-to-dot',
+        label: t('player.goToVideoDetail'),
+        onClick: () => onGoToVideoDetail(currentTime),
+      });
+    }
+
+    // 剪刀 / 添加片段按钮
+    if (showScissorsButton) {
+      buttons.push({
+        key: 'scissors',
+        icon: 'lucide:scissors',
+        label: t('player.addOrEditClips'),
+        onClick: toggleClipPanel,
+      });
+    }
+
+    return buttons;
+  }, [onRevealInExplorer, onGoToVideoDetail, showScissorsButton, toggleClipPanel, t, currentTime]);
+
   return (
     <div
       ref={containerRef}
@@ -464,27 +507,30 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           </div>
         )}
 
-        {/* 右上角剪刀 / 添加片段按钮 */}
-        {showScissorsButton && (
+        {/* 右上角操作按钮列表 */}
+        {topRightButtons.length > 0 && (
           <div
-            className={`absolute top-5 right-5 z-20 transition-opacity duration-300 ${
+            className={`absolute top-5 right-5 z-20 flex items-center gap-2 transition-opacity duration-300 ${
               controlsVisible ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
             }`}
             onClick={(e) => e.stopPropagation()}
             onMouseEnter={handleControlsMouseEnter}
             onMouseLeave={handleControlsMouseLeave}
           >
-            <button
-              onClick={toggleClipPanel}
-              aria-label={t('player.addOrEditClips')}
-              title={t('player.addOrEditClips')}
-              className={cn(
-                'shadow-card flex size-8 items-center justify-center rounded-full border backdrop-blur-md transition-all duration-200 sm:size-9 md:size-10',
-                'bg-surface/80 text-foreground border-border/60 hover:bg-surface-hover cursor-pointer'
-              )}
-            >
-              <Icon icon="lucide:scissors" className="size-4 sm:size-4.5 md:size-5" />
-            </button>
+            {topRightButtons.map((btn) => (
+              <button
+                key={btn.key}
+                onClick={btn.onClick}
+                aria-label={btn.label}
+                title={btn.label}
+                className={cn(
+                  'shadow-card flex size-8 items-center justify-center rounded-full border backdrop-blur-md transition-all duration-200 sm:size-9 md:size-10',
+                  'bg-surface/80 text-foreground border-border/60 hover:bg-surface-hover cursor-pointer'
+                )}
+              >
+                <Icon icon={btn.icon} className="size-4 sm:size-4.5 md:size-5" />
+              </button>
+            ))}
           </div>
         )}
       </div>

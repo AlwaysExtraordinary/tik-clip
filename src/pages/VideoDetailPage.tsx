@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useTranslation } from 'react-i18next';
 import { Video } from '@/types/video';
@@ -25,6 +25,8 @@ export const VideoDetailPage: React.FC = () => {
   const { t } = useTranslation();
   const { videoId } = useParams<{ videoId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const initialTime = (location.state as { initialTime?: number } | undefined)?.initialTime;
 
   const { directoryRef, directoryHandle, isHandleRestoring } = useDirectory();
   const activeDirectory = useMemo(
@@ -39,7 +41,7 @@ export const VideoDetailPage: React.FC = () => {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const [clips, setClips] = useState<Clip[]>([]);
-  const [currentVideoTime, setCurrentVideoTime] = useState(0);
+  const [currentVideoTime, setCurrentVideoTime] = useState(initialTime ?? 0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -145,10 +147,19 @@ export const VideoDetailPage: React.FC = () => {
     }
   };
 
+  //返回上一级界面，若无历史记录则回退到视频列表
+  const handleBack = useCallback(() => {
+    if (window.history.state && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate('/videos');
+    }
+  }, [navigate]);
+
   if (isHandleRestoring || isLoading) {
     return (
       <div className="text-foreground-muted flex flex-1 items-center justify-center">
-        <Icon icon="lucide:loader-2" className="h-8 w-8 animate-spin opacity-50" />
+        <Icon icon="lucide:loader-2" className="size-8 animate-spin opacity-50" />
       </div>
     );
   }
@@ -161,19 +172,16 @@ export const VideoDetailPage: React.FC = () => {
   if (error || !video) {
     return (
       <div className="bg-surface/40 border-border/40 flex flex-1 flex-col items-center justify-center rounded-3xl border p-8 text-center">
-        <div className="bg-danger/10 text-danger mb-3 flex h-12 w-12 items-center justify-center rounded-full">
-          <Icon icon="lucide:alert-circle" className="h-6 w-6" />
+        <div className="bg-danger/10 text-danger mb-3 flex size-12 items-center justify-center rounded-full">
+          <Icon icon="lucide:alert-circle" className="size-6" />
         </div>
         <h3 className="mb-1 text-sm font-semibold">{error || t('videoDetail.videoUnavailable')}</h3>
         <p className="text-foreground-muted mb-4 max-w-sm text-xs">
           {t('videoDetail.videoUnavailableDesc')}
         </p>
-        <button
-          onClick={() => navigate('/videos')}
-          className="bg-surface-hover hover:bg-surface-active cursor-pointer rounded-2xl px-4 py-2 text-xs font-semibold transition-colors"
-        >
-          {t('videoDetail.backToVideos')}
-        </button>
+        <Button variant="secondary" size="sm" onClick={handleBack}>
+          {t('videoDetail.back')}
+        </Button>
       </div>
     );
   }
@@ -202,11 +210,11 @@ export const VideoDetailPage: React.FC = () => {
             isIconOnly
             variant="tertiary"
             size="sm"
-            onClick={() => navigate('/videos')}
-            aria-label={t('videoDetail.backToVideos')}
+            onClick={handleBack}
+            aria-label={t('videoDetail.back')}
             className="size-7"
           >
-            <Icon icon="lucide:arrow-left" className="h-4 w-4" />
+            <Icon icon="lucide:arrow-left" className="size-4" />
           </Button>
           <span className="text-md text-foreground truncate font-semibold" title={video.name}>
             {video.name}
@@ -215,23 +223,6 @@ export const VideoDetailPage: React.FC = () => {
             ({t('videoDetail.clipCount', { count: clips.length })})
           </span>
         </div>
-
-        {isTauri() && activeDirectory?.path && (
-          <Button
-            isIconOnly
-            variant="tertiary"
-            size="sm"
-            onPress={() => {
-              const sep = activeDirectory.path?.includes('\\') ? '\\' : '/';
-              const fullPath = `${activeDirectory.path}${sep}${video.folderName}`;
-              revealInFileManager(fullPath);
-            }}
-            aria-label={t('videos.revealInExplorer')}
-            className="size-7 text-foreground-muted hover:text-foreground"
-          >
-            <Icon icon="lucide:folder-symlink" className="size-4" />
-          </Button>
-        )}
       </div>
 
       {/* 主内容区域：视频播放器 + 片段面板 */}
@@ -246,10 +237,20 @@ export const VideoDetailPage: React.FC = () => {
           <VideoPlayer
             file={videoFile}
             src={videoSrc}
+            initialTime={initialTime}
             showScissorsButton={true}
             onCurrentTimeChange={setCurrentVideoTime}
             hasPrevious={false}
             hasNext={false}
+            onRevealInExplorer={
+              isTauri() && activeDirectory?.path
+                ? () => {
+                    const sep = activeDirectory.path?.includes('\\') ? '\\' : '/';
+                    const fullPath = `${activeDirectory.path}${sep}${video.folderName}`;
+                    revealInFileManager(fullPath);
+                  }
+                : undefined
+            }
           />
         </div>
 

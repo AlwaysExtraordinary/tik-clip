@@ -21,6 +21,10 @@ interface ClipFeedContainerProps {
   initialTime?: number;
   hasPrevious?: boolean;
   hasNext?: boolean;
+  /** 在文件管理器中打开视频所在目录（仅 Tauri 环境） */
+  onRevealInExplorer?: (item: ShuffleItem) => void;
+  /** 跳转到视频详情页编辑当前片段 */
+  onGoToVideoDetail?: (item: ShuffleItem, currentTime: number) => void;
 }
 
 type TransitionState = 'idle' | 'preparing' | 'sliding';
@@ -35,6 +39,8 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
   initialTime,
   hasPrevious = true,
   hasNext = true,
+  onRevealInExplorer,
+  onGoToVideoDetail,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -359,6 +365,15 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
             isExiting={activeSlotId === 'A' && transitionState === 'sliding'}
             isFullscreen={isFullscreen}
             onToggleFullscreen={handleToggleFullscreen}
+            onRevealInExplorer={
+              onRevealInExplorer ? () => onRevealInExplorer(slotA.item) : undefined
+            }
+            onGoToVideoDetail={
+              onGoToVideoDetail
+                ? (currentTime) =>
+                    onGoToVideoDetail(slotA.item, currentTime ?? slotA.item.clip.startTime)
+                : undefined
+            }
           />
         </div>
       )}
@@ -393,6 +408,15 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
             isExiting={activeSlotId === 'B' && transitionState === 'sliding'}
             isFullscreen={isFullscreen}
             onToggleFullscreen={handleToggleFullscreen}
+            onRevealInExplorer={
+              onRevealInExplorer ? () => onRevealInExplorer(slotB.item) : undefined
+            }
+            onGoToVideoDetail={
+              onGoToVideoDetail
+                ? (currentTime) =>
+                    onGoToVideoDetail(slotB.item, currentTime ?? slotB.item.clip.startTime)
+                : undefined
+            }
           />
         </div>
       )}

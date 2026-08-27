@@ -46,6 +46,7 @@
     "loadError": "Error loading video",
     "videoUnavailable": "Video unavailable",
     "videoUnavailableDesc": "The file may have been moved, renamed, or deleted from your folder.",
+    "back": "Back",
     "backToVideos": "Back to Videos",
     "clipCount": "{{count}} clips"
   },
@@ -133,7 +134,8 @@
     "mute": "Mute",
     "unmute": "Unmute",
     "fastForwarding": "Fast Forwarding",
-    "xTimes": "{{x}} Times "
+    "xTimes": "{{x}} Times ",
+    "goToVideoDetail": "Go to Video Detail"
   },
   "common": {
     "cancel": "Cancel",

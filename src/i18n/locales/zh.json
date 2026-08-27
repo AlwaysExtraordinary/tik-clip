@@ -46,6 +46,7 @@
     "loadError": "加载视频出错",
     "videoUnavailable": "视频不可用",
     "videoUnavailableDesc": "该文件可能已被移动、重命名或从文件夹中删除。",
+    "back": "返回",
     "backToVideos": "返回视频列表",
     "clipCount": "{{count}} 个片段"
   },
@@ -133,7 +134,8 @@
     "mute": "静音",
     "unmute": "取消静音",
     "fastForwarding": "快进中",
-    "xTimes": "{{x}}倍速"
+    "xTimes": "{{x}}倍速",
+    "goToVideoDetail": "跳转到视频详情"
   },
   "common": {
     "cancel": "取消",

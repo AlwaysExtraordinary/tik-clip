@@ -46,6 +46,7 @@
     "loadError": "動画の読み込みエラー",
     "videoUnavailable": "動画を利用できません",
     "videoUnavailableDesc": "ファイルが移動、名前変更、または削除された可能性があります。",
+    "back": "戻る",
     "backToVideos": "動画一覧に戻る",
     "clipCount": "{{count}} 件のクリップ"
   },
@@ -133,7 +134,8 @@
     "mute": "ミュート",
     "unmute": "ミュート解除",
     "fastForwarding": "早送り中",
-    "xTimes": "{{x}}倍速"
+    "xTimes": "{{x}}倍速",
+    "goToVideoDetail": "動画詳細へ移動"
   },
   "common": {
     "cancel": "キャンセル",

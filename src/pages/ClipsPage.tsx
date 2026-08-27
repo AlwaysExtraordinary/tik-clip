@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useTranslation } from 'react-i18next';
 import { Select, ListBox } from '@heroui/react';
@@ -12,9 +13,11 @@ import { ClipFeedContainer, FeedSlotData } from '@/components/clip/ClipFeedConta
 import { ClipTagList } from '@/components/clip/ClipTagList';
 import { EmptyState } from '@/components/video/EmptyState';
 import { useClipsFeedStore } from '@/stores/clipsFeedStore';
+import { usePlayerStore } from '@/stores/playerStore';
 
 export const ClipsPage: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { directoryRef, directoryHandle, isScanning, isHandleRestoring } = useDirectory();
   const activeDirectory = useMemo(
     () =>
@@ -437,6 +440,12 @@ export const ClipsPage: React.FC = () => {
             onCommitItemChange={handleCommitItemChange}
             hasPrevious={true}
             hasNext={true}
+            onGoToVideoDetail={(item, time) => {
+              // 设置当前片段为编辑状态（不强制打开 ClipPanel，由已保存状态决定）
+              usePlayerStore.getState().setEditingClip(item.clip);
+              const targetTime = typeof time === 'number' ? time : (lastPlaybackTime ?? item.clip.startTime);
+              navigate(`/videos/${item.video.id}`, { state: { initialTime: targetTime } });
+            }}
           />
         ) : (
           <EmptyState
