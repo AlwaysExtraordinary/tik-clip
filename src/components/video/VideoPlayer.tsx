@@ -525,7 +525,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 title={btn.label}
                 className={cn(
                   'shadow-card flex size-8 items-center justify-center rounded-full border backdrop-blur-md transition-all duration-200 sm:size-9 md:size-10',
-                  'bg-surface/80 text-foreground border-border/60 hover:bg-surface-hover cursor-pointer'
+                  'bg-surface/80 text-foreground border-border hover:bg-surface-hover cursor-pointer'
                 )}
               >
                 <Icon icon={btn.icon} className="size-4 sm:size-4.5 md:size-5" />

@@ -18,7 +18,7 @@ export const ClipItem: React.FC<ClipItemProps> = ({ clip, isEditing, onStartEdit
 
   return (
     <div
-      className={`group flex items-center justify-between px-3.5 py-2.5 rounded-2xl border transition-all duration-150 ${
+      className={`group flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-border/60 transition-all duration-150 ${
         isEditing
           ? 'bg-accent text-background'
           : 'bg-background text-foreground hover:border-foreground/20 hover:bg-surface-hover'

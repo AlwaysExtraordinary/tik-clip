@@ -132,7 +132,7 @@ export const ClipForm: React.FC<ClipFormProps> = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       {/* 时间范围输入框容器 */}
-      <div className="flex items-center justify-between gap-2 px-3 py-4 bg-background rounded-2xl border border-border mb-4">
+      <div className="flex items-center justify-between gap-2 px-3 py-4 bg-background rounded-2xl border border-border/60 mb-4">
         {/* 开始时间字段 */}
         <div className="flex-1 flex flex-col items-center gap-2">
           <div className="w-full">

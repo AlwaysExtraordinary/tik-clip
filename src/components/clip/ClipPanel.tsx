@@ -35,7 +35,7 @@ export const ClipPanel: React.FC<ClipPanelProps> = ({
 
   return (
     <>
-      <aside className="w-full h-full bg-surface border border-border rounded-3xl p-5 shadow-card flex flex-col justify-between shrink-0">
+      <aside className="w-full h-full bg-surface border border-border/40 rounded-3xl p-5 shadow-card flex flex-col justify-between shrink-0">
         <div className="flex flex-col h-full overflow-hidden">
           {/* 头部 */}
           <div className="flex items-center justify-between pb-3 mb-2 border-b border-border/40">

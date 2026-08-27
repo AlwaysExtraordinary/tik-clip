@@ -286,7 +286,7 @@ export const VideosPage: React.FC = () => {
                                           : 'text-foreground'
                                       )}
                                     >
-                                      <Icon icon={item.iconName} className="size-4" />
+                                      <Icon icon={item.iconName} className="size-3.5" />
                                       <div>{item.text}</div>
                                     </div>
                                   </Dropdown.Item>
