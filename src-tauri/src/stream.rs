@@ -6,12 +6,12 @@ use tauri::http::{
     header::{
         ACCEPT_RANGES, ACCESS_CONTROL_ALLOW_HEADERS, ACCESS_CONTROL_ALLOW_METHODS,
         ACCESS_CONTROL_ALLOW_ORIGIN, ACCESS_CONTROL_EXPOSE_HEADERS, ACCESS_CONTROL_MAX_AGE,
-        CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE, RANGE,
+        CACHE_CONTROL, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE, ETAG, IF_NONE_MATCH, RANGE,
     },
     Method, Request, Response, StatusCode,
 };
 
-/// 处理 stream:// 协议的流式媒体请求，支持 HTTP Range（206 Partial Content）分片和 CORS
+/// 处理 stream:// 协议的流式媒体请求，支持 HTTP Range（206 Partial Content）分片、ETag 协商缓存和 CORS
 pub fn handle_stream_request(
     request: Request<Vec<u8>>,
 ) -> Result<Response<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
@@ -23,11 +23,11 @@ pub fn handle_stream_request(
             .header(ACCESS_CONTROL_ALLOW_METHODS, "GET, HEAD, OPTIONS")
             .header(
                 ACCESS_CONTROL_ALLOW_HEADERS,
-                "Range, Content-Type, Origin, Accept",
+                "Range, Content-Type, Origin, Accept, If-None-Match",
             )
             .header(
                 ACCESS_CONTROL_EXPOSE_HEADERS,
-                "Content-Range, Content-Length, Accept-Ranges",
+                "Content-Range, Content-Length, Accept-Ranges, ETag, Cache-Control",
             )
             .header(ACCESS_CONTROL_MAX_AGE, "86400")
             .body(Vec::new())?);
@@ -57,6 +57,26 @@ pub fn handle_stream_request(
     let mut file = File::open(&file_path)?;
     let metadata = file.metadata()?;
     let total_len = metadata.len();
+
+    let modified_secs = metadata
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let etag = format!("\"{:x}-{:x}\"", total_len, modified_secs);
+
+    // 处理 If-None-Match 协商缓存
+    if let Some(if_none_match) = request.headers().get(IF_NONE_MATCH) {
+        if if_none_match.to_str().unwrap_or("").trim() == etag {
+            return Ok(Response::builder()
+                .status(StatusCode::NOT_MODIFIED)
+                .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+                .header(ETAG, etag)
+                .header(CACHE_CONTROL, "public, max-age=31536000, immutable")
+                .body(Vec::new())?);
+        }
+    }
 
     let ext = file_path
         .extension()
@@ -92,13 +112,15 @@ pub fn handle_stream_request(
         .header(ACCESS_CONTROL_ALLOW_METHODS, "GET, HEAD, OPTIONS")
         .header(
             ACCESS_CONTROL_ALLOW_HEADERS,
-            "Range, Content-Type, Origin, Accept",
+            "Range, Content-Type, Origin, Accept, If-None-Match",
         )
         .header(
             ACCESS_CONTROL_EXPOSE_HEADERS,
-            "Content-Range, Content-Length, Accept-Ranges",
+            "Content-Range, Content-Length, Accept-Ranges, ETag, Cache-Control",
         )
-        .header(ACCEPT_RANGES, "bytes");
+        .header(ACCEPT_RANGES, "bytes")
+        .header(ETAG, &etag)
+        .header(CACHE_CONTROL, "public, max-age=31536000, immutable");
 
     // 处理 HEAD 请求
     if request.method() == Method::HEAD {
@@ -114,16 +136,16 @@ pub fn handle_stream_request(
         if let Ok(ranges) = HttpRange::parse(range_str, total_len) {
             if let Some(first_range) = ranges.first() {
                 let start = first_range.start;
-                // 单次请求最大读取 16MB，保证音视频流有充足缓存且 seek 极速响应
-                const MAX_CHUNK_SIZE: u64 = 16 * 1024 * 1024;
+                // 单次请求默认最大读取 2MB，大幅降低 IPC 序列化与内存复制延迟，保证 seek 秒开
+                const MAX_CHUNK_SIZE: u64 = 2 * 1024 * 1024;
                 let length = first_range.length.min(MAX_CHUNK_SIZE);
                 let end = (start + length - 1).min(total_len.saturating_sub(1));
                 let bytes_to_read = if total_len == 0 { 0 } else { end - start + 1 };
 
                 if total_len > 0 && start < total_len {
                     file.seek(SeekFrom::Start(start))?;
-                    let mut buffer = vec![0u8; bytes_to_read as usize];
-                    file.read_exact(&mut buffer)?;
+                    let mut buffer = Vec::with_capacity(bytes_to_read as usize);
+                    (&mut file).take(bytes_to_read).read_to_end(&mut buffer)?;
 
                     return Ok(response_builder
                         .status(StatusCode::PARTIAL_CONTENT)
@@ -147,10 +169,10 @@ pub fn handle_stream_request(
     // 无 Range 头部时的默认请求（如首段嗅探或小文件）
     const INITIAL_CHUNK_MAX: u64 = 2 * 1024 * 1024;
     let bytes_to_read = total_len.min(INITIAL_CHUNK_MAX);
-    let mut buffer = vec![0u8; bytes_to_read as usize];
+    let mut buffer = Vec::with_capacity(bytes_to_read as usize);
     if bytes_to_read > 0 {
         file.seek(SeekFrom::Start(0))?;
-        file.read_exact(&mut buffer)?;
+        (&mut file).take(bytes_to_read).read_to_end(&mut buffer)?;
     }
 
     if bytes_to_read < total_len {

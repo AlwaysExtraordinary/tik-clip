@@ -16,6 +16,8 @@ interface ClipFeedContainerProps {
   currentSlot: FeedSlotData;
   onRequestNext: () => Promise<FeedSlotData | null>;
   onRequestPrevious: () => Promise<FeedSlotData | null>;
+  /** 预获取下一个片段数据供备用槽位后台预载 */
+  onPeekNext?: () => Promise<FeedSlotData | null>;
   onCommitItemChange: (item: ShuffleItem, file: File | null, src?: string | null) => void;
   onCurrentTimeChange?: (time: number) => void;
   initialTime?: number;
@@ -34,6 +36,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
   currentSlot,
   onRequestNext,
   onRequestPrevious,
+  onPeekNext,
   onCommitItemChange,
   onCurrentTimeChange,
   initialTime,
@@ -104,12 +107,59 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
         };
         if (activeSlotId === 'A') {
           setSlotA(newSlot);
+          setSlotB(null);
         } else {
           setSlotB(newSlot);
+          setSlotA(null);
         }
       }
     }
   }, [currentSlot, activeSlotId, transitionState, slotA, slotB]);
+
+  // 后台自动预加载：当处于空闲状态时，在备用槽位提前预载下一个片段
+  useEffect(() => {
+    if (transitionState !== 'idle' || !hasNext || !onPeekNext) return;
+    let cancelled = false;
+
+    const inactiveSlotId = activeSlotId === 'A' ? 'B' : 'A';
+    const inactiveSlot = inactiveSlotId === 'A' ? slotA : slotB;
+
+    const runPreload = async () => {
+      try {
+        const nextData = await onPeekNext();
+        if (cancelled || !nextData) return;
+
+        // 如果非活跃槽位已经挂载了该预加载片段，则无需重复设置
+        if (
+          inactiveSlot &&
+          inactiveSlot.item.clip.id === nextData.item.clip.id &&
+          (inactiveSlot.src === nextData.src || inactiveSlot.file === nextData.file)
+        ) {
+          return;
+        }
+
+        const newSlot: InternalSlot = {
+          ...nextData,
+          key: `preload-${nextData.item.clip.id}`,
+        };
+
+        if (inactiveSlotId === 'A') {
+          setSlotA(newSlot);
+        } else {
+          setSlotB(newSlot);
+        }
+      } catch (err) {
+        console.warn('Background preload failed:', err);
+      }
+    };
+
+    // 延迟 80ms 启动后台预载，优先保证活跃视频播放平稳
+    const timer = setTimeout(runPreload, 80);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [activeSlotId, hasNext, onPeekNext, slotA, slotB, transitionState]);
 
   // 完成过渡，Ping-Pong 切换槽位
   const finalizeTransition = useCallback(
@@ -137,27 +187,37 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
     [onCommitItemChange, slotA, slotB]
   );
 
-  // 下一个片段切换
+  // 下一个片段切换（秒切已预加载槽位）
   const triggerNext = useCallback(async () => {
     if (isTransitioningRef.current || !hasNext) return;
 
     isTransitioningRef.current = true;
+    const targetSlotId = activeSlotId === 'A' ? 'B' : 'A';
+    const targetSlot = targetSlotId === 'A' ? slotA : slotB;
+
     const nextSlotData = await onRequestNext();
     if (!nextSlotData) {
       isTransitioningRef.current = false;
       return;
     }
 
-    const targetSlotId = activeSlotId === 'A' ? 'B' : 'A';
-    const newInternalSlot: InternalSlot = {
-      ...nextSlotData,
-      key: `${nextSlotData.item.clip.id}-${Date.now()}`,
-    };
+    // 检查目标槽位是否已经预加载了该片段
+    const isAlreadyPreloaded =
+      targetSlot &&
+      targetSlot.item.clip.id === nextSlotData.item.clip.id &&
+      (targetSlot.src === nextSlotData.src || targetSlot.file === nextSlotData.file);
 
-    if (targetSlotId === 'A') {
-      setSlotA(newInternalSlot);
-    } else {
-      setSlotB(newInternalSlot);
+    if (!isAlreadyPreloaded) {
+      const newInternalSlot: InternalSlot = {
+        ...nextSlotData,
+        key: `${nextSlotData.item.clip.id}-${Date.now()}`,
+      };
+
+      if (targetSlotId === 'A') {
+        setSlotA(newInternalSlot);
+      } else {
+        setSlotB(newInternalSlot);
+      }
     }
 
     setDirection('next');
@@ -173,7 +233,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
         }, 420);
       });
     });
-  }, [activeSlotId, finalizeTransition, hasNext, onRequestNext]);
+  }, [activeSlotId, finalizeTransition, hasNext, onRequestNext, slotA, slotB]);
 
   // 上一个片段切换
   const triggerPrevious = useCallback(async () => {
@@ -363,6 +423,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
             showScissorsButton={false}
             enableKeyboardShortcuts={activeSlotId === 'A' && transitionState === 'idle'}
             isExiting={activeSlotId === 'A' && transitionState === 'sliding'}
+            isPreloading={activeSlotId !== 'A' && transitionState === 'idle'}
             isFullscreen={isFullscreen}
             onToggleFullscreen={handleToggleFullscreen}
             onRevealInExplorer={
@@ -406,6 +467,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
             showScissorsButton={false}
             enableKeyboardShortcuts={activeSlotId === 'B' && transitionState === 'idle'}
             isExiting={activeSlotId === 'B' && transitionState === 'sliding'}
+            isPreloading={activeSlotId !== 'B' && transitionState === 'idle'}
             isFullscreen={isFullscreen}
             onToggleFullscreen={handleToggleFullscreen}
             onRevealInExplorer={

@@ -257,6 +257,18 @@ export const ClipsPage: React.FC = () => {
     ]
   );
 
+  // 预获取下一个片段数据供动画容器后台预加载（不消耗洗牌队列游标）
+  const handlePeekNext = useCallback(async (): Promise<FeedSlotData | null> => {
+    const nextItem = shuffleQueue.peekNext();
+    if (!nextItem) return null;
+    const mediaSource = await loadVideoSource(nextItem);
+    return {
+      item: nextItem,
+      file: mediaSource?.file || null,
+      src: mediaSource?.src || null,
+    };
+  }, [loadVideoSource, shuffleQueue]);
+
   // 请求下一个片段数据供动画容器预先装载
   const handleRequestNext = useCallback(async (): Promise<FeedSlotData | null> => {
     const nextItem = shuffleQueue.next();
@@ -435,6 +447,7 @@ export const ClipsPage: React.FC = () => {
             }}
             initialTime={lastPlaybackTime ?? currentShuffleItem.clip.startTime}
             onCurrentTimeChange={handleCurrentTimeChange}
+            onPeekNext={handlePeekNext}
             onRequestNext={handleRequestNext}
             onRequestPrevious={handleRequestPrevious}
             onCommitItemChange={handleCommitItemChange}

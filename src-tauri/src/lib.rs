@@ -107,7 +107,7 @@ pub fn run() {
             Ok(())
         })
         .register_asynchronous_uri_scheme_protocol("stream", |_ctx, request, responder| {
-            std::thread::spawn(move || {
+            tauri::async_runtime::spawn_blocking(move || {
                 let response = match stream::handle_stream_request(request) {
                     Ok(resp) => resp,
                     Err(err) => {

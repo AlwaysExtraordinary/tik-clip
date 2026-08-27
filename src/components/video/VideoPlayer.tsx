@@ -26,6 +26,8 @@ interface VideoPlayerProps {
   hasNext?: boolean;
   enableKeyboardShortcuts?: boolean;
   isExiting?: boolean;
+  /** 是否处于后台预加载模式（仅预解码首帧并 seek 到起始点，不自动播放声音） */
+  isPreloading?: boolean;
   fitMode?: VideoFitMode;
   onToggleFitMode?: () => void;
   showCountdown?: boolean;
@@ -54,6 +56,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   hasNext = true,
   enableKeyboardShortcuts = true,
   isExiting = false,
+  isPreloading = false,
   fitMode: fitModeProp,
   onToggleFitMode,
   showCountdown: showCountdownProp,
@@ -77,8 +80,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const isFirstMountRef = useRef(true);
 
   const [isPlaying, setIsPlaying] = useState(false);
-  // 播放时阻止系统休眠 / 屏幕常亮
-  useWakeLock(isPlaying);
+  // 播放时阻止系统休眠 / 屏幕常亮（预加载时不阻止休眠）
+  useWakeLock(isPlaying && !isPreloading);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [internalFullscreen, setInternalFullscreen] = useState(false);
@@ -347,6 +350,25 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   );
 
   // 当处于退出动画阶段时立即暂停、重置倍速并静音
+  const prevPreloadingRef = useRef(isPreloading);
+  useEffect(() => {
+    if (prevPreloadingRef.current && !isPreloading && !isExiting) {
+      const video = videoRef.current;
+      if (video) {
+        if (
+          isClipMode &&
+          startTime !== undefined &&
+          (video.currentTime < startTime || (endTime !== undefined && video.currentTime >= endTime))
+        ) {
+          const target = initialTime !== undefined && initialTime >= startTime ? initialTime : startTime;
+          video.currentTime = target;
+        }
+        video.play().catch(() => {});
+      }
+    }
+    prevPreloadingRef.current = isPreloading;
+  }, [isPreloading, isExiting, isClipMode, startTime, endTime, initialTime]);
+
   useEffect(() => {
     if (isExiting && videoRef.current) {
       videoRef.current.playbackRate = 1;
@@ -394,20 +416,27 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           : startTime;
       video.currentTime = targetTime;
       setCurrentTime(targetTime);
-      onCurrentTimeChange?.(targetTime);
+      if (!isPreloading) {
+        onCurrentTimeChange?.(targetTime);
+      }
     } else if (initialTime !== undefined && initialTime > 0) {
       video.currentTime = initialTime;
       setCurrentTime(initialTime);
-      onCurrentTimeChange?.(initialTime);
+      if (!isPreloading) {
+        onCurrentTimeChange?.(initialTime);
+      }
     }
 
-    // 片段模式下切换片段时自动播放
-    video.play().catch(() => {
-      // 带音频的自动播放可能需要用户手势交互，受阻时由用户手动点击播放
-    });
+    // 非预加载状态下自动播放
+    if (!isPreloading && !isExiting) {
+      video.play().catch(() => {
+        // 带音频的自动播放可能需要用户手势交互，受阻时由用户手动点击播放
+      });
+    }
   };
 
   const handleTimeUpdate = () => {
+    if (isPreloading) return;
     const video = videoRef.current;
     if (!video) return;
 
@@ -478,6 +507,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           <video
             ref={videoRef}
             src={videoUrl}
+            preload="auto"
             onLoadedMetadata={handleLoadedMetadata}
             onTimeUpdate={handleTimeUpdate}
             onPlay={() => setIsPlaying(true)}
