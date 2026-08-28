@@ -5,8 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { cn } from '@/utils/cn';
-import brandIconLight from '@/assets/svg/tik-clip-text-light.svg';
-import brandIconDark from '@/assets/svg/tik-clip-text-dark.svg';
+import brandIconLight from '@/assets/svg/tik-clip-text-dark.svg';
+import brandIconDark from '@/assets/svg/tik-clip-text-white.svg';
 
 export const Sidebar: React.FC = () => {
   const { t } = useTranslation();
@@ -50,8 +50,8 @@ export const Sidebar: React.FC = () => {
         <div className="w-full flex items-center justify-start pb-0.5">
           {/* 品牌图标 */}
           <div className="pl-1">
-            <img src={brandIconLight} className="w-20 dark:hidden" alt="Tik Clip" />
-            <img src={brandIconDark} className="w-20 hidden dark:block" alt="Tik Clip" />
+            <img src={brandIconLight} className="w-25 dark:hidden" alt="Tik Clip" />
+            <img src={brandIconDark} className="w-25 hidden dark:block" alt="Tik Clip" />
           </div>
 
           {/* 收起按钮图标 */}
