@@ -4,15 +4,8 @@
     <p align="center"><img src="./src/assets/svg/tik-clip.svg" alt="Tik-Clip" width="80"/></p>
     <br>
    TikClip - 一个优雅的本地视频播放器，精选片段，通过随机视频流播放
-  </h3>
-  <br>
-  <img src="./docs/images/cut_scene.png" alt="Tik-Clip" width="600"/><br>
-  <p align="center">编辑你喜欢的片段</p>
-  <img src="./docs/images/clips_scene.png" alt="Tik-Clip" width="600"/><br>
-  <p align="center">像tiktok/抖音一样浏览片段</p>
-  <img src="./docs/images/setting_scene.png" alt="Tik-Clip" width="600"/><br>
-  <p align="center">多语言，深浅色主题，缩略图，更多功能开发中...</p>
-
+  </h3><br>
+  多语言，深浅色主题，缩略图，更多功能开发中...
 </div>
 
 # 使用教程
