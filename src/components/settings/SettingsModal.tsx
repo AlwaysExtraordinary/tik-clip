@@ -62,7 +62,11 @@ export const SettingsModal: React.FC = () => {
                   {t('settings.videoDirectory')}
                 </label>
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="flex items-center gap-1.5 min-w-0 px-3 py-1.5 bg-(--field-background) border border-border rounded-full">
+                  <div
+                    className="flex items-center gap-1.5 min-w-0 px-3 py-1.5 bg-(--field-background) border border-border
+                    rounded-full cursor-pointer"
+                    onClick={selectDirectory}
+                  >
                     <Icon icon="lucide:folder" className="size-4 text-foreground-muted shrink-0" />
                     <span className="text-sm truncate text-foreground">
                       {directoryName || t('settings.noDirectorySelected')}
