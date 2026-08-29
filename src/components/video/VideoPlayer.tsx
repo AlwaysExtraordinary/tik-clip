@@ -360,7 +360,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           startTime !== undefined &&
           (video.currentTime < startTime || (endTime !== undefined && video.currentTime >= endTime))
         ) {
-          const target = initialTime !== undefined && initialTime >= startTime ? initialTime : startTime;
+          const target =
+            initialTime !== undefined && initialTime >= startTime ? initialTime : startTime;
           video.currentTime = target;
         }
         video.play().catch(() => {});

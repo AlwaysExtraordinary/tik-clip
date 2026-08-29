@@ -456,7 +456,8 @@ export const ClipsPage: React.FC = () => {
             onGoToVideoDetail={(item, time) => {
               // 设置当前片段为编辑状态（不强制打开 ClipPanel，由已保存状态决定）
               usePlayerStore.getState().setEditingClip(item.clip);
-              const targetTime = typeof time === 'number' ? time : (lastPlaybackTime ?? item.clip.startTime);
+              const targetTime =
+                typeof time === 'number' ? time : (lastPlaybackTime ?? item.clip.startTime);
               navigate(`/videos/${item.video.id}`, { state: { initialTime: targetTime } });
             }}
           />

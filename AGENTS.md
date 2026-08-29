@@ -56,6 +56,7 @@ src-tauri/                # Tauri 桌面端后端 (Rust)
 4. 类似w-3, h-3的类名，可以使用size-3替换。
 5. 实现功能或优化过程中，删除无用代码，保持代码精简。
 6. 为方法添加注释。
+7. 引入新的iconfy lucide icon时，在.src/utils/icons.ts中注册图标。
 
 # Git 提交规范
 
