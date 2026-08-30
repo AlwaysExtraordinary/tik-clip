@@ -92,7 +92,7 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
   return (
     <div
       className={cn(
-        'flex w-full items-center gap-1.5 px-2.5 py-1.5 sm:gap-2 sm:px-3.5 sm:py-2 md:gap-3 md:px-5 md:py-2.5',
+        'flex w-full items-center gap-1.5 px-2.5 py-1.5 @xl:gap-2 @xl:px-3.5 @xl:py-2 @3xl:gap-3 @3xl:px-5 @3xl:py-2.5',
         'bg-surface/85 border-border/40 rounded-full border backdrop-blur-md',
         'shadow-floating transition-all duration-200 select-none'
       )}
@@ -114,14 +114,14 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
         aria-label={isPlaying ? t('player.pause') : t('player.play')}
         title={isPlaying ? t('player.pause') : t('player.play')}
         className={cn(
-          'border-foreground/80 h-8 w-8 cursor-pointer rounded-full border-[1.5px] sm:h-9 sm:w-9 md:h-10 md:w-10',
+          'border-foreground/80 size-8 cursor-pointer rounded-full border-[1.5px] @xl:size-9 @3xl:size-10',
           'text-foreground/80 hover:border-foreground flex items-center justify-center',
           'shadow-subtle shrink-0 transition-all hover:scale-105 active:scale-95'
         )}
       >
         <Icon
           icon={isPlaying ? 'lucide:pause' : 'lucide:play'}
-          className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5"
+          className="size-4 @xl:size-4.5 @3xl:size-5"
         />
       </button>
 
@@ -135,7 +135,7 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
       />
 
       {/* 进度条调节器 */}
-      <div className="mx-0.5 flex min-w-0 flex-1 items-center sm:mx-1 md:mx-2">
+      <div className="mx-0.5 flex min-w-0 flex-1 items-center @xl:mx-1 @3xl:mx-2">
         <VideoProgressBar
           currentTime={currentTime}
           duration={duration}
@@ -151,10 +151,10 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
         {formatTime(displayCurrentTime)} / {formatTime(displayTotalDuration)}
       </div>
 
-      {/* 画面比例模式切换 (Contain / Cover) - 桌面端 */}
+      {/* 画面比例模式切换 (Contain / Cover) - 容器宽 >= xl 时直接显示 */}
       {onToggleFitMode && (
         <VideoControlButton
-          className="hidden sm:inline-flex"
+          className="hidden @xl:inline-flex"
           onClick={onToggleFitMode}
           aria-label={fitMode === 'cover' ? t('player.switchToContain') : t('player.switchToCover')}
           title={fitMode === 'cover' ? t('player.containMode') : t('player.coverMode')}
@@ -162,10 +162,10 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
         />
       )}
 
-      {/* 倒计时显示开关（仅片段模式展示） - 桌面端 */}
+      {/* 倒计时显示开关（仅片段模式展示） - 容器宽 >= xl 时直接显示 */}
       {showCountdownToggle && onToggleCountdown && (
         <VideoControlButton
-          className="hidden sm:inline-flex"
+          className="hidden @xl:inline-flex"
           onClick={onToggleCountdown}
           aria-label={showCountdown ? t('player.hideTimerAria') : t('player.showTimerAria')}
           title={showCountdown ? t('player.hideTimer') : t('player.showTimer')}
@@ -184,17 +184,17 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
         />
       )}
 
-      {/* 全屏按钮 - 桌面端 */}
+      {/* 全屏按钮 - 容器宽 >= xl 时直接显示 */}
       <VideoControlButton
-        className="hidden sm:inline-flex"
+        className="hidden @xl:inline-flex"
         onClick={onToggleFullscreen}
         aria-label={isFullscreen ? t('player.exitFullscreen') : t('player.fullscreen')}
         title={isFullscreen ? t('player.exitFullscreen') : t('player.fullscreen')}
         icon={isFullscreen ? 'lucide:minimize' : 'lucide:maximize'}
       />
 
-      {/* 移动端更多操作悬浮菜单 (< sm) */}
-      <div ref={moreMenuRef} className="relative flex items-center justify-center sm:hidden">
+      {/* 视频容器宽度 < xl 时更多操作悬浮菜单 */}
+      <div ref={moreMenuRef} className="relative flex items-center justify-center @xl:hidden">
         {/* 垂直悬浮菜单面板 */}
         <div
           className={cn(
@@ -269,9 +269,13 @@ interface VideoControlButtonProps extends React.ButtonHTMLAttributes<HTMLButtonE
   isActive?: boolean;
 }
 
+/**
+ * 视频控制按钮基础组件
+ * 默认使用容器查询自适应图标与边距尺寸
+ */
 export const VideoControlButton: React.FC<VideoControlButtonProps> = ({
   icon,
-  iconClassName = 'w-4 h-4 sm:w-4.5 sm:h-4.5 md:w-5 md:h-5',
+  iconClassName = 'size-4 @xl:size-4.5 @3xl:size-5',
   isActive = true,
   className,
   children,
@@ -281,7 +285,7 @@ export const VideoControlButton: React.FC<VideoControlButtonProps> = ({
     <button
       type="button"
       className={cn(
-        'hover:bg-foreground/10 shrink-0 cursor-pointer rounded-full p-1 transition-colors sm:p-1.5',
+        'hover:bg-foreground/10 shrink-0 cursor-pointer rounded-full p-1 transition-colors @xl:p-1.5',
         'disabled:pointer-events-none disabled:opacity-30',
         isActive
           ? 'text-foreground/80 hover:text-foreground'

@@ -495,9 +495,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       ref={containerRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className={`bg-surface relative h-full w-full ${
-        isFullscreen ? 'rounded-none border-0' : 'border-border/40 rounded-3xl border'
-      } overflow-hidden select-none ${className}`}
+      className={cn(
+        'bg-surface relative h-full w-full @container overflow-hidden select-none',
+        isFullscreen ? 'rounded-none border-0' : 'border-border/40 rounded-3xl border',
+        className
+      )}
     >
       {/* 视频播放器元素（独占全屏容器） */}
       <div
@@ -544,11 +546,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               aria-label={btn.label}
               title={btn.label}
               className={cn(
-                'shadow-card flex size-8 items-center justify-center rounded-full border backdrop-blur-md transition-all duration-200 sm:size-9 md:size-10',
+                'shadow-card flex size-8 items-center justify-center rounded-full border backdrop-blur-md transition-all duration-200 @xl:size-9 @3xl:size-10',
                 'bg-surface/80 text-foreground border-border hover:bg-surface-hover cursor-pointer'
               )}
             >
-              <Icon icon={btn.icon} className="size-4 sm:size-4.5 md:size-5" />
+              <Icon icon={btn.icon} className="size-4 @xl:size-4.5 @3xl:size-5" />
             </button>
           ))}
         </div>
@@ -556,11 +558,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
       {/* 底部悬浮控制栏 */}
       <div
-        className={`absolute inset-x-0 bottom-0 z-20 p-3 transition-all duration-300 sm:p-4 ${
+        className={cn(
+          'absolute inset-x-0 bottom-0 z-20 p-3 transition-all duration-300 @xl:p-4',
           controlsVisible
             ? 'pointer-events-auto translate-y-0 opacity-100'
             : 'pointer-events-none translate-y-3 opacity-0'
-        }`}
+        )}
         onMouseEnter={handleControlsMouseEnter}
         onMouseLeave={handleControlsMouseLeave}
       >
@@ -605,7 +608,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         <div
           className="pointer-events-none absolute top-6 left-1/2 z-30 flex -translate-x-1/2 select-none items-center 
             gap-1.5 rounded-full border border-white/15 bg-black/70 px-4 py-1.5 text-xs font-medium text-white 
-            shadow-xl backdrop-blur-md sm:text-sm"
+            shadow-xl backdrop-blur-md @xl:text-sm"
         >
           <Icon icon="lucide:fast-forward" className="text-primary size-4 animate-pulse" />
           <span>{t('player.xTimes', { x: 3 }) + t('player.fastForwarding')}</span>
