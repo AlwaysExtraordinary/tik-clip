@@ -123,18 +123,36 @@ jobs:
         run: |
           node -e "
             const fs = require('fs');
+            const rawVer = process.env.TARGET_VER || '0.1.0';
+
+            // Windows MSI (WiX) 严格要求版本号必须为纯数字 major.minor.patch (如 0.1.0)
+            // 不能包含 -beta 等字母标识符
+            function toNumericVersion(v) {
+              const match = v.match(/(\d+)\.(\d+)(?:\.(\d+))?/);
+              if (match) {
+                const major = match[1];
+                const minor = match[2];
+                const patch = match[3] !== undefined ? match[3] : '0';
+                return major + '.' + minor + '.' + patch;
+              }
+              return '0.1.0';
+            }
+
+            const appVersion = toNumericVersion(rawVer);
+            console.log('Synchronizing App Version for Bundler:', appVersion, '(Raw Tag Version:', rawVer, ')');
+
             // 更新 src-tauri/tauri.conf.json
             const tauriPath = './src-tauri/tauri.conf.json';
             if (fs.existsSync(tauriPath)) {
               const conf = JSON.parse(fs.readFileSync(tauriPath, 'utf8'));
-              conf.version = process.env.TARGET_VER;
+              conf.version = appVersion;
               fs.writeFileSync(tauriPath, JSON.stringify(conf, null, 2));
             }
             // 更新 package.json
             const pkgPath = './package.json';
             if (fs.existsSync(pkgPath)) {
               const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-              pkg.version = process.env.TARGET_VER;
+              pkg.version = appVersion;
               fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
             }
           "
