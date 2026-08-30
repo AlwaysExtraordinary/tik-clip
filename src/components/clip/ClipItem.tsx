@@ -27,18 +27,25 @@ export const ClipItem: React.FC<ClipItemProps> = ({ clip, isEditing, onStartEdit
       {/* 时间范围与标签 */}
       <div className="flex flex-col gap-1 min-w-0 flex-1 mr-2">
         <button
-          title={t('clipItem.jumpToStart')}
           className={`text-xs font-medium tracking-tight flex items-center gap-1.5 transition-opacity cursor-pointer ${
             isEditing ? 'text-background' : 'text-foreground'
           }`}
         >
           <Icon icon="lucide:play-circle" className="size-3.5 opacity-60 shrink-0" />
           <span className="truncate">
-            <span className="hover:underline" onClick={() => requestSeek(clip.startTime)}>
+            <span
+              className="hover:underline"
+              title={t('clipItem.jumpToStart')}
+              onClick={() => requestSeek(clip.startTime)}
+            >
               {formatTime(clip.startTime)}
             </span>
             <span> - </span>
-            <span className="hover:underline" onClick={() => requestSeek(clip.endTime)}>
+            <span
+              className="hover:underline"
+              title={t('clipItem.jumpToEnd')}
+              onClick={() => requestSeek(clip.endTime)}
+            >
               {formatTime(clip.endTime)}
             </span>
           </span>

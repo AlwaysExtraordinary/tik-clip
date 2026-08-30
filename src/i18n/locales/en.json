@@ -88,6 +88,7 @@
   },
   "clipItem": {
     "jumpToStart": "Jump to clip start",
+    "jumpToEnd": "Jump to clip end",
     "editClip": "Edit clip",
     "deleteClip": "Delete clip"
   },

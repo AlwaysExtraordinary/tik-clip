@@ -88,6 +88,7 @@
   },
   "clipItem": {
     "jumpToStart": "跳转至片段起点",
+    "jumpToEnd": "跳转至片段终点",
     "editClip": "编辑片段",
     "deleteClip": "删除片段"
   },

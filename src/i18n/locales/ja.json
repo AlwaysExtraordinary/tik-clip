@@ -88,6 +88,7 @@
   },
   "clipItem": {
     "jumpToStart": "クリップ開始位置へ移動",
+    "jumpToEnd": "クリップ終了位置へ移動",
     "editClip": "クリップを編集",
     "deleteClip": "クリップを削除"
   },
