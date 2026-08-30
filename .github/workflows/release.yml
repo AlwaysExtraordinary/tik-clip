@@ -11,20 +11,12 @@ on:
       release_title:
         description: 'Release 标题 (留空则默认为 TikClip <版本号>)'
         required: false
-        default: 'TikClip v0.1.0-beta'
+        default: ''
         type: string
       release_notes:
-        description: '更新说明 / 版本描述'
+        description: '更新说明 (可选，建议留空直接在 Draft 草稿页面多行编辑)'
         required: false
-        default: |
-          TikClip 首次公测版本 (Beta 0.1) 发布 🎉
-
-          ### 🌟 新特性
-          - 📱 **沉浸式短视频流**：类似抖音/TikTok的顺畅滑动播放体验
-          - ✂️ **视频片段打点**：支持快捷标记、命名与智能切片回放
-          - 🏷️ **标签管理系统**：支持多标签分类与快速筛选
-          - 🔀 **智能随机流**：基于权重的无重复随机播放流
-          - ⚡ **高性能流式播放**：Tauri 底层 HTTP Range 视频流支持，秒开不卡顿
+        default: ''
         type: string
       is_prerelease:
         description: '标记为 Pre-release (预发布版本)'
@@ -32,10 +24,10 @@ on:
         type: boolean
         default: true
       is_draft:
-        description: '保存为 Draft 草稿 (先在 Release 页面预览确认后再手动点击发布)'
+        description: '保存为 Draft 草稿 (推荐勾选！构建完后可在 GitHub Release 页面用多行 Markdown 编辑器修改并一键发布)'
         required: true
         type: boolean
-        default: false
+        default: true
   push:
     tags:
       - 'v*'
@@ -100,13 +92,16 @@ jobs:
             PRERELEASE="${{ inputs.is_prerelease }}"
             DRAFT="${{ inputs.is_draft }}"
             BODY="${{ inputs.release_notes }}"
+            if [ -z "$BODY" ]; then
+              BODY="See assets below to download and install this release."
+            fi
           else
             TAG_NAME="${{ github.ref_name }}"
             PURE_VER="${TAG_NAME#v}"
             TITLE="TikClip $TAG_NAME"
             PRERELEASE="false"
             DRAFT="false"
-            BODY="See assets to download this release."
+            BODY="See assets below to download and install this release."
           fi
 
           echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
