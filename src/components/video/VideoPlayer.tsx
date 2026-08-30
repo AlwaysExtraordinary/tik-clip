@@ -525,46 +525,34 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             <p className="text-xs font-medium">{t('player.loading')}</p>
           </div>
         )}
-
-        {/* 长按 3 倍速播放提示徽章 */}
-        {isFastForwarding && (
-          <div
-            className="pointer-events-none absolute top-6 left-1/2 z-30 flex -translate-x-1/2 select-none items-center 
-            gap-1.5 rounded-full border border-white/15 bg-black/70 px-4 py-1.5 text-xs font-medium text-white 
-            shadow-xl backdrop-blur-md sm:text-sm"
-          >
-            <Icon icon="lucide:fast-forward" className="text-primary size-4 animate-pulse" />
-            <span>{t('player.xTimes', { x: 3 }) + t('player.fastForwarding')}</span>
-          </div>
-        )}
-
-        {/* 右上角操作按钮列表 */}
-        {topRightButtons.length > 0 && (
-          <div
-            className={`absolute top-5 right-5 z-20 flex items-center gap-2 transition-opacity duration-300 ${
-              controlsVisible ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
-            }`}
-            onClick={(e) => e.stopPropagation()}
-            onMouseEnter={handleControlsMouseEnter}
-            onMouseLeave={handleControlsMouseLeave}
-          >
-            {topRightButtons.map((btn) => (
-              <button
-                key={btn.key}
-                onClick={btn.onClick}
-                aria-label={btn.label}
-                title={btn.label}
-                className={cn(
-                  'shadow-card flex size-8 items-center justify-center rounded-full border backdrop-blur-md transition-all duration-200 sm:size-9 md:size-10',
-                  'bg-surface/80 text-foreground border-border hover:bg-surface-hover cursor-pointer'
-                )}
-              >
-                <Icon icon={btn.icon} className="size-4 sm:size-4.5 md:size-5" />
-              </button>
-            ))}
-          </div>
-        )}
       </div>
+
+      {/* 右上角操作按钮列表 */}
+      {topRightButtons.length > 0 && (
+        <div
+          className={`absolute top-5 right-5 z-20 flex items-center gap-2 transition-opacity duration-300 ${
+            controlsVisible ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+          }`}
+          onClick={(e) => e.stopPropagation()}
+          onMouseEnter={handleControlsMouseEnter}
+          onMouseLeave={handleControlsMouseLeave}
+        >
+          {topRightButtons.map((btn) => (
+            <button
+              key={btn.key}
+              onClick={btn.onClick}
+              aria-label={btn.label}
+              title={btn.label}
+              className={cn(
+                'shadow-card flex size-8 items-center justify-center rounded-full border backdrop-blur-md transition-all duration-200 sm:size-9 md:size-10',
+                'bg-surface/80 text-foreground border-border hover:bg-surface-hover cursor-pointer'
+              )}
+            >
+              <Icon icon={btn.icon} className="size-4 sm:size-4.5 md:size-5" />
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 底部悬浮控制栏 */}
       <div
@@ -611,6 +599,18 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         !controlsVisible && (
           <ClipProgress currentTime={currentTime} startTime={startTime} endTime={endTime} />
         )}
+
+      {/* 长按 3 倍速播放提示徽章 */}
+      {isFastForwarding && (
+        <div
+          className="pointer-events-none absolute top-6 left-1/2 z-30 flex -translate-x-1/2 select-none items-center 
+            gap-1.5 rounded-full border border-white/15 bg-black/70 px-4 py-1.5 text-xs font-medium text-white 
+            shadow-xl backdrop-blur-md sm:text-sm"
+        >
+          <Icon icon="lucide:fast-forward" className="text-primary size-4 animate-pulse" />
+          <span>{t('player.xTimes', { x: 3 }) + t('player.fastForwarding')}</span>
+        </div>
+      )}
     </div>
   );
 };

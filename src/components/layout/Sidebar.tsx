@@ -32,8 +32,8 @@ export const Sidebar: React.FC = () => {
         'flex flex-col justify-between items-center select-none bg-background transition-all duration-300 ease-in-out',
         // 移动端样式：悬浮抽屉
         isMobile && [
-          'fixed inset-y-0 left-0 z-50 w-44 py-6 px-3.5 border-r border-border/40 shadow-floating backdrop-blur-md',
-          isOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none',
+          'fixed inset-y-0 left-0 z-50 w-44 py-6 px-3.5 border-r border-border/40 backdrop-blur-md',
+          isOpen ? 'translate-x-0 shadow-floating' : '-translate-x-full pointer-events-none',
         ],
         // 桌面端样式：常规 flex 侧边栏与折叠过渡
         !isMobile && [
