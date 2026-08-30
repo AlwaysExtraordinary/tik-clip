@@ -1,10 +1,44 @@
 name: Release Desktop App
 
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '发布版本号 (例如 v0.1.0-beta 或 0.1.0-beta)'
+        required: true
+        default: 'v0.1.0-beta'
+        type: string
+      release_title:
+        description: 'Release 标题 (留空则默认为 TikClip <版本号>)'
+        required: false
+        default: 'TikClip v0.1.0-beta'
+        type: string
+      release_notes:
+        description: '更新说明 / 版本描述'
+        required: false
+        default: |
+          TikClip 首次公测版本 (Beta 0.1) 发布 🎉
+
+          ### 🌟 新特性
+          - 📱 **沉浸式短视频流**：类似抖音/TikTok的顺畅滑动播放体验
+          - ✂️ **视频片段打点**：支持快捷标记、命名与智能切片回放
+          - 🏷️ **标签管理系统**：支持多标签分类与快速筛选
+          - 🔀 **智能随机流**：基于权重的无重复随机播放流
+          - ⚡ **高性能流式播放**：Tauri 底层 HTTP Range 视频流支持，秒开不卡顿
+        type: string
+      is_prerelease:
+        description: '标记为 Pre-release (预发布版本)'
+        required: true
+        type: boolean
+        default: true
+      is_draft:
+        description: '保存为 Draft 草稿 (先在 Release 页面预览确认后再手动点击发布)'
+        required: true
+        type: boolean
+        default: false
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
 
 jobs:
   release:
@@ -35,17 +69,90 @@ jobs:
         with:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
       - name: Install Frontend Dependencies
         run: npm ci
+
+      - name: Extract and Prepare Release Metadata
+        id: meta
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            RAW_VER="${{ inputs.version }}"
+            # 确保 Tag 格式规范 (例如 v0.1.0-beta)
+            if [[ "$RAW_VER" =~ ^v ]]; then
+              TAG_NAME="$RAW_VER"
+              PURE_VER="${RAW_VER#v}"
+            else
+              TAG_NAME="v$RAW_VER"
+              PURE_VER="$RAW_VER"
+            fi
+            
+            TITLE="${{ inputs.release_title }}"
+            if [ -z "$TITLE" ]; then
+              TITLE="TikClip $TAG_NAME"
+            fi
+            
+            PRERELEASE="${{ inputs.is_prerelease }}"
+            DRAFT="${{ inputs.is_draft }}"
+            BODY="${{ inputs.release_notes }}"
+          else
+            TAG_NAME="${{ github.ref_name }}"
+            PURE_VER="${TAG_NAME#v}"
+            TITLE="TikClip $TAG_NAME"
+            PRERELEASE="false"
+            DRAFT="false"
+            BODY="See assets to download this release."
+          fi
+
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "pure_ver=$PURE_VER" >> $GITHUB_OUTPUT
+          echo "title=$TITLE" >> $GITHUB_OUTPUT
+          echo "prerelease=$PRERELEASE" >> $GITHUB_OUTPUT
+          echo "draft=$DRAFT" >> $GITHUB_OUTPUT
+
+          # 处理多行 Release 描述信息
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "body<<$EOF" >> $GITHUB_OUTPUT
+          echo "$BODY" >> $GITHUB_OUTPUT
+          echo "$EOF" >> $GITHUB_OUTPUT
+
+      - name: Sync Version to Tauri and Package.json
+        shell: bash
+        env:
+          TARGET_VER: ${{ steps.meta.outputs.pure_ver }}
+        run: |
+          node -e "
+            const fs = require('fs');
+            // 更新 src-tauri/tauri.conf.json
+            const tauriPath = './src-tauri/tauri.conf.json';
+            if (fs.existsSync(tauriPath)) {
+              const conf = JSON.parse(fs.readFileSync(tauriPath, 'utf8'));
+              conf.version = process.env.TARGET_VER;
+              fs.writeFileSync(tauriPath, JSON.stringify(conf, null, 2));
+            }
+            // 更新 package.json
+            const pkgPath = './package.json';
+            if (fs.existsSync(pkgPath)) {
+              const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+              pkg.version = process.env.TARGET_VER;
+              fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
+            }
+          "
 
       - name: Build Tauri Desktop Application
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Tik-Clip ${{ github.ref_name }}'
-          releaseBody: 'See the assets to download this release and please review the changelog.'
-          releaseDraft: true
-          prerelease: false
+          tagName: ${{ steps.meta.outputs.tag_name }}
+          releaseName: ${{ steps.meta.outputs.title }}
+          releaseBody: ${{ steps.meta.outputs.body }}
+          releaseDraft: ${{ steps.meta.outputs.draft == 'true' }}
+          prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
           args: ${{ matrix.args }}
+

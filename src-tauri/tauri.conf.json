@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Tik-Clip",
+  "productName": "TikClip",
   "version": "1.0.0",
   "identifier": "com.alwaysub.tikclip",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Tik-Clip",
+        "title": "TikClip",
         "width": 1280,
         "height": 820,
         "minWidth": 615,
