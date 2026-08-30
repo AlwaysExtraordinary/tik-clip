@@ -30,11 +30,10 @@ export const ClipForm: React.FC<ClipFormProps> = ({
   const { setEditingPoint } = usePlayerStore();
 
   const [startStr, setStartStr] = useState('00:00:00');
-  const [endStr, setEndStr] = useState('00:01:00');
+  const [endStr, setEndStr] = useState('00:00:00');
   const [tags, setTags] = useState<string[]>([]);
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [tagInput, setTagInput] = useState('');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 当编辑的片段改变时同步状态
@@ -44,15 +43,14 @@ export const ClipForm: React.FC<ClipFormProps> = ({
       setEndStr(formatTime(editingClip.endTime));
       setTags(editingClip.tags || []);
     } else {
-      // 默认从 0 到 min(60, 时长) 或当前播放时间
+      // 默认起点和终点均设置为 0
       setStartStr(formatTime(0));
-      setEndStr(formatTime(Math.min(60, videoDuration || 60)));
+      setEndStr(formatTime(0));
       setTags([]);
     }
     setIsAddingTag(false);
     setTagInput('');
-    setErrorMessage(null);
-  }, [editingClip, videoDuration]);
+  }, [editingClip]);
 
   // 将当前视频播放时间填入当前激活的时间点
   const handleSetCurrentTimeToActivePoint = (point: 'start' | 'end') => {
@@ -64,7 +62,6 @@ export const ClipForm: React.FC<ClipFormProps> = ({
       setEndStr(formatted);
       setEditingPoint('end');
     }
-    setErrorMessage(null);
   };
 
   // 提交添加标签
@@ -83,47 +80,50 @@ export const ClipForm: React.FC<ClipFormProps> = ({
     setIsAddingTag(false);
   };
 
-  // 提交片段格式校验
-  const handleSubmit = async (e: React.FormEvent) => {
+  /**
+   * 时间输入框失焦处理：格式不合法时重置为 0，合法时格式化为标准时间格式
+   */
+  const handleTimeBlur = (point: 'start' | 'end') => {
+    if (point === 'start') {
+      const parsed = parseTime(startStr);
+      setStartStr(isNaN(parsed) || parsed < 0 ? formatTime(0) : formatTime(parsed));
+    } else {
+      const parsed = parseTime(endStr);
+      setEndStr(isNaN(parsed) || parsed < 0 ? formatTime(0) : formatTime(parsed));
+    }
+  };
+
+  const start = parseTime(startStr);
+  const end = parseTime(endStr);
+
+  // 校验当前时间范围是否满足添加/保存条件
+  const isValid =
+    !isNaN(start) &&
+    !isNaN(end) &&
+    start >= 0 &&
+    end > 0 &&
+    start < end &&
+    end - start >= 0.1 &&
+    (videoDuration <= 0 || end <= videoDuration + 0.5);
+
+  /**
+   * 提交片段表单
+   */
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
-    setErrorMessage(null);
-
-    const start = parseTime(startStr);
-    const end = parseTime(endStr);
-
-    if (isNaN(start) || start < 0) {
-      setErrorMessage(t('clipForm.errorInvalidStart'));
-      return;
-    }
-    if (isNaN(end) || end <= 0) {
-      setErrorMessage(t('clipForm.errorInvalidEnd'));
-      return;
-    }
-    if (start >= end) {
-      setErrorMessage(t('clipForm.errorEndBeforeStart'));
-      return;
-    }
-    if (end - start < 0.1) {
-      setErrorMessage(t('clipForm.errorTooShort'));
-      return;
-    }
-    if (videoDuration > 0 && end > videoDuration + 0.5) {
-      setErrorMessage(t('clipForm.errorExceedsDuration', { duration: formatTime(videoDuration) }));
-      return;
-    }
+    if (!isValid || isSubmitting) return;
 
     setIsSubmitting(true);
     try {
       const success = await onSaveClip(start, end, editingClip?.id, tags);
       if (success && !editingClip) {
         // 重置表单以便继续添加下一个片段
-        setStartStr(formatTime(end));
-        setEndStr(formatTime(Math.min(end + 60, videoDuration || end + 60)));
+        setStartStr(formatTime(0));
+        setEndStr(formatTime(0));
         setTags([]);
       }
     } catch (err) {
       console.error(err);
-      setErrorMessage(t('clipForm.errorSaveFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -138,11 +138,9 @@ export const ClipForm: React.FC<ClipFormProps> = ({
           <div className="w-full">
             <Input
               value={startStr}
-              onChange={(e) => {
-                setStartStr(e.target.value);
-                setErrorMessage(null);
-              }}
+              onChange={(e) => setStartStr(e.target.value)}
               onFocus={() => setEditingPoint('start')}
+              onBlur={() => handleTimeBlur('start')}
               className="w-full text-center text-xs font-semibold"
               placeholder="00:00:00"
             />
@@ -167,13 +165,11 @@ export const ClipForm: React.FC<ClipFormProps> = ({
           <div className="w-full">
             <Input
               value={endStr}
-              onChange={(e) => {
-                setEndStr(e.target.value);
-                setErrorMessage(null);
-              }}
+              onChange={(e) => setEndStr(e.target.value)}
               onFocus={() => setEditingPoint('end')}
+              onBlur={() => handleTimeBlur('end')}
               className="w-full text-center text-xs font-semibold"
-              placeholder="00:01:00"
+              placeholder="00:00:00"
             />
           </div>
           <span className="text-[10px] text-foreground-muted uppercase font-semibold">
@@ -249,11 +245,6 @@ export const ClipForm: React.FC<ClipFormProps> = ({
         )}
       </div>
 
-      {/* 错误提示 */}
-      {errorMessage && (
-        <p className="text-[11px] text-danger font-medium text-center">{errorMessage}</p>
-      )}
-
       {/* 提交按钮组 */}
       <div className="flex gap-2 w-95/100 m-auto">
         {editingClip && (
@@ -266,7 +257,12 @@ export const ClipForm: React.FC<ClipFormProps> = ({
             {t('common.cancel')}
           </Button>
         )}
-        <Button type="submit" isDisabled={isSubmitting} className="flex-1 text-xs font-semibold">
+        <Button
+          type="submit"
+          variant={isValid ? 'primary' : 'tertiary'}
+          isDisabled={!isValid || isSubmitting}
+          className="flex-1 text-xs font-semibold"
+        >
           <Icon icon={editingClip ? 'lucide:check' : 'lucide:plus'} className="size-4" />
           <span>{editingClip ? t('clipForm.saveClip') : t('clipForm.addClip')}</span>
         </Button>

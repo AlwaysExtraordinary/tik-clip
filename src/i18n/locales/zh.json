@@ -77,12 +77,6 @@
     "addTag": "添加标签",
     "tagPlaceholder": "输入标签名称",
     "synchronize": "同步当前",
-    "errorInvalidStart": "开始时间格式无效（请使用 HH:MM:SS）",
-    "errorInvalidEnd": "结束时间格式无效（请使用 HH:MM:SS）",
-    "errorEndBeforeStart": "结束时间必须大于开始时间",
-    "errorTooShort": "片段长度至少需为 0.1 秒",
-    "errorExceedsDuration": "结束时间超出视频总时长 ({{duration}})",
-    "errorSaveFailed": "保存片段失败",
     "addClip": "添加片段",
     "saveClip": "保存片段"
   },

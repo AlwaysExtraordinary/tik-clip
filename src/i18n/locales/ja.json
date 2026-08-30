@@ -77,12 +77,6 @@
     "addTag": "タグを追加",
     "tagPlaceholder": "タグ名を入力",
     "synchronize": "現在時刻を同期",
-    "errorInvalidStart": "開始時刻の形式が無効です（HH:MM:SS を使用）",
-    "errorInvalidEnd": "終了時刻の形式が無効です（HH:MM:SS を使用）",
-    "errorEndBeforeStart": "終了時刻は開始時刻より後である必要があります",
-    "errorTooShort": "クリップの長さは0.1秒以上必要です",
-    "errorExceedsDuration": "終了時刻が動画の長さを超えています ({{duration}})",
-    "errorSaveFailed": "クリップの保存に失敗しました",
     "addClip": "クリップを追加",
     "saveClip": "クリップを保存"
   },

@@ -77,12 +77,6 @@
     "addTag": "Add Tag",
     "tagPlaceholder": "Tag name",
     "synchronize": "Synchronize",
-    "errorInvalidStart": "Invalid start time format (use HH:MM:SS)",
-    "errorInvalidEnd": "Invalid end time format (use HH:MM:SS)",
-    "errorEndBeforeStart": "End time must be greater than start time",
-    "errorTooShort": "Clip length must be at least 0.1s",
-    "errorExceedsDuration": "End time exceeds video duration ({{duration}})",
-    "errorSaveFailed": "Failed to save clip",
     "addClip": "Add Clip",
     "saveClip": "Save Clip"
   },
