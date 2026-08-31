@@ -174,7 +174,7 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
           className="relative w-6 h-28 flex items-center justify-center cursor-pointer group/track"
         >
           {/* 背景轨道 */}
-          <div className="w-1.5 h-full rounded-full bg-foreground/20 relative overflow-hidden group-hover/track:w-2 transition-[width] duration-150">
+          <div className="w-1.5 h-full rounded-full bg-foreground/20 relative overflow-hidden group-hover/track:w-2 transition-[width] ease-in-out duration-100">
             {/* 已填充音量柱 (无过渡延迟，绝对与圆点同步) */}
             <div
               className="absolute bottom-0 inset-x-0 bg-foreground rounded-full"
