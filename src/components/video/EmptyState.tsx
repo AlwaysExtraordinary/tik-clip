@@ -21,7 +21,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 
   if (!supported) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-surface/50 rounded-3xl border border-border/60">
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-surface/50  border border-border/60">
         <div className="size-16 rounded-full bg-danger/10 text-danger flex items-center justify-center mb-4">
           <Icon icon="lucide:alert-triangle" className="size-8" />
         </div>
@@ -40,7 +40,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 
   if (type === 'scanning') {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-surface/40 rounded-3xl border border-border/40">
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-surface/40  border border-border/40">
         <div className="size-16 rounded-full bg-surface-hover flex items-center justify-center mb-4 text-foreground animate-pulse">
           <Icon icon="lucide:folder-search" className="size-8 animate-bounce" />
         </div>
@@ -56,7 +56,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 
   if (type === 'no-clips') {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-surface/40 rounded-3xl border border-border/40">
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-surface/40  border border-border/40">
         <div className="size-16 rounded-full bg-surface-hover flex items-center justify-center mb-4 text-foreground-muted">
           <Icon icon="lucide:scissors" className="size-8 opacity-60" />
         </div>
@@ -72,7 +72,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 
   if (type === 'no-videos') {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-surface/40 rounded-3xl border border-border/40">
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-surface/40  border border-border/40">
         <div className="size-16 rounded-full bg-surface-hover flex items-center justify-center mb-4 text-foreground-muted">
           <Icon icon="lucide:video-off" className="size-8 opacity-60" />
         </div>
@@ -88,7 +88,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 
   if (type === 'permission-needed') {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-surface/40 rounded-3xl border border-border/40">
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-surface/40  border border-border/40">
         <div className="size-16 rounded-full bg-surface-hover flex items-center justify-center mb-4 text-foreground">
           <Icon icon="lucide:shield-alert" className="size-8" />
         </div>
@@ -112,7 +112,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-surface/40 rounded-3xl border border-border/40">
+    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-surface/40  border border-border/40">
       <div className="size-16 rounded-full bg-surface-hover flex items-center justify-center mb-4 text-foreground-muted">
         <Icon icon="lucide:folder" className="size-8 opacity-60" />
       </div>
