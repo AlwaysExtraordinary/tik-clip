@@ -9,7 +9,7 @@ import { getAllVideos } from '@/db/videos';
 import { getAllClips } from '@/db/clips';
 import { getVideoMediaSource, VideoMediaSource } from '@/services/fileSystem/index';
 import { useDirectory } from '@/hooks/useDirectory';
-import { ClipFeedContainer, FeedSlotData } from '@/components/clip/ClipFeedContainer';
+import { ClipFeedContainer } from '@/components/clip/ClipFeedContainer';
 import { ClipTagList } from '@/components/clip/ClipTagList';
 import { EmptyState } from '@/components/video/EmptyState';
 import { useClipsFeedStore } from '@/stores/clipsFeedStore';
@@ -29,14 +29,10 @@ export const ClipsPage: React.FC = () => {
   const {
     shuffleQueue,
     currentShuffleItem,
-    currentVideoFile,
-    currentVideoSrc,
     lastPlaybackTime,
     fileError,
     selectedTag,
     setCurrentShuffleItem,
-    setCurrentVideoFile,
-    setCurrentVideoSrc,
     setLastPlaybackTime,
     setFileError,
     setSelectedTag,
@@ -77,33 +73,6 @@ export const ClipsPage: React.FC = () => {
       }
     },
     [activeDirectory]
-  );
-
-  // 激活并播放指定片段项
-  const playItem = useCallback(
-    async (item: ShuffleItem) => {
-      setCurrentShuffleItem(item);
-      setLastPlaybackTime(item.clip.startTime);
-      setFileError(null);
-      const mediaSource = await loadVideoSource(item);
-      if (!mediaSource) {
-        setFileError(t('clipsFeed.readError'));
-        setCurrentVideoFile(null);
-        setCurrentVideoSrc(null);
-      } else {
-        setCurrentVideoFile(mediaSource.file || null);
-        setCurrentVideoSrc(mediaSource.src || null);
-      }
-    },
-    [
-      loadVideoSource,
-      setCurrentShuffleItem,
-      setLastPlaybackTime,
-      setFileError,
-      setCurrentVideoFile,
-      setCurrentVideoSrc,
-      t,
-    ]
   );
 
   // 当目录变更或扫描完成时加载数据
@@ -155,8 +124,6 @@ export const ClipsPage: React.FC = () => {
 
         if (targetItems.length === 0) {
           setCurrentShuffleItem(null);
-          setCurrentVideoFile(null);
-          setCurrentVideoSrc(null);
           return;
         }
 
@@ -170,20 +137,14 @@ export const ClipsPage: React.FC = () => {
           store.shuffleQueue.syncItems(targetItems, matchedItem.clip.id);
           store.setCurrentShuffleItem(matchedItem);
           store.setFileError(null);
-          if (!store.currentVideoFile && !store.currentVideoSrc) {
-            const mediaSource = await loadVideoSource(matchedItem);
-            if (!mediaSource) {
-              store.setFileError(t('clipsFeed.readError'));
-            }
-            store.setCurrentVideoFile(mediaSource?.file || null);
-            store.setCurrentVideoSrc(mediaSource?.src || null);
-          }
         } else {
           // 重新初始化洗牌队列并从首个片段开始播放
           store.shuffleQueue.setItems(targetItems);
-          const first = store.shuffleQueue.next();
+          const first = store.shuffleQueue.current();
           if (first) {
-            await playItem(first);
+            store.setCurrentShuffleItem(first);
+            store.setLastPlaybackTime(first.clip.startTime);
+            store.setFileError(null);
           }
         }
       } catch (err) {
@@ -205,13 +166,10 @@ export const ClipsPage: React.FC = () => {
   }, [
     activeDirectory,
     isScanning,
-    loadVideoSource,
-    playItem,
     resetFeed,
     setCurrentShuffleItem,
-    setCurrentVideoFile,
-    setCurrentVideoSrc,
-    t,
+    setFileError,
+    setLastPlaybackTime,
   ]);
 
   // 切换标签筛选
@@ -225,8 +183,6 @@ export const ClipsPage: React.FC = () => {
 
       if (targetItems.length === 0) {
         setCurrentShuffleItem(null);
-        setCurrentVideoFile(null);
-        setCurrentVideoSrc(null);
         return;
       }
 
@@ -239,69 +195,14 @@ export const ClipsPage: React.FC = () => {
         shuffleQueue.syncItems(targetItems, matched.clip.id);
       } else {
         shuffleQueue.setItems(targetItems);
-        const first = shuffleQueue.next();
+        const first = shuffleQueue.current();
         if (first) {
-          await playItem(first);
+          setCurrentShuffleItem(first);
+          setLastPlaybackTime(first.clip.startTime);
         }
       }
     },
-    [
-      allItems,
-      playItem,
-      setCurrentShuffleItem,
-      setCurrentVideoFile,
-      setCurrentVideoSrc,
-      setFileError,
-      setSelectedTag,
-      shuffleQueue,
-    ]
-  );
-
-  // 预获取下一个片段数据供动画容器后台预加载（不消耗洗牌队列游标）
-  const handlePeekNext = useCallback(async (): Promise<FeedSlotData | null> => {
-    const nextItem = shuffleQueue.peekNext();
-    if (!nextItem) return null;
-    const mediaSource = await loadVideoSource(nextItem);
-    return {
-      item: nextItem,
-      file: mediaSource?.file || null,
-      src: mediaSource?.src || null,
-    };
-  }, [loadVideoSource, shuffleQueue]);
-
-  // 请求下一个片段数据供动画容器预先装载
-  const handleRequestNext = useCallback(async (): Promise<FeedSlotData | null> => {
-    const nextItem = shuffleQueue.next();
-    if (!nextItem) return null;
-    const mediaSource = await loadVideoSource(nextItem);
-    return {
-      item: nextItem,
-      file: mediaSource?.file || null,
-      src: mediaSource?.src || null,
-    };
-  }, [loadVideoSource, shuffleQueue]);
-
-  // 请求上一个片段数据供动画容器预先装载
-  const handleRequestPrevious = useCallback(async (): Promise<FeedSlotData | null> => {
-    const prevItem = shuffleQueue.previous();
-    if (!prevItem) return null;
-    const mediaSource = await loadVideoSource(prevItem);
-    return {
-      item: prevItem,
-      file: mediaSource?.file || null,
-      src: mediaSource?.src || null,
-    };
-  }, [loadVideoSource, shuffleQueue]);
-
-  // 当动画滑动完成时同步当前状态
-  const handleCommitItemChange = useCallback(
-    (item: ShuffleItem, file: File | null, src?: string | null) => {
-      setCurrentShuffleItem(item);
-      setCurrentVideoFile(file);
-      setCurrentVideoSrc(src || null);
-      setLastPlaybackTime(item.clip.startTime);
-    },
-    [setCurrentShuffleItem, setCurrentVideoFile, setCurrentVideoSrc, setLastPlaybackTime]
+    [allItems, setCurrentShuffleItem, setFileError, setLastPlaybackTime, setSelectedTag, shuffleQueue]
   );
 
   // 播放器时间更新时实时记录到 Store
@@ -312,15 +213,27 @@ export const ClipsPage: React.FC = () => {
     [setLastPlaybackTime]
   );
 
+  // 当前播放项变更时同步
+  const handleCurrentClipChange = useCallback(
+    (item: ShuffleItem) => {
+      setCurrentShuffleItem(item);
+      setLastPlaybackTime(item.clip.startTime);
+      setFileError(null);
+    },
+    [setCurrentShuffleItem, setFileError, setLastPlaybackTime]
+  );
+
   // 跳过已被删除或损坏的片段
   const handleSkipDeletedClip = useCallback(async () => {
     const nextItem = shuffleQueue.next();
     if (nextItem) {
-      await playItem(nextItem);
+      setCurrentShuffleItem(nextItem);
+      setLastPlaybackTime(nextItem.clip.startTime);
+      setFileError(null);
     } else {
       setCurrentShuffleItem(null);
     }
-  }, [shuffleQueue, playItem, setCurrentShuffleItem]);
+  }, [shuffleQueue, setCurrentShuffleItem, setFileError, setLastPlaybackTime]);
 
   // 无目录状态
   if (isHandleRestoring || !activeDirectory) {
@@ -332,7 +245,7 @@ export const ClipsPage: React.FC = () => {
     return <EmptyState type="scanning" />;
   }
 
-  // 无片段状态：无片段
+  // 无视频状态
   if (totalVideoCount === 0 && allItems.length === 0) {
     return (
       <EmptyState
@@ -343,7 +256,7 @@ export const ClipsPage: React.FC = () => {
     );
   }
 
-  // 无片段状态：片段列表为空
+  // 无片段状态
   if (allItems.length === 0) {
     return (
       <div className="flex-1 flex flex-col overflow-hidden p-4 md:p-6 lg:p-8">
@@ -384,7 +297,6 @@ export const ClipsPage: React.FC = () => {
               onChange={(key) => handleTagChange(key as string | null)}
               placeholder={t('clipsFeed.selectTag')}
               aria-label={t('clipsFeed.filterByTag')}
-              // className="w-30"
             >
               <Select.Trigger className="text-xs rounded-full min-h-0 py-1.5">
                 <div className="flex items-center gap-1.5 min-w-0 truncate">
@@ -411,7 +323,7 @@ export const ClipsPage: React.FC = () => {
                       className="text-[11px] sm:text-[12px] min-h-0 py-1 rounded-md"
                     >
                       <span>{tag}</span>
-                      <ListBox.ItemIndicator className="text-accent " />
+                      <ListBox.ItemIndicator className="text-accent" />
                     </ListBox.Item>
                   ))}
                 </ListBox>
@@ -439,22 +351,14 @@ export const ClipsPage: React.FC = () => {
           </div>
         ) : currentShuffleItem ? (
           <ClipFeedContainer
-            key={activeDirectory.name}
-            currentSlot={{
-              item: currentShuffleItem,
-              file: currentVideoFile,
-              src: currentVideoSrc,
-            }}
+            key={`${activeDirectory.name}-${selectedTag || 'all'}`}
+            shuffleQueue={shuffleQueue}
+            loadMediaSource={loadVideoSource}
+            initialIndex={shuffleQueue.currentIndexValue}
             initialTime={lastPlaybackTime ?? currentShuffleItem.clip.startTime}
             onCurrentTimeChange={handleCurrentTimeChange}
-            onPeekNext={handlePeekNext}
-            onRequestNext={handleRequestNext}
-            onRequestPrevious={handleRequestPrevious}
-            onCommitItemChange={handleCommitItemChange}
-            hasPrevious={true}
-            hasNext={true}
+            onCurrentClipChange={handleCurrentClipChange}
             onGoToVideoDetail={(item, time) => {
-              // 设置当前片段为编辑状态（不强制打开 ClipPanel，由已保存状态决定）
               usePlayerStore.getState().setEditingClip(item.clip);
               const targetTime =
                 typeof time === 'number' ? time : (lastPlaybackTime ?? item.clip.startTime);

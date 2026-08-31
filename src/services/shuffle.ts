@@ -12,67 +12,89 @@ export function shuffleArray<T>(items: T[]): T[] {
   return array;
 }
 
+/**
+ * 确定性无限洗牌播放队列：
+ * 1. 维护平铺的播放列表序列，按需自动扩充洗牌批次；
+ * 2. 同一索引（Index）处的内容恒定不变，彻底解决预载首帧与实际播放画面不一致的问题；
+ * 3. 支持无缝的前进、回退与增量同步。
+ */
 export class ShuffleQueue {
   private rawItems: ShuffleItem[] = [];
-  private shuffledQueue: ShuffleItem[] = [];
-  private history: ShuffleItem[] = [];
-  private currentIndex = -1;
+  private playlist: ShuffleItem[] = [];
+  private currentIndex = 0;
 
+  /**
+   * 设置原始片段列表并重置队列
+   */
   public setItems(items: ShuffleItem[]) {
     this.rawItems = items;
     this.reset();
   }
 
+  /**
+   * 重置播放列表
+   */
   public reset() {
-    this.shuffledQueue = shuffleArray(this.rawItems);
-    this.history = [];
-    this.currentIndex = -1;
+    this.playlist = this.rawItems.length > 0 ? shuffleArray(this.rawItems) : [];
+    this.currentIndex = 0;
   }
 
   /**
-   * 增量同步最新的片段列表，同时保留现有的播放队列游标和历史记录
+   * 增量同步最新的片段列表，保留现有的播放队列游标
    */
   public syncItems(items: ShuffleItem[], currentClipId?: string) {
     this.rawItems = items;
+    if (items.length === 0) {
+      this.playlist = [];
+      this.currentIndex = 0;
+      return;
+    }
+
     const itemMap = new Map<string, ShuffleItem>();
     items.forEach((it) => itemMap.set(it.clip.id, it));
 
-    // 1. 同步 history：移除已不存在的，更新已更改的
-    this.history = this.history
+    // 更新 playlist 中已有项，过滤已删除项
+    this.playlist = this.playlist
       .filter((it) => itemMap.has(it.clip.id))
       .map((it) => itemMap.get(it.clip.id)!);
 
-    // 2. 同步 shuffledQueue：更新已更改的，移除已删除的
-    const updatedQueue: ShuffleItem[] = [];
-    const seenIds = new Set<string>();
-
-    for (const queueItem of this.shuffledQueue) {
-      const latest = itemMap.get(queueItem.clip.id);
-      if (latest) {
-        updatedQueue.push(latest);
-        seenIds.add(latest.clip.id);
-      }
+    // 如果更新后为空，重新生成
+    if (this.playlist.length === 0) {
+      this.playlist = shuffleArray(items);
     }
 
-    // 将新增的片段洗牌后追加到未播队列后方
-    const newItems = items.filter((it) => !seenIds.has(it.clip.id));
-    if (newItems.length > 0) {
-      updatedQueue.push(...shuffleArray(newItems));
-    }
-
-    this.shuffledQueue = updatedQueue;
-
-    // 3. 如果指定了当前 clipId，将游标指向该项
-    if (currentClipId && this.shuffledQueue.length > 0) {
-      const idx = this.shuffledQueue.findIndex((it) => it.clip.id === currentClipId);
+    if (currentClipId) {
+      const idx = this.playlist.findIndex((it) => it.clip.id === currentClipId);
       if (idx !== -1) {
         this.currentIndex = idx;
-      } else {
-        this.currentIndex = Math.min(this.currentIndex, this.shuffledQueue.length - 1);
       }
-    } else {
-      this.currentIndex = Math.min(Math.max(-1, this.currentIndex), this.shuffledQueue.length - 1);
     }
+  }
+
+  /**
+   * 确保指定索引位置存在片段数据（按需动态追加洗牌批次）
+   */
+  private ensureCapacity(index: number) {
+    if (this.rawItems.length === 0) return;
+    while (this.playlist.length <= index + 5) {
+      const lastItem = this.playlist[this.playlist.length - 1];
+      const nextBatch = shuffleArray(this.rawItems);
+      // 避免新批次的首项与上一批次末项重复
+      if (nextBatch.length > 1 && nextBatch[0].clip.id === lastItem?.clip.id) {
+        const swapIdx = 1 + Math.floor(Math.random() * (nextBatch.length - 1));
+        [nextBatch[0], nextBatch[swapIdx]] = [nextBatch[swapIdx], nextBatch[0]];
+      }
+      this.playlist.push(...nextBatch);
+    }
+  }
+
+  /**
+   * 获取指定索引位置的片段项（确定性读取，保证预载与播放绝对一致）
+   */
+  public getItemAt(index: number): ShuffleItem | null {
+    if (index < 0 || this.rawItems.length === 0) return null;
+    this.ensureCapacity(index);
+    return this.playlist[index] ?? null;
   }
 
   public get totalCount(): number {
@@ -83,68 +105,35 @@ export class ShuffleQueue {
     return this.rawItems.length > 0;
   }
 
-  /**
-   * 获取下一个片段。
-   * 如果当前队列到达末尾，则重新洗牌所有项目并继续播放，
-   * 同时确保新队列的首项不与上一轮最后播放的片段重复。
-   */
+  public get currentIndexValue(): number {
+    return this.currentIndex;
+  }
+
+  public setIndex(index: number) {
+    this.currentIndex = Math.max(0, index);
+  }
+
+  public current(): ShuffleItem | null {
+    return this.getItemAt(this.currentIndex);
+  }
+
   public next(): ShuffleItem | null {
     if (this.rawItems.length === 0) return null;
-    if (this.rawItems.length === 1) return this.rawItems[0];
-
     this.currentIndex++;
-
-    if (this.currentIndex >= this.shuffledQueue.length) {
-      const lastItem = this.shuffledQueue[this.shuffledQueue.length - 1];
-      const newQueue = shuffleArray(this.rawItems);
-
-      // 如果新队列的首项与上一项相同，则与其它项交换
-      if (newQueue.length > 1 && newQueue[0].clip.id === lastItem?.clip.id) {
-        const swapIndex = 1 + Math.floor(Math.random() * (newQueue.length - 1));
-        [newQueue[0], newQueue[swapIndex]] = [newQueue[swapIndex], newQueue[0]];
-      }
-
-      this.shuffledQueue = newQueue;
-      this.currentIndex = 0;
-    }
-
-    const current = this.shuffledQueue[this.currentIndex];
-    this.history.push(current);
-    return current;
+    return this.getItemAt(this.currentIndex);
   }
 
-  /**
-   * 预查看下一个片段（不改变队列指针）
-   */
-  public peekNext(): ShuffleItem | null {
-    if (this.rawItems.length === 0) return null;
-    if (this.rawItems.length === 1) return this.rawItems[0];
-    const nextIndex = this.currentIndex + 1;
-    if (nextIndex < this.shuffledQueue.length) {
-      return this.shuffledQueue[nextIndex];
-    }
-    return this.rawItems[0] || null;
-  }
-
-  /**
-   * 预查看上一个片段（不改变历史记录）
-   */
-  public peekPrevious(): ShuffleItem | null {
-    if (this.history.length > 1) {
-      return this.history[this.history.length - 2];
-    }
-    return this.history[0] || null;
-  }
-
-  /**
-   * 从历史记录中获取上一个片段
-   */
   public previous(): ShuffleItem | null {
-    if (this.history.length > 1) {
-      this.history.pop(); // 移除当前项
-      const prev = this.history[this.history.length - 1];
-      return prev;
-    }
-    return this.history[0] || null;
+    if (this.currentIndex <= 0) return this.getItemAt(0);
+    this.currentIndex--;
+    return this.getItemAt(this.currentIndex);
+  }
+
+  public peekNext(): ShuffleItem | null {
+    return this.getItemAt(this.currentIndex + 1);
+  }
+
+  public peekPrevious(): ShuffleItem | null {
+    return this.currentIndex > 0 ? this.getItemAt(this.currentIndex - 1) : null;
   }
 }

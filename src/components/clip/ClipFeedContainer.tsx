@@ -1,72 +1,304 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
 import { ShuffleItem } from '@/types/clip';
+import { ShuffleQueue } from '@/services/shuffle';
 import { VideoPlayer } from '@/components/video/VideoPlayer';
 
-export interface FeedSlotData {
-  item: ShuffleItem;
+/** -------------------------------------------------------------
+ *  手势、阈值与动画相关配置常量（便于后续微调）
+ * ------------------------------------------------------------*/
+
+/** 鼠标滚轮单格防抖冷却时长（ms），防止滚轮连续滚动过快跳过多集 */
+const MOUSE_WHEEL_THROTTLE_MS = 380;
+
+/** 滚动吸附结算兜底防抖延时（ms，针对不支持 scrollend 的浏览器环境） */
+const SCROLL_SETTLE_FALLBACK_DELAY_MS = 100;
+
+/** 传统物理鼠标滚轮判定：标准物理步长（100 或 120 像素刻度） */
+const MOUSE_WHEEL_STANDARD_STEPS = [100, 120] as const;
+
+/** 传统物理鼠标滚轮判定：首帧大步长整数位移阈值（px） */
+const MOUSE_WHEEL_INITIAL_STEP_THRESHOLD = 60;
+
+export interface MediaSourceData {
   file?: File | null;
   src?: string | null;
 }
 
-interface InternalSlot extends FeedSlotData {
-  key: string;
-}
-
 interface ClipFeedContainerProps {
-  currentSlot: FeedSlotData;
-  onRequestNext: () => Promise<FeedSlotData | null>;
-  onRequestPrevious: () => Promise<FeedSlotData | null>;
-  /** 预获取下一个片段数据供备用槽位后台预载 */
-  onPeekNext?: () => Promise<FeedSlotData | null>;
-  onCommitItemChange: (item: ShuffleItem, file: File | null, src?: string | null) => void;
-  onCurrentTimeChange?: (time: number) => void;
+  shuffleQueue: ShuffleQueue;
+  loadMediaSource: (item: ShuffleItem) => Promise<MediaSourceData | null>;
+  initialIndex?: number;
   initialTime?: number;
-  hasPrevious?: boolean;
-  hasNext?: boolean;
+  onCurrentTimeChange?: (time: number) => void;
+  onCurrentClipChange?: (item: ShuffleItem) => void;
   /** 在文件管理器中打开视频所在目录（仅 Tauri 环境） */
   onRevealInExplorer?: (item: ShuffleItem) => void;
   /** 跳转到视频详情页编辑当前片段 */
   onGoToVideoDetail?: (item: ShuffleItem, currentTime: number) => void;
 }
 
-type TransitionState = 'idle' | 'preparing' | 'sliding';
-type SlideDirection = 'next' | 'prev' | null;
+/**
+ * 识别是否为物理鼠标滚轮单格滚动（区别于触控板连续手势）。
+ */
+function isPhysicalMouseWheel(e: WheelEvent): boolean {
+  if (e.deltaMode !== 0) return true;
 
+  const anyEvent = e as WheelEvent & { wheelDeltaY?: number; wheelDelta?: number };
+  const wheelDelta = anyEvent.wheelDeltaY ?? anyEvent.wheelDelta;
+  if (typeof wheelDelta === 'number' && wheelDelta !== 0 && Math.abs(wheelDelta) % 120 === 0) {
+    return true;
+  }
+
+  const absY = Math.abs(e.deltaY);
+  for (const step of MOUSE_WHEEL_STANDARD_STEPS) {
+    if (absY % step === 0) return true;
+  }
+
+  if (Number.isInteger(e.deltaY) && absY >= MOUSE_WHEEL_INITIAL_STEP_THRESHOLD) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * TikClip 虚拟流式视频容器组件。
+ * 架构重构亮点：
+ * 1. 确定性序列平铺 + CSS Scroll Snap：彻底取消对 scrollTop 的手动强制回拉，根除自动回滚与画面闪烁；
+ * 2. 稳定的 DOM 实例映射：每个视频项保持自身独立的 Key，首帧渲染与实际播放画面 100% 保持一致；
+ * 3. 触控板与鼠标滚轮双通道分流：触控板原生硬件级跟手，鼠标滚轮防抖平滑切页；
+ * 4. 轻量级视口虚拟化：仅渲染当前及前后相邻视频实例，保持内存轻盈；
+ * 5. 纯 React 状态驱动渲染，严格避免在 render 阶段访问或修改 Ref。
+ */
 export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
-  currentSlot,
-  onRequestNext,
-  onRequestPrevious,
-  onPeekNext,
-  onCommitItemChange,
-  onCurrentTimeChange,
+  shuffleQueue,
+  loadMediaSource,
+  initialIndex = 0,
   initialTime,
-  hasPrevious = true,
-  hasNext = true,
+  onCurrentTimeChange,
+  onCurrentClipChange,
   onRevealInExplorer,
   onGoToVideoDetail,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // 双槽位机制 (Ping-Pong Buffer)：切换完成后保留目标槽位 DOM，绝不重新挂载，实现 0 闪烁
-  const [slotA, setSlotA] = useState<InternalSlot | null>(() => ({
-    item: currentSlot.item,
-    file: currentSlot.file,
-    src: currentSlot.src,
-    key: currentSlot.item.clip.id,
-  }));
-  const [slotB, setSlotB] = useState<InternalSlot | null>(null);
-  const [activeSlotId, setActiveSlotId] = useState<'A' | 'B'>('A');
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const currentIndexRef = useRef(currentIndex);
 
-  const [transitionState, setTransitionState] = useState<TransitionState>('idle');
-  const [direction, setDirection] = useState<SlideDirection>(null);
+  const [maxRenderedIndex, setMaxRenderedIndex] = useState(() => Math.max(initialIndex + 2, 2));
+  const [containerHeight, setContainerHeight] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const isTransitioningRef = useRef(false);
-  const lastWheelTimeRef = useRef(0);
-  const wheelAccumulatorRef = useRef(0);
-  const wheelResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const touchStartYRef = useRef<number | null>(null);
-  const transitionFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 媒体源状态映射：clipId -> MediaSourceData
+  const [mediaMap, setMediaMap] = useState<Record<string, MediaSourceData>>({});
+
+  // 鼠标滚轮防抖与滚动结算标记
+  const isWheelThrottledRef = useRef(false);
+  const wheelThrottleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * 同步当前索引到 Ref 供事件监听读取
+   */
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
+
+  /**
+   * 视口尺寸监听与同步
+   */
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const syncHeight = () => {
+      const h = container.clientHeight || 1;
+      setContainerHeight(h);
+    };
+
+    syncHeight();
+    const observer = new ResizeObserver(syncHeight);
+    observer.observe(container);
+
+    return () => observer.disconnect();
+  }, []);
+
+  /**
+   * 初始化挂载时的滚动位置定位
+   */
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container || initialIndex === 0) return;
+    container.scrollTop = initialIndex * containerHeight;
+  }, [containerHeight, initialIndex]);
+
+  /**
+   * 后台异步预加载当前项及前后相邻项的视频媒体源
+   */
+  useEffect(() => {
+    let cancelled = false;
+
+    const preloadIndices = [currentIndex, currentIndex + 1, currentIndex - 1].filter(
+      (idx) => idx >= 0
+    );
+
+    for (const idx of preloadIndices) {
+      const item = shuffleQueue.getItemAt(idx);
+      if (!item) continue;
+
+      const clipId = item.clip.id;
+      if (mediaMap[clipId]) continue;
+
+      void (async () => {
+        try {
+          const source = await loadMediaSource(item);
+          if (cancelled || !source) return;
+
+          setMediaMap((prev) => {
+            if (prev[clipId]) return prev;
+            return {
+              ...prev,
+              [clipId]: source,
+            };
+          });
+        } catch (err) {
+          console.warn(`Failed to preload media for clip ${clipId}:`, err);
+        }
+      })();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentIndex, loadMediaSource, mediaMap, shuffleQueue]);
+
+  /**
+   * 滚动吸附完成结算
+   */
+  const handleScrollSettle = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const h = container.clientHeight || containerHeight || 1;
+    const targetIdx = Math.max(0, Math.round(container.scrollTop / h));
+
+    if (targetIdx !== currentIndexRef.current) {
+      currentIndexRef.current = targetIdx;
+      setCurrentIndex(targetIdx);
+      shuffleQueue.setIndex(targetIdx);
+      setMaxRenderedIndex((prev) => Math.max(prev, targetIdx + 2));
+
+      const activeItem = shuffleQueue.getItemAt(targetIdx);
+      if (activeItem) {
+        onCurrentClipChange?.(activeItem);
+      }
+    }
+  }, [containerHeight, onCurrentClipChange, shuffleQueue]);
+
+  /**
+   * 程序化切换至下一个片段
+   */
+  const triggerNext = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const nextIdx = currentIndexRef.current + 1;
+    setMaxRenderedIndex((prev) => Math.max(prev, nextIdx + 2));
+    const h = container.clientHeight || containerHeight;
+    container.scrollTo({ top: nextIdx * h, behavior: 'smooth' });
+  }, [containerHeight]);
+
+  /**
+   * 程序化切换至上一个片段
+   */
+  const triggerPrevious = useCallback(() => {
+    const container = containerRef.current;
+    if (!container || currentIndexRef.current <= 0) return;
+
+    const prevIdx = currentIndexRef.current - 1;
+    const h = container.clientHeight || containerHeight;
+    container.scrollTo({ top: Math.max(0, prevIdx * h), behavior: 'smooth' });
+  }, [containerHeight]);
+
+  /**
+   * 传统鼠标滚轮独立分流拦截处理
+   */
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey || e.deltaY === 0 || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) {
+        return;
+      }
+
+      if (isPhysicalMouseWheel(e)) {
+        e.preventDefault();
+
+        if (isWheelThrottledRef.current) return;
+
+        isWheelThrottledRef.current = true;
+        if (wheelThrottleTimerRef.current) {
+          clearTimeout(wheelThrottleTimerRef.current);
+        }
+        wheelThrottleTimerRef.current = setTimeout(() => {
+          isWheelThrottledRef.current = false;
+        }, MOUSE_WHEEL_THROTTLE_MS);
+
+        if (e.deltaY > 0) {
+          triggerNext();
+        } else {
+          triggerPrevious();
+        }
+      }
+      // 触控板手势放行至原生 CSS Scroll Snap 处理
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+      if (wheelThrottleTimerRef.current) {
+        clearTimeout(wheelThrottleTimerRef.current);
+      }
+    };
+  }, [triggerNext, triggerPrevious]);
+
+  /**
+   * 监听原生 scroll 与 scrollend 事件
+   */
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const onScrollEnd = () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = null;
+      }
+      handleScrollSettle();
+    };
+
+    const onScroll = () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      scrollTimeoutRef.current = setTimeout(() => {
+        handleScrollSettle();
+      }, SCROLL_SETTLE_FALLBACK_DELAY_MS);
+    };
+
+    container.addEventListener('scrollend', onScrollEnd);
+    container.addEventListener('scroll', onScroll, { passive: true });
+
+    return () => {
+      container.removeEventListener('scrollend', onScrollEnd);
+      container.removeEventListener('scroll', onScroll);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, [handleScrollSettle]);
 
   // 全屏切换与监听
   const handleToggleFullscreen = useCallback(() => {
@@ -88,400 +320,74 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  // 外部强制更新 currentSlot（仅在 idle 状态生效，支持同步 file / src 与 item 变更）
-  useEffect(() => {
-    if (transitionState === 'idle') {
-      const activeData = activeSlotId === 'A' ? slotA : slotB;
-      if (
-        !activeData ||
-        activeData.item.clip.id !== currentSlot.item.clip.id ||
-        activeData.file !== currentSlot.file ||
-        activeData.src !== currentSlot.src
-      ) {
-        const isReady = Boolean(currentSlot.file || currentSlot.src);
-        const newSlot: InternalSlot = {
-          item: currentSlot.item,
-          file: currentSlot.file,
-          src: currentSlot.src,
-          key: `${currentSlot.item.clip.id}-${isReady ? 'ready' : 'empty'}`,
-        };
-        if (activeSlotId === 'A') {
-          setSlotA(newSlot);
-          setSlotB(null);
-        } else {
-          setSlotB(newSlot);
-          setSlotA(null);
-        }
-      }
-    }
-  }, [currentSlot, activeSlotId, transitionState, slotA, slotB]);
-
-  // 后台自动预加载：当处于空闲状态时，在备用槽位提前预载下一个片段
-  useEffect(() => {
-    if (transitionState !== 'idle' || !hasNext || !onPeekNext) return;
-    let cancelled = false;
-
-    const inactiveSlotId = activeSlotId === 'A' ? 'B' : 'A';
-    const inactiveSlot = inactiveSlotId === 'A' ? slotA : slotB;
-
-    const runPreload = async () => {
-      try {
-        const nextData = await onPeekNext();
-        if (cancelled || !nextData) return;
-
-        // 如果非活跃槽位已经挂载了该预加载片段，则无需重复设置
-        if (
-          inactiveSlot &&
-          inactiveSlot.item.clip.id === nextData.item.clip.id &&
-          (inactiveSlot.src === nextData.src || inactiveSlot.file === nextData.file)
-        ) {
-          return;
-        }
-
-        const newSlot: InternalSlot = {
-          ...nextData,
-          key: `preload-${nextData.item.clip.id}`,
-        };
-
-        if (inactiveSlotId === 'A') {
-          setSlotA(newSlot);
-        } else {
-          setSlotB(newSlot);
-        }
-      } catch (err) {
-        console.warn('Background preload failed:', err);
-      }
-    };
-
-    // 延迟 80ms 启动后台预载，优先保证活跃视频播放平稳
-    const timer = setTimeout(runPreload, 80);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [activeSlotId, hasNext, onPeekNext, slotA, slotB, transitionState]);
-
-  // 完成过渡，Ping-Pong 切换槽位
-  const finalizeTransition = useCallback(
-    (targetSlotId: 'A' | 'B') => {
-      if (transitionFallbackTimerRef.current) {
-        clearTimeout(transitionFallbackTimerRef.current);
-        transitionFallbackTimerRef.current = null;
-      }
-
-      const targetData = targetSlotId === 'A' ? slotA : slotB;
-      if (targetData) {
-        onCommitItemChange(targetData.item, targetData.file || null, targetData.src || null);
-      }
-
-      setActiveSlotId(targetSlotId);
-      if (targetSlotId === 'A') {
-        setSlotB(null);
-      } else {
-        setSlotA(null);
-      }
-      setTransitionState('idle');
-      setDirection(null);
-      isTransitioningRef.current = false;
-    },
-    [onCommitItemChange, slotA, slotB]
-  );
-
-  // 下一个片段切换（秒切已预加载槽位）
-  const triggerNext = useCallback(async () => {
-    if (isTransitioningRef.current || !hasNext) return;
-
-    isTransitioningRef.current = true;
-    const targetSlotId = activeSlotId === 'A' ? 'B' : 'A';
-    const targetSlot = targetSlotId === 'A' ? slotA : slotB;
-
-    const nextSlotData = await onRequestNext();
-    if (!nextSlotData) {
-      isTransitioningRef.current = false;
-      return;
-    }
-
-    // 检查目标槽位是否已经预加载了该片段
-    const isAlreadyPreloaded =
-      targetSlot &&
-      targetSlot.item.clip.id === nextSlotData.item.clip.id &&
-      (targetSlot.src === nextSlotData.src || targetSlot.file === nextSlotData.file);
-
-    if (!isAlreadyPreloaded) {
-      const newInternalSlot: InternalSlot = {
-        ...nextSlotData,
-        key: `${nextSlotData.item.clip.id}-${Date.now()}`,
-      };
-
-      if (targetSlotId === 'A') {
-        setSlotA(newInternalSlot);
-      } else {
-        setSlotB(newInternalSlot);
-      }
-    }
-
-    setDirection('next');
-    setTransitionState('preparing');
-
-    // 双 requestAnimationFrame 确保 DOM 挂载和初始 translate 确立后再启动过渡动画
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setTransitionState('sliding');
-        // 安全备用定时器：防止 CSS transitionend 事件被浏览器意外丢弃
-        transitionFallbackTimerRef.current = setTimeout(() => {
-          finalizeTransition(targetSlotId);
-        }, 420);
-      });
-    });
-  }, [activeSlotId, finalizeTransition, hasNext, onRequestNext, slotA, slotB]);
-
-  // 上一个片段切换
-  const triggerPrevious = useCallback(async () => {
-    if (isTransitioningRef.current || !hasPrevious) return;
-
-    isTransitioningRef.current = true;
-    const prevSlotData = await onRequestPrevious();
-    if (!prevSlotData) {
-      isTransitioningRef.current = false;
-      return;
-    }
-
-    const targetSlotId = activeSlotId === 'A' ? 'B' : 'A';
-    const newInternalSlot: InternalSlot = {
-      ...prevSlotData,
-      key: `${prevSlotData.item.clip.id}-${Date.now()}`,
-    };
-
-    if (targetSlotId === 'A') {
-      setSlotA(newInternalSlot);
-    } else {
-      setSlotB(newInternalSlot);
-    }
-
-    setDirection('prev');
-    setTransitionState('preparing');
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setTransitionState('sliding');
-        transitionFallbackTimerRef.current = setTimeout(() => {
-          finalizeTransition(targetSlotId);
-        }, 420);
-      });
-    });
-  }, [activeSlotId, finalizeTransition, hasPrevious, onRequestPrevious]);
-
-  // 动画结束事件处理
-  const handleTransitionEnd = useCallback(
-    (e: React.TransitionEvent<HTMLDivElement>, slotId: 'A' | 'B') => {
-      if (e.target !== e.currentTarget || transitionState !== 'sliding') return;
-      const targetSlotId = activeSlotId === 'A' ? 'B' : 'A';
-      if (slotId === targetSlotId) {
-        finalizeTransition(targetSlotId);
-      }
-    },
-    [activeSlotId, finalizeTransition, transitionState]
-  );
-
-  // 滚轮监听与防抖
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      if (isTransitioningRef.current) {
-        e.preventDefault();
-        return;
-      }
-
-      const now = Date.now();
-      if (now - lastWheelTimeRef.current < 420) {
-        e.preventDefault();
-        return;
-      }
-
-      wheelAccumulatorRef.current += e.deltaY;
-
-      if (wheelResetTimerRef.current) {
-        clearTimeout(wheelResetTimerRef.current);
-      }
-      wheelResetTimerRef.current = setTimeout(() => {
-        wheelAccumulatorRef.current = 0;
-      }, 160);
-
-      const THRESHOLD = 35;
-      if (wheelAccumulatorRef.current >= THRESHOLD) {
-        e.preventDefault();
-        lastWheelTimeRef.current = now;
-        wheelAccumulatorRef.current = 0;
-        triggerNext();
-      } else if (wheelAccumulatorRef.current <= -THRESHOLD) {
-        e.preventDefault();
-        lastWheelTimeRef.current = now;
-        wheelAccumulatorRef.current = 0;
-        triggerPrevious();
-      }
-    };
-
-    container.addEventListener('wheel', handleWheel, { passive: false });
-    return () => {
-      container.removeEventListener('wheel', handleWheel);
-      if (wheelResetTimerRef.current) {
-        clearTimeout(wheelResetTimerRef.current);
-      }
-      if (transitionFallbackTimerRef.current) {
-        clearTimeout(transitionFallbackTimerRef.current);
-      }
-    };
-  }, [triggerNext, triggerPrevious]);
-
-  // 触控手势
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 1) {
-      touchStartYRef.current = e.touches[0].clientY;
-    }
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartYRef.current === null || isTransitioningRef.current) return;
-    const endY = e.changedTouches[0].clientY;
-    const diff = touchStartYRef.current - endY;
-    touchStartYRef.current = null;
-
-    if (diff > 45) {
-      triggerNext();
-    } else if (diff < -45) {
-      triggerPrevious();
-    }
-  };
-
-  // 获取槽位 Transform
-  const getSlotTransform = (slotId: 'A' | 'B') => {
-    const isActive = activeSlotId === slotId;
-
-    if (transitionState === 'idle') {
-      return isActive ? 'translate3d(0, 0, 0)' : 'translate3d(0, 100%, 0)';
-    }
-
-    if (transitionState === 'preparing') {
-      if (isActive) {
-        return 'translate3d(0, 0, 0)';
-      }
-      return direction === 'next' ? 'translate3d(0, 100%, 0)' : 'translate3d(0, -100%, 0)';
-    }
-
-    // sliding 状态
-    if (isActive) {
-      return direction === 'next' ? 'translate3d(0, -100%, 0)' : 'translate3d(0, 100%, 0)';
-    } else {
-      return 'translate3d(0, 0, 0)';
-    }
-  };
-
-  const getSlotTransition = () => {
-    return transitionState === 'sliding'
-      ? 'transform 360ms cubic-bezier(0.22, 1, 0.36, 1)'
-      : 'none';
-  };
-
-  const [initialClipId] = useState(() => currentSlot.item.clip.id);
+  // 生成要渲染的项目索引列表
+  const renderedIndices: number[] = [];
+  for (let i = 0; i <= maxRenderedIndex; i++) {
+    renderedIndices.push(i);
+  }
 
   return (
     <div
       ref={containerRef}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      className={`relative w-full h-full overflow-hidden select-none bg-surface ${
+      className={`relative w-full h-full overflow-y-scroll overflow-x-hidden select-none snap-y snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
         isFullscreen ? 'rounded-none' : 'rounded-3xl'
       }`}
+      style={{
+        scrollSnapType: 'y mandatory',
+        overscrollBehaviorY: 'contain',
+      }}
     >
-      {/* 槽位 A */}
-      {slotA && (
-        <div
-          onTransitionEnd={(e) => handleTransitionEnd(e, 'A')}
-          style={{
-            transform: getSlotTransform('A'),
-            transition: getSlotTransition(),
-            willChange: transitionState !== 'idle' ? 'transform' : 'auto',
-          }}
-          className={`absolute inset-0 w-full h-full overflow-hidden ${
-            isFullscreen ? 'rounded-none' : 'rounded-3xl'
-          }`}
-        >
-          <VideoPlayer
-            key={slotA.key}
-            file={slotA.file}
-            src={slotA.src}
-            startTime={slotA.item.clip.startTime}
-            endTime={slotA.item.clip.endTime}
-            initialTime={slotA.item.clip.id === initialClipId ? initialTime : undefined}
-            onCurrentTimeChange={activeSlotId === 'A' ? onCurrentTimeChange : undefined}
-            onNext={triggerNext}
-            onPrevious={triggerPrevious}
-            hasPrevious={hasPrevious}
-            hasNext={hasNext}
-            showScissorsButton={false}
-            enableKeyboardShortcuts={activeSlotId === 'A' && transitionState === 'idle'}
-            isExiting={activeSlotId === 'A' && transitionState === 'sliding'}
-            isPreloading={activeSlotId !== 'A' && transitionState === 'idle'}
-            isFullscreen={isFullscreen}
-            onToggleFullscreen={handleToggleFullscreen}
-            onRevealInExplorer={
-              onRevealInExplorer ? () => onRevealInExplorer(slotA.item) : undefined
-            }
-            onGoToVideoDetail={
-              onGoToVideoDetail
-                ? (currentTime) =>
-                    onGoToVideoDetail(slotA.item, currentTime ?? slotA.item.clip.startTime)
-                : undefined
-            }
-          />
-        </div>
-      )}
+      {renderedIndices.map((index) => {
+        const item = shuffleQueue.getItemAt(index);
+        if (!item) return null;
 
-      {/* 槽位 B */}
-      {slotB && (
-        <div
-          onTransitionEnd={(e) => handleTransitionEnd(e, 'B')}
-          style={{
-            transform: getSlotTransform('B'),
-            transition: getSlotTransition(),
-            willChange: transitionState !== 'idle' ? 'transform' : 'auto',
-          }}
-          className={`absolute inset-0 w-full h-full overflow-hidden ${
-            isFullscreen ? 'rounded-none' : 'rounded-3xl'
-          }`}
-        >
-          <VideoPlayer
-            key={slotB.key}
-            file={slotB.file}
-            src={slotB.src}
-            startTime={slotB.item.clip.startTime}
-            endTime={slotB.item.clip.endTime}
-            initialTime={slotB.item.clip.id === initialClipId ? initialTime : undefined}
-            onCurrentTimeChange={activeSlotId === 'B' ? onCurrentTimeChange : undefined}
-            onNext={triggerNext}
-            onPrevious={triggerPrevious}
-            hasPrevious={hasPrevious}
-            hasNext={hasNext}
-            showScissorsButton={false}
-            enableKeyboardShortcuts={activeSlotId === 'B' && transitionState === 'idle'}
-            isExiting={activeSlotId === 'B' && transitionState === 'sliding'}
-            isPreloading={activeSlotId !== 'B' && transitionState === 'idle'}
-            isFullscreen={isFullscreen}
-            onToggleFullscreen={handleToggleFullscreen}
-            onRevealInExplorer={
-              onRevealInExplorer ? () => onRevealInExplorer(slotB.item) : undefined
-            }
-            onGoToVideoDetail={
-              onGoToVideoDetail
-                ? (currentTime) =>
-                    onGoToVideoDetail(slotB.item, currentTime ?? slotB.item.clip.startTime)
-                : undefined
-            }
-          />
-        </div>
-      )}
+        const isNearCurrent = Math.abs(index - currentIndex) <= 1;
+        const mediaSource = mediaMap[item.clip.id];
+        const isActive = index === currentIndex;
+
+        return (
+          <div
+            key={`${item.clip.id}-${index}`}
+            style={{
+              scrollSnapAlign: 'start',
+              scrollSnapStop: 'always',
+            }}
+            className="relative w-full h-full shrink-0 pb-2"
+          >
+            {isNearCurrent ? (
+              <VideoPlayer
+                key={item.clip.id}
+                file={mediaSource?.file}
+                src={mediaSource?.src}
+                startTime={item.clip.startTime}
+                endTime={item.clip.endTime}
+                initialTime={index === initialIndex ? initialTime : undefined}
+                onCurrentTimeChange={isActive ? onCurrentTimeChange : undefined}
+                onNext={triggerNext}
+                onPrevious={triggerPrevious}
+                hasPrevious={currentIndex > 0}
+                hasNext={true}
+                showScissorsButton={false}
+                enableKeyboardShortcuts={isActive}
+                isPreloading={!isActive}
+                isFullscreen={isFullscreen}
+                onToggleFullscreen={handleToggleFullscreen}
+                onRevealInExplorer={
+                  onRevealInExplorer ? () => onRevealInExplorer(item) : undefined
+                }
+                onGoToVideoDetail={
+                  onGoToVideoDetail
+                    ? (currentTime) =>
+                        onGoToVideoDetail(item, currentTime ?? item.clip.startTime)
+                    : undefined
+                }
+              />
+            ) : (
+              <div className="w-full h-full bg-surface" />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 };
