@@ -35,7 +35,13 @@ export const VideoDetailPage: React.FC = () => {
       (directoryHandle ? { name: directoryHandle.name, handle: directoryHandle } : null),
     [directoryRef, directoryHandle]
   );
-  const { isClipPanelOpen, setIsClipPanelOpen, setEditingClip } = usePlayerStore();
+  const {
+    isClipPanelOpen,
+    setIsClipPanelOpen,
+    setEditingClip,
+    detailFitMode,
+    toggleDetailFitMode,
+  } = usePlayerStore();
 
   const [video, setVideo] = useState<Video | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -242,6 +248,8 @@ export const VideoDetailPage: React.FC = () => {
             onCurrentTimeChange={setCurrentVideoTime}
             hasPrevious={false}
             hasNext={false}
+            fitMode={detailFitMode}
+            onToggleFitMode={toggleDetailFitMode}
             onRevealInExplorer={
               isTauri() && activeDirectory?.path
                 ? () => {

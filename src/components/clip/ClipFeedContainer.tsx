@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from
 import { ShuffleItem } from '@/types/clip';
 import { ShuffleQueue } from '@/services/shuffle';
 import { VideoPlayer } from '@/components/video/VideoPlayer';
+import { usePlayerStore } from '@/stores/playerStore';
 
 /** -------------------------------------------------------------
  *  手势、阈值与动画相关配置常量（便于后续微调）
@@ -80,6 +81,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
   onRevealInExplorer,
   onGoToVideoDetail,
 }) => {
+  const { clipsFitMode, toggleClipsFitMode } = usePlayerStore();
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
@@ -370,6 +372,8 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
                 showScissorsButton={false}
                 enableKeyboardShortcuts={isActive}
                 isPreloading={!isActive}
+                fitMode={clipsFitMode}
+                onToggleFitMode={toggleClipsFitMode}
                 isFullscreen={isFullscreen}
                 onToggleFullscreen={handleToggleFullscreen}
                 onRevealInExplorer={

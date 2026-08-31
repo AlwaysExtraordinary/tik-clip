@@ -99,8 +99,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     toggleClipPanel,
     seekTargetTime,
     requestSeek,
-    fitMode: storeFitMode,
-    toggleFitMode: storeToggleFitMode,
+    detailFitMode,
+    toggleDetailFitMode,
     showCountdown: storeShowCountdown,
     toggleShowCountdown: storeToggleShowCountdown,
     volume,
@@ -111,8 +111,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   const { showThumbnailPreview } = useSettingsStore();
 
-  const activeFitMode = fitModeProp ?? storeFitMode;
-  const handleToggleFitMode = onToggleFitMode ?? storeToggleFitMode;
+  const activeFitMode = fitModeProp ?? detailFitMode;
+  const handleToggleFitMode = onToggleFitMode ?? toggleDetailFitMode;
 
   const activeShowCountdown = showCountdownProp ?? storeShowCountdown;
   const handleToggleCountdown = onToggleCountdown ?? storeToggleShowCountdown;
