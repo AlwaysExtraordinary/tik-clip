@@ -349,23 +349,29 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     enableKeyboardShortcuts
   );
 
-  // 当处于退出动画阶段时立即暂停、重置倍速并静音
+  // 同步 preloading 与播放状态：仅当处于激活状态（!isPreloading && !isExiting）时播放，非激活时强制暂停
   const prevPreloadingRef = useRef(isPreloading);
   useEffect(() => {
-    if (prevPreloadingRef.current && !isPreloading && !isExiting) {
-      const video = videoRef.current;
-      if (video) {
-        if (
-          isClipMode &&
-          startTime !== undefined &&
-          (video.currentTime < startTime || (endTime !== undefined && video.currentTime >= endTime))
-        ) {
-          const target =
-            initialTime !== undefined && initialTime >= startTime ? initialTime : startTime;
-          video.currentTime = target;
-        }
-        video.play().catch(() => {});
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (isPreloading || isExiting) {
+      video.pause();
+      setIsPlaying(false);
+      setIsFastForwarding(false);
+      video.playbackRate = 1;
+    } else if (prevPreloadingRef.current && !isPreloading) {
+      // 从预载切为主播放时启动播放
+      if (
+        isClipMode &&
+        startTime !== undefined &&
+        (video.currentTime < startTime || (endTime !== undefined && video.currentTime >= endTime))
+      ) {
+        const target =
+          initialTime !== undefined && initialTime >= startTime ? initialTime : startTime;
+        video.currentTime = target;
       }
+      video.play().catch(() => {});
     }
     prevPreloadingRef.current = isPreloading;
   }, [isPreloading, isExiting, isClipMode, startTime, endTime, initialTime]);
@@ -428,11 +434,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
     }
 
-    // 非预加载状态下自动播放
+    // 非预加载状态下自动播放，预加载状态下确保暂停在起始位置
     if (!isPreloading && !isExiting) {
       video.play().catch(() => {
         // 带音频的自动播放可能需要用户手势交互，受阻时由用户手动点击播放
       });
+    } else {
+      video.pause();
     }
   };
 
