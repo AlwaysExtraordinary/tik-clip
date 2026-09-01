@@ -5,14 +5,11 @@ import { VideoPlayer } from '@/components/video/VideoPlayer';
 import { usePlayerStore } from '@/stores/playerStore';
 
 /** -------------------------------------------------------------
- *  手势、阈值与动画相关配置常量（便于后续微调）
+ *  手势、阈值与动画相关配置常量
  * ------------------------------------------------------------*/
 
 /** 鼠标滚轮单格防抖冷却时长（ms），防止滚轮连续滚动过快跳过多集 */
 const MOUSE_WHEEL_THROTTLE_MS = 380;
-
-/** 滚动吸附结算兜底防抖延时（ms，针对不支持 scrollend 的浏览器环境） */
-const SCROLL_SETTLE_FALLBACK_DELAY_MS = 100;
 
 /** 传统物理鼠标滚轮判定：标准物理步长（100 或 120 像素刻度） */
 const MOUSE_WHEEL_STANDARD_STEPS = [100, 120] as const;
@@ -64,12 +61,10 @@ function isPhysicalMouseWheel(e: WheelEvent): boolean {
 
 /**
  * TikClip 虚拟流式视频容器组件。
- * 架构重构亮点：
- * 1. 确定性序列平铺 + CSS Scroll Snap：彻底取消对 scrollTop 的手动强制回拉，根除自动回滚与画面闪烁；
+ * 1. 确定性序列平铺 + CSS Scroll Snap：通过原生吸附配合 scroll-smooth 保持丝滑过渡；
  * 2. 稳定的 DOM 实例映射：每个视频项保持自身独立的 Key，首帧渲染与实际播放画面 100% 保持一致；
  * 3. 触控板与鼠标滚轮双通道分流：触控板原生硬件级跟手，鼠标滚轮防抖平滑切页；
- * 4. 轻量级视口虚拟化：仅渲染当前及前后相邻视频实例，保持内存轻盈；
- * 5. 纯 React 状态驱动渲染，严格避免在 render 阶段访问或修改 Ref。
+ * 4. 纯 scrollend 驱动状态结算：滑动彻底停稳就位后再切换激活项与触发播放。
  */
 export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
   shuffleQueue,
@@ -94,10 +89,9 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
   // 媒体源状态映射：clipId -> MediaSourceData
   const [mediaMap, setMediaMap] = useState<Record<string, MediaSourceData>>({});
 
-  // 鼠标滚轮防抖与滚动结算标记
+  // 鼠标滚轮防抖标记
   const isWheelThrottledRef = useRef(false);
   const wheelThrottleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
    * 同步当前索引到 Ref 供事件监听读取
@@ -131,7 +125,10 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container || initialIndex === 0) return;
-    container.scrollTop = initialIndex * containerHeight;
+    container.scrollTo({
+      top: initialIndex * containerHeight,
+      behavior: 'instant' as ScrollBehavior,
+    });
   }, [containerHeight, initialIndex]);
 
   /**
@@ -267,38 +264,20 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
   }, [triggerNext, triggerPrevious]);
 
   /**
-   * 监听原生 scroll 与 scrollend 事件
+   * 监听原生 scrollend 事件，在滚动与吸附完全就位后进行结算
    */
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const onScrollEnd = () => {
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-        scrollTimeoutRef.current = null;
-      }
       handleScrollSettle();
     };
 
-    const onScroll = () => {
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-      scrollTimeoutRef.current = setTimeout(() => {
-        handleScrollSettle();
-      }, SCROLL_SETTLE_FALLBACK_DELAY_MS);
-    };
-
     container.addEventListener('scrollend', onScrollEnd);
-    container.addEventListener('scroll', onScroll, { passive: true });
 
     return () => {
       container.removeEventListener('scrollend', onScrollEnd);
-      container.removeEventListener('scroll', onScroll);
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
     };
   }, [handleScrollSettle]);
 
@@ -331,7 +310,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`relative w-full h-full overflow-y-scroll overflow-x-hidden select-none snap-y snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+      className={`relative w-full h-full overflow-y-scroll overflow-x-hidden select-none snap-y snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
         isFullscreen ? 'rounded-none' : 'rounded-3xl'
       }`}
       style={{
