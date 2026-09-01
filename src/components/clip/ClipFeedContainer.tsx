@@ -14,9 +14,6 @@ const MOUSE_WHEEL_THROTTLE_MS = 380;
 /** 传统物理鼠标滚轮判定：标准物理步长（100 或 120 像素刻度） */
 const MOUSE_WHEEL_STANDARD_STEPS = [100, 120] as const;
 
-/** 传统物理鼠标滚轮判定：首帧大步长整数位移阈值（px） */
-const MOUSE_WHEEL_INITIAL_STEP_THRESHOLD = 60;
-
 export interface MediaSourceData {
   file?: File | null;
   src?: string | null;
@@ -37,23 +34,19 @@ interface ClipFeedContainerProps {
 
 /**
  * 识别是否为物理鼠标滚轮单格滚动（区别于触控板连续手势）。
+ * 触控板手势放行由原生 CSS Scroll Snap 处理；物理鼠标滚轮单格则拦截并触发翻页。
  */
 function isPhysicalMouseWheel(e: WheelEvent): boolean {
   if (e.deltaMode !== 0) return true;
+  if (e.deltaX !== 0) return false;
 
   const anyEvent = e as WheelEvent & { wheelDeltaY?: number; wheelDelta?: number };
   const wheelDelta = anyEvent.wheelDeltaY ?? anyEvent.wheelDelta;
   if (typeof wheelDelta === 'number' && wheelDelta !== 0 && Math.abs(wheelDelta) % 120 === 0) {
-    return true;
-  }
-
-  const absY = Math.abs(e.deltaY);
-  for (const step of MOUSE_WHEEL_STANDARD_STEPS) {
-    if (absY % step === 0) return true;
-  }
-
-  if (Number.isInteger(e.deltaY) && absY >= MOUSE_WHEEL_INITIAL_STEP_THRESHOLD) {
-    return true;
+    const absY = Math.abs(e.deltaY);
+    for (const step of MOUSE_WHEEL_STANDARD_STEPS) {
+      if (absY % step === 0 && absY > 0) return true;
+    }
   }
 
   return false;
@@ -61,7 +54,7 @@ function isPhysicalMouseWheel(e: WheelEvent): boolean {
 
 /**
  * TikClip 虚拟流式视频容器组件。
- * 1. 确定性序列平铺 + CSS Scroll Snap：通过原生吸附配合 scroll-smooth 保持丝滑过渡；
+ * 1. 确定性序列平铺 + CSS Scroll Snap：通过原生吸附保持丝滑过渡，消除回弹抖动；
  * 2. 稳定的 DOM 实例映射：每个视频项保持自身独立的 Key，首帧渲染与实际播放画面 100% 保持一致；
  * 3. 触控板与鼠标滚轮双通道分流：触控板原生硬件级跟手，鼠标滚轮防抖平滑切页；
  * 4. 纯 scrollend 驱动状态结算：滑动彻底停稳就位后再切换激活项与触发播放。
@@ -310,7 +303,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`relative w-full h-full overflow-y-scroll overflow-x-hidden select-none snap-y snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+      className={`relative w-full h-full overflow-y-scroll overflow-x-hidden select-none snap-y snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
         isFullscreen ? 'rounded-none' : 'rounded-3xl'
       }`}
       style={{
