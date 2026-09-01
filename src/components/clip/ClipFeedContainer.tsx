@@ -75,7 +75,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const currentIndexRef = useRef(currentIndex);
 
-  const [maxRenderedIndex, setMaxRenderedIndex] = useState(() => Math.max(initialIndex + 2, 2));
+  const [maxRenderedIndex, setMaxRenderedIndex] = useState(() => Math.max(initialIndex + 3, 3));
   const [containerHeight, setContainerHeight] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -125,14 +125,18 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
   }, [containerHeight, initialIndex]);
 
   /**
-   * 后台异步预加载当前项及前后相邻项的视频媒体源
+   * 后台异步预加载当前项及前后相邻项（前后各 2 项）的视频媒体源
    */
   useEffect(() => {
     let cancelled = false;
 
-    const preloadIndices = [currentIndex, currentIndex + 1, currentIndex - 1].filter(
-      (idx) => idx >= 0
-    );
+    const preloadIndices = [
+      currentIndex,
+      currentIndex + 1,
+      currentIndex + 2,
+      currentIndex - 1,
+      currentIndex - 2,
+    ].filter((idx) => idx >= 0);
 
     for (const idx of preloadIndices) {
       const item = shuffleQueue.getItemAt(idx);
@@ -178,7 +182,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
       currentIndexRef.current = targetIdx;
       setCurrentIndex(targetIdx);
       shuffleQueue.setIndex(targetIdx);
-      setMaxRenderedIndex((prev) => Math.max(prev, targetIdx + 2));
+      setMaxRenderedIndex((prev) => Math.max(prev, targetIdx + 3));
 
       const activeItem = shuffleQueue.getItemAt(targetIdx);
       if (activeItem) {
@@ -195,7 +199,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
     if (!container) return;
 
     const nextIdx = currentIndexRef.current + 1;
-    setMaxRenderedIndex((prev) => Math.max(prev, nextIdx + 2));
+    setMaxRenderedIndex((prev) => Math.max(prev, nextIdx + 3));
     const h = container.clientHeight || containerHeight;
     container.scrollTo({ top: nextIdx * h, behavior: 'smooth' });
   }, [containerHeight]);
@@ -315,7 +319,8 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
         const item = shuffleQueue.getItemAt(index);
         if (!item) return null;
 
-        const isNearCurrent = Math.abs(index - currentIndex) <= 1;
+        // 预渲染前后各 2 项（共维持 5 个播放器实例），保证快速/惯性滑动越级时直接展示真实的起始视频帧
+        const isNearCurrent = Math.abs(index - currentIndex) <= 2;
         const mediaSource = mediaMap[item.clip.id];
         const isActive = index === currentIndex;
 
