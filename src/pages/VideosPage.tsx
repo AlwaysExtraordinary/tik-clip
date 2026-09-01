@@ -21,6 +21,7 @@ import { cn } from '@/utils/cn';
 export const VideosPage: React.FC = () => {
   const { t } = useTranslation();
   const [videos, setVideos] = useState<Video[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const navigate = useNavigate();
 
   const { directoryRef, directoryHandle, isScanning, isHandleRestoring } = useDirectory();
@@ -65,6 +66,7 @@ export const VideosPage: React.FC = () => {
     let active = true;
 
     async function loadVideos() {
+      setIsLoading(true);
       try {
         const list = await getAllVideos();
         if (active) {
@@ -72,6 +74,10 @@ export const VideosPage: React.FC = () => {
         }
       } catch (err) {
         console.error('Failed to load videos:', err);
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
       }
     }
 
@@ -176,6 +182,10 @@ export const VideosPage: React.FC = () => {
 
   if (isScanning) {
     return <EmptyState type="scanning" />;
+  }
+
+  if (isLoading) {
+    return <EmptyState type="loading" />;
   }
 
   if (videos.length === 0) {

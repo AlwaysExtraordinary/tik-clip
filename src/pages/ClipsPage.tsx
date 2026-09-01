@@ -41,6 +41,7 @@ export const ClipsPage: React.FC = () => {
 
   const [totalVideoCount, setTotalVideoCount] = useState<number>(0);
   const [allItems, setAllItems] = useState<ShuffleItem[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // 提取所有已有片段中的全部不重复标签
   const allTags = useMemo(() => {
@@ -84,6 +85,7 @@ export const ClipsPage: React.FC = () => {
         return;
       }
 
+      setIsLoading(true);
       try {
         const [allClips, allVideos] = await Promise.all([getAllClips(), getAllVideos()]);
         if (!active) return;
@@ -149,6 +151,10 @@ export const ClipsPage: React.FC = () => {
         }
       } catch (err) {
         console.error('Error loading clips feed:', err);
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
       }
     }
 
@@ -157,6 +163,7 @@ export const ClipsPage: React.FC = () => {
     } else if (!activeDirectory) {
       setAllItems([]);
       setTotalVideoCount(0);
+      setIsLoading(false);
       resetFeed();
     }
 
@@ -245,6 +252,11 @@ export const ClipsPage: React.FC = () => {
     return <EmptyState type="scanning" />;
   }
 
+  // 数据加载中状态
+  if (isLoading) {
+    return <EmptyState type="loading" />;
+  }
+
   // 无视频状态
   if (totalVideoCount === 0 && allItems.length === 0) {
     return (
@@ -259,20 +271,11 @@ export const ClipsPage: React.FC = () => {
   // 无片段状态
   if (allItems.length === 0) {
     return (
-      <div className="flex-1 flex flex-col overflow-hidden p-4 md:p-6 lg:p-8">
-        <div className="flex items-center justify-between pb-3 select-none">
-          <span className="text-md font-semibold text-foreground truncate">
-            {t('clipsFeed.title')}
-          </span>
-        </div>
-        <div className="flex-1 h-full min-w-0 flex overflow-hidden">
           <EmptyState
             type="no-clips"
             title={t('clipsFeed.noClipsTitle')}
             description={t('clipsFeed.noClipsDesc')}
           />
-        </div>
-      </div>
     );
   }
 

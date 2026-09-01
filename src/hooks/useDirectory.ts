@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useAppStore } from '@/stores/appStore';
 import { getStoredDirectoryRef, setStoredDirectoryRef, clearStoredDirectory } from '@/db/settings';
 import {
@@ -20,41 +20,9 @@ export function useDirectory() {
   const setDirectoryHandle = useAppStore((s) => s.setDirectoryHandle);
   const setIsScanning = useAppStore((s) => s.setIsScanning);
   const setScanProgress = useAppStore((s) => s.setScanProgress);
-  const setIsHandleRestoring = useAppStore((s) => s.setIsHandleRestoring);
   const setErrorMessage = useAppStore((s) => s.setErrorMessage);
 
-  // 启动时尝试恢复目录
-  useEffect(() => {
-    let mounted = true;
 
-    async function restore() {
-      setIsHandleRestoring(true);
-      try {
-        const storedRef = await getStoredDirectoryRef();
-
-        if (storedRef && mounted) {
-          const hasPerm = await verifyDirectoryPermission(storedRef, 'read');
-          if (hasPerm && mounted) {
-            setDirectoryRef(storedRef);
-          } else if (mounted) {
-            // 权限尚未激活（Web 模式下需重新交互授权），仅保存目录名以便界面提示
-            setDirectoryRef({ name: storedRef.name });
-          }
-        }
-      } catch (err) {
-        console.warn('Error restoring directory:', err);
-      } finally {
-        if (mounted) {
-          setIsHandleRestoring(false);
-        }
-      }
-    }
-
-    restore();
-    return () => {
-      mounted = false;
-    };
-  }, [setDirectoryRef, setIsHandleRestoring]);
 
   // 扫描目录辅助方法
   const performScan = useCallback(

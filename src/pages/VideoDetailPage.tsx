@@ -163,11 +163,7 @@ export const VideoDetailPage: React.FC = () => {
   }, [navigate]);
 
   if (isHandleRestoring || isLoading) {
-    return (
-      <div className="text-foreground-muted flex flex-1 items-center justify-center">
-        <Icon icon="lucide:loader-2" className="size-8 animate-spin opacity-50" />
-      </div>
-    );
+    return <EmptyState type="loading" />;
   }
 
   if (!activeDirectory) {

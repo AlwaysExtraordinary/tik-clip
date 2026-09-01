@@ -36,13 +36,26 @@ export const useClipsFeedStore = create<ClipsFeedState>((set) => ({
   setFileError: (fileError) => set({ fileError }),
   setSelectedTag: (selectedTag) => set({ selectedTag }),
   resetFeed: () =>
-    set({
-      shuffleQueue: new ShuffleQueue(),
-      currentShuffleItem: null,
-      currentVideoFile: null,
-      currentVideoSrc: null,
-      lastPlaybackTime: null,
-      fileError: null,
-      selectedTag: null,
+    set((state) => {
+      if (
+        state.currentShuffleItem === null &&
+        state.currentVideoFile === null &&
+        state.currentVideoSrc === null &&
+        state.lastPlaybackTime === null &&
+        state.fileError === null &&
+        state.selectedTag === null &&
+        state.shuffleQueue.totalCount === 0
+      ) {
+        return state;
+      }
+      return {
+        shuffleQueue: new ShuffleQueue(),
+        currentShuffleItem: null,
+        currentVideoFile: null,
+        currentVideoSrc: null,
+        lastPlaybackTime: null,
+        fileError: null,
+        selectedTag: null,
+      };
     }),
 }));
