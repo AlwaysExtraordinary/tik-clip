@@ -179,9 +179,12 @@ export const ClipsPage: React.FC = () => {
     setLastPlaybackTime,
   ]);
 
-  // 切换标签筛选
+  /**
+   * 切换标签筛选
+   * @param newTag 选中的标签名称，为 'all' 或 null 时重置为全部片段
+   */
   const handleTagChange = useCallback(
-    async (newTag: string | null) => {
+    (newTag: string | null) => {
       const activeTag = !newTag || newTag === 'all' ? null : newTag;
       setSelectedTag(activeTag);
       const targetItems = !activeTag
@@ -189,24 +192,18 @@ export const ClipsPage: React.FC = () => {
         : allItems.filter((item) => item.clip.tags?.includes(activeTag));
 
       if (targetItems.length === 0) {
+        shuffleQueue.setItems([]);
         setCurrentShuffleItem(null);
+        setLastPlaybackTime(null);
         return;
       }
 
       setFileError(null);
-
-      const current = useClipsFeedStore.getState().currentShuffleItem;
-      const matched = current ? targetItems.find((it) => it.clip.id === current.clip.id) : null;
-
-      if (matched) {
-        shuffleQueue.syncItems(targetItems, matched.clip.id);
-      } else {
-        shuffleQueue.setItems(targetItems);
-        const first = shuffleQueue.current();
-        if (first) {
-          setCurrentShuffleItem(first);
-          setLastPlaybackTime(first.clip.startTime);
-        }
+      shuffleQueue.setItems(targetItems);
+      const first = shuffleQueue.current();
+      if (first) {
+        setCurrentShuffleItem(first);
+        setLastPlaybackTime(first.clip.startTime);
       }
     },
     [allItems, setCurrentShuffleItem, setFileError, setLastPlaybackTime, setSelectedTag, shuffleQueue]
@@ -296,7 +293,7 @@ export const ClipsPage: React.FC = () => {
         {allTags.length > 0 && (
           <div className="shrink-0">
             <Select
-              value={selectedTag || null}
+              value={selectedTag || 'all'}
               onChange={(key) => handleTagChange(key as string | null)}
               placeholder={t('clipsFeed.selectTag')}
               aria-label={t('clipsFeed.filterByTag')}
