@@ -173,7 +173,7 @@ export const VideoDetailPage: React.FC = () => {
   // 处理视频不存在或读取错误的情况
   if (error || !video) {
     return (
-      <div className="bg-surface/40 border-border/40 flex flex-1 flex-col items-center justify-center rounded-3xl border p-8 text-center">
+      <div className="bg-surface/40 flex flex-1 flex-col items-center justify-center p-8 text-center">
         <div className="bg-danger/10 text-danger mb-3 flex size-12 items-center justify-center rounded-full">
           <Icon icon="lucide:alert-circle" className="size-6" />
         </div>
