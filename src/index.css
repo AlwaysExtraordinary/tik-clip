@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import '@heroui/styles';
+@import '@/styles/animation.css';
 
 @theme {
   --color-background: var(--background);

@@ -208,7 +208,14 @@ export const ClipsPage: React.FC = () => {
         setLastPlaybackTime(first.clip.startTime);
       }
     },
-    [allItems, setCurrentShuffleItem, setFileError, setLastPlaybackTime, setSelectedTag, shuffleQueue]
+    [
+      allItems,
+      setCurrentShuffleItem,
+      setFileError,
+      setLastPlaybackTime,
+      setSelectedTag,
+      shuffleQueue,
+    ]
   );
 
   // 播放器时间更新时实时记录到 Store
@@ -280,11 +287,11 @@ export const ClipsPage: React.FC = () => {
   // 无片段状态
   if (allItems.length === 0) {
     return (
-          <EmptyState
-            type="no-clips"
-            title={t('clipsFeed.noClipsTitle')}
-            description={t('clipsFeed.noClipsDesc')}
-          />
+      <EmptyState
+        type="no-clips"
+        title={t('clipsFeed.noClipsTitle')}
+        description={t('clipsFeed.noClipsDesc')}
+      />
     );
   }
 
@@ -348,19 +355,11 @@ export const ClipsPage: React.FC = () => {
       {/* 主播放区域 / 空状态 / 错误状态 */}
       <div className="flex-1 h-full min-w-0 flex overflow-hidden">
         {fileError ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-surface rounded-3xl border border-border/40 shadow-card">
-            <Icon icon="lucide:alert-triangle" className="size-10 text-danger mb-3" />
-            <h3 className="text-sm font-semibold text-foreground mb-1">
-              {t('clipsFeed.clipUnavailable')}
-            </h3>
-            <p className="text-xs text-foreground-muted mb-5 max-w-sm">{fileError}</p>
-            <button
-              onClick={handleSkipDeletedClip}
-              className="px-5 py-2 rounded-2xl bg-foreground text-background text-xs font-semibold hover:opacity-90 active:scale-95 transition-all shadow-subtle cursor-pointer"
-            >
-              {t('clipsFeed.skipToNext')}
-            </button>
-          </div>
+          <EmptyState
+            type="clip-unavailable"
+            description={fileError}
+            onAction={handleSkipDeletedClip}
+          />
         ) : currentShuffleItem ? (
           <ClipFeedContainer
             key={`${activeDirectory.name}-${selectedTag || 'all'}`}

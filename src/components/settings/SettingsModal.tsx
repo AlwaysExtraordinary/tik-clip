@@ -79,11 +79,6 @@ export const SettingsModal: React.FC = () => {
                     <span className="text-sm truncate text-foreground">
                       {directoryName || t('settings.noDirectorySelected')}
                     </span>
-                    {directoryName && !hasDirectoryPermission && (
-                      <span className="text-[10px] text-danger shrink-0 font-medium">
-                        ({t('emptyState.permissionRequiredTitle')})
-                      </span>
-                    )}
                   </div>
                   {!hasDirectoryPermission && directoryName ? (
                     <Button size="sm" variant="primary" onPress={reauthorizeDirectory}>
