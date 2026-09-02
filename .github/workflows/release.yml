@@ -29,7 +29,7 @@ on:
         default: ''
         type: string
       is_prerelease:
-        description: '标记为 Pre-release (预发布版本)'
+        description: '发布为 Pre-release (勾选将自动附带 -beta 后缀并启用 Beta 独立分轨版本计算)'
         required: true
         type: boolean
         default: false

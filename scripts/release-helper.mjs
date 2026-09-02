@@ -15,26 +15,61 @@ function runCommand(cmd) {
 }
 
 /**
- * 获取相对于当前目标 Tag 的上一个版本 Tag
- * @param {string} currentTag 当前构建/目标 Tag
- * @returns {string}
+ * 解析单个 Tag 的版本元信息
+ * @param {string} tag
+ * @returns {{ raw: string, major: number, minor: number, patch: number, baseVer: string, isBeta: boolean, betaNum: number } | null}
  */
-function getPreviousTag(currentTag) {
-  const tagList = runCommand('git tag --sort=-v:refname');
-  if (!tagList) return '';
+function parseTagInfo(tag) {
+  if (!tag) return null;
+  const match = tag.match(/^v?(\d+)\.(\d+)\.(\d+)(?:-beta(?:\.(\d+))?)?$/i);
+  if (!match) return null;
 
-  const tags = tagList
+  const major = parseInt(match[1], 10);
+  const minor = parseInt(match[2], 10);
+  const patch = parseInt(match[3], 10);
+  const isBeta = tag.toLowerCase().includes('-beta');
+  const betaNum = match[4] !== undefined ? parseInt(match[4], 10) : isBeta ? 0 : -1;
+
+  return {
+    raw: tag,
+    major,
+    minor,
+    patch,
+    baseVer: `${major}.${minor}.${patch}`,
+    isBeta,
+    betaNum,
+  };
+}
+
+/**
+ * 解析所有合规的 Git Tags，并分别归类为正式版轨道与 Beta 预发布版轨道
+ * @returns {{ formalTags: string[], betaTags: string[], allTags: string[] }}
+ */
+function parseAllTags() {
+  const rawList = runCommand('git tag --sort=-v:refname');
+  if (!rawList) return { formalTags: [], betaTags: [], allTags: [] };
+
+  const lines = rawList
     .split('\n')
     .map((t) => t.trim())
-    .filter((t) => /^v?\d+\.\d+(\.\d+)?/.test(t));
+    .filter(Boolean);
+  const formalTags = [];
+  const betaTags = [];
+  const allTags = [];
 
-  if (tags.length === 0) return '';
+  for (const tag of lines) {
+    const info = parseTagInfo(tag);
+    if (!info) continue;
 
-  const index = tags.indexOf(currentTag);
-  if (index >= 0) {
-    return index + 1 < tags.length ? tags[index + 1] : '';
+    allTags.push(tag);
+    if (info.isBeta) {
+      betaTags.push(tag);
+    } else {
+      formalTags.push(tag);
+    }
   }
-  return tags[0];
+
+  return { formalTags, betaTags, allTags };
 }
 
 /**
@@ -75,49 +110,82 @@ function toNumericVersion(v) {
 }
 
 /**
- * 计算下一个版本号与 Git Tag
+ * 获取 package.json 中的默认初始基础版本
+ * @returns {{ major: number, minor: number, patch: number, baseVer: string }}
+ */
+function getFallbackBaseVersion() {
+  try {
+    const pkg = JSON.parse(fs.readFileSync('./package.json', 'utf8'));
+    const match = (pkg.version || '').match(/(\d+)\.(\d+)(?:\.(\d+))?/);
+    if (match) {
+      const major = parseInt(match[1], 10);
+      const minor = parseInt(match[2], 10);
+      const patch = match[3] !== undefined ? parseInt(match[3], 10) : 0;
+      return { major, minor, patch, baseVer: `${major}.${minor}.${patch}` };
+    }
+  } catch {
+    // 忽略错误
+  }
+  return { major: 0, minor: 1, patch: 0, baseVer: '0.1.0' };
+}
+
+/**
+ * 双轨版本计算器：支持正式版与 Beta 版分开独立计算，实现 Beta 毕业转正与 Beta 间多轮迭代
  * @param {object} params
  * @param {string} [params.manualVersion] 手动指定的版本号
  * @param {string} [params.bumpType] 递增方式: patch | minor | major | auto
- * @param {string} [params.baseTag] 上一个基准 Tag
+ * @param {boolean} params.isPrerelease 是否为 Beta 预发布版本
  * @param {Array<{message: string}>} [params.commits] 提交列表
  * @returns {{ tagName: string, pureVer: string, baseTag: string }}
  */
-function determineVersion({ manualVersion, bumpType = 'patch', baseTag = '', commits = [] }) {
+function determineVersion({
+  manualVersion,
+  bumpType = 'patch',
+  isPrerelease = false,
+  commits = [],
+}) {
+  const { formalTags, allTags } = parseAllTags();
+  const latestAnyTag = allTags[0] || '';
+  const latestFormalTag = formalTags[0] || '';
+
+  // === 1. 手动指定版本号场景 ===
   if (manualVersion && manualVersion.trim()) {
-    const raw = manualVersion.trim();
-    const tagName = raw.startsWith('v') ? raw : `v${raw}`;
-    const pureVer = toNumericVersion(raw);
+    let raw = manualVersion.trim();
+    if (!raw.startsWith('v')) {
+      raw = `v${raw}`;
+    }
+
+    if (isPrerelease) {
+      // 勾选 Pre-release 时，确保具备 -beta 后缀
+      if (!/-beta(\.\d+)?$/i.test(raw)) {
+        raw = `${raw}-beta`;
+      }
+    } else {
+      // 发布正式版时，确保剥离 -beta 等预发布标识
+      raw = raw.replace(/-beta(\.\d+)?$/i, '');
+    }
+
+    const tagName = raw;
+    const pureVer = toNumericVersion(tagName);
+    const baseTag = isPrerelease ? latestAnyTag : latestFormalTag;
     return { tagName, pureVer, baseTag };
   }
 
-  // 基于 baseTag 解析主次修正版本
-  let major = 0;
-  let minor = 1;
-  let patch = 0;
+  // === 2. 自动推算版本号场景 (双轨推算) ===
+  const latestAnyInfo = parseTagInfo(latestAnyTag);
+  const latestFormalInfo =
+    parseTagInfo(latestFormalTag) ||
+    (latestAnyInfo
+      ? {
+          major: latestAnyInfo.major,
+          minor: latestAnyInfo.minor,
+          patch: latestAnyInfo.patch,
+          baseVer: latestAnyInfo.baseVer,
+        }
+      : getFallbackBaseVersion());
 
-  if (baseTag) {
-    const match = baseTag.match(/(\d+)\.(\d+)(?:\.(\d+))?/);
-    if (match) {
-      major = parseInt(match[1], 10);
-      minor = parseInt(match[2], 10);
-      patch = match[3] !== undefined ? parseInt(match[3], 10) : 0;
-    }
-  } else {
-    try {
-      const pkg = JSON.parse(fs.readFileSync('./package.json', 'utf8'));
-      const match = (pkg.version || '').match(/(\d+)\.(\d+)(?:\.(\d+))?/);
-      if (match) {
-        major = parseInt(match[1], 10);
-        minor = parseInt(match[2], 10);
-        patch = match[3] !== undefined ? parseInt(match[3], 10) : 0;
-      }
-    } catch {
-      // 忽略读取错误，使用默认 0.1.0
-    }
-  }
-
-  let finalBump = bumpType;
+  // 推算递增级别 (auto 模式下分析 commit 特征)
+  let effectiveBump = bumpType;
   if (bumpType === 'auto') {
     const hasBreaking = commits.some(
       (c) => c.message.includes('BREAKING CHANGE') || /^[a-z]+(\([^\)]+\))?!:/.test(c.message)
@@ -125,15 +193,80 @@ function determineVersion({ manualVersion, bumpType = 'patch', baseTag = '', com
     const hasFeat = commits.some((c) => /^feat(\([^\)]+\))?:/.test(c.message));
 
     if (hasBreaking) {
-      finalBump = 'major';
+      effectiveBump = 'major';
     } else if (hasFeat) {
-      finalBump = 'minor';
+      effectiveBump = 'minor';
     } else {
-      finalBump = 'patch';
+      effectiveBump = 'patch';
     }
   }
 
-  switch (finalBump) {
+  // --- 轨道一：发布【正式版】 (isPrerelease === false) ---
+  if (!isPrerelease) {
+    // 检查最新 Tag 是否为未转正的 Beta 版
+    if (latestAnyInfo && latestAnyInfo.isBeta) {
+      const formalExists = formalTags.some((t) => {
+        const info = parseTagInfo(t);
+        return info && info.baseVer === latestAnyInfo.baseVer;
+      });
+
+      // 若当前 Beta 对应的基础正式版本尚未发布，则直接毕业转正 (例如 v0.1.0-beta -> v0.1.0)
+      if (!formalExists) {
+        const tagName = `v${latestAnyInfo.baseVer}`;
+        const pureVer = latestAnyInfo.baseVer;
+        return { tagName, pureVer, baseTag: latestFormalTag };
+      }
+    }
+
+    // 否则基于上一个正式版递增
+    let major = latestFormalInfo.major;
+    let minor = latestFormalInfo.minor;
+    let patch = latestFormalInfo.patch;
+
+    switch (effectiveBump) {
+      case 'major':
+        major += 1;
+        minor = 0;
+        patch = 0;
+        break;
+      case 'minor':
+        minor += 1;
+        patch = 0;
+        break;
+      case 'patch':
+      default:
+        patch += 1;
+        break;
+    }
+
+    const pureVer = `${major}.${minor}.${patch}`;
+    const tagName = `v${pureVer}`;
+    return { tagName, pureVer, baseTag: latestFormalTag };
+  }
+
+  // --- 轨道二：发布【Beta 预发布版】 (isPrerelease === true) ---
+  // 情况 2.1: 最新 Tag 本身就是 Beta 版，且未跨大/小版本
+  if (latestAnyInfo && latestAnyInfo.isBeta) {
+    const formalExists = formalTags.some((t) => {
+      const info = parseTagInfo(t);
+      return info && info.baseVer === latestAnyInfo.baseVer;
+    });
+
+    // 如果未被正式版消费，且只是常规 patch 迭代或 auto，则推进 Beta 内部序号
+    if (!formalExists && (effectiveBump === 'patch' || effectiveBump === 'auto')) {
+      const nextBetaNum = latestAnyInfo.betaNum >= 0 ? latestAnyInfo.betaNum + 1 : 1;
+      const tagName = `v${latestAnyInfo.baseVer}-beta.${nextBetaNum}`;
+      const pureVer = latestAnyInfo.baseVer;
+      return { tagName, pureVer, baseTag: latestAnyTag };
+    }
+  }
+
+  // 情况 2.2: 开启全新特性的 Beta 测试版本 (基于最新正式版递增并附带 -beta)
+  let major = latestFormalInfo.major;
+  let minor = latestFormalInfo.minor;
+  let patch = latestFormalInfo.patch;
+
+  switch (effectiveBump) {
     case 'major':
       major += 1;
       minor = 0;
@@ -150,8 +283,8 @@ function determineVersion({ manualVersion, bumpType = 'patch', baseTag = '', com
   }
 
   const pureVer = `${major}.${minor}.${patch}`;
-  const tagName = `v${pureVer}`;
-  return { tagName, pureVer, baseTag };
+  const tagName = `v${pureVer}-beta`;
+  return { tagName, pureVer, baseTag: latestAnyTag || latestFormalTag };
 }
 
 /**
@@ -437,34 +570,45 @@ function addStepSummary(markdown) {
 async function handlePrepare() {
   const isTagTrigger =
     process.env.GITHUB_EVENT_NAME === 'push' && (process.env.GITHUB_REF_NAME || '').startsWith('v');
-  const manualVersion = isTagTrigger
-    ? process.env.GITHUB_REF_NAME
-    : process.env.INPUT_VERSION || '';
+  const pushedTag = isTagTrigger ? process.env.GITHUB_REF_NAME : '';
+  const isPrerelease = isTagTrigger
+    ? pushedTag.toLowerCase().includes('-beta')
+    : process.env.INPUT_IS_PRERELEASE === 'true';
+
+  const manualVersion = isTagTrigger ? pushedTag : process.env.INPUT_VERSION || '';
   const bumpType = process.env.INPUT_BUMP_TYPE || 'patch';
   const manualTitle = process.env.INPUT_RELEASE_TITLE || '';
   const manualNotes = process.env.INPUT_RELEASE_NOTES || '';
-  const isPrerelease = process.env.INPUT_IS_PRERELEASE === 'true';
   const isDraft = process.env.INPUT_IS_DRAFT !== 'false'; // 默认 true
 
   console.log('=== TikClip Release Prepare ===');
+  console.log(
+    `🎯 发布类型: ${isPrerelease ? 'Beta 预发布版本 (Pre-release)' : '正式发布版本 (Formal/Stable)'}`
+  );
 
-  // 获取基准 Tag
-  const baseTag = getPreviousTag(manualVersion);
-  console.log(`📌 基准 Git Tag: ${baseTag || '(无，使用初始版本)'}`);
+  const { formalTags, betaTags, allTags } = parseAllTags();
+  console.log(`📌 最新正式 Tag: ${formalTags[0] || '(无)'}`);
+  console.log(`📌 最新 Beta Tag: ${betaTags[0] || '(无)'}`);
+  console.log(`📌 最新任何 Tag: ${allTags[0] || '(无)'}`);
 
-  // 提取待分析的 commits
-  const toRef = isTagTrigger ? process.env.GITHUB_REF_NAME : 'HEAD';
-  const commits = getCommitsBetween(baseTag, toRef);
-  console.log(`📦 检测到自基准 Tag 以来的有效提交数: ${commits.length}`);
+  // 预先拉取最近提交用于 auto 推导
+  const recentCommits = getCommitsBetween(allTags[0] || '', 'HEAD');
 
-  // 计算版本号
-  const { tagName, pureVer } = determineVersion({
+  // 计算版本号及对应的对齐基准 Tag
+  const { tagName, pureVer, baseTag } = determineVersion({
     manualVersion,
     bumpType,
-    baseTag,
-    commits,
+    isPrerelease,
+    commits: recentCommits,
   });
-  console.log(`🏷️ 本次发布目标 Tag: ${tagName} (纯数字版本: ${pureVer})`);
+
+  console.log(`🏷️ 本次发布目标 Tag: ${tagName} (构建纯数字版本: ${pureVer})`);
+  console.log(`🔍 更新日志基准 Tag: ${baseTag || '(初始发布)'}`);
+
+  // 提取待分析的 commits
+  const toRef = isTagTrigger ? pushedTag : 'HEAD';
+  const commits = getCommitsBetween(baseTag, toRef);
+  console.log(`📦 检测到自基准 Tag 以来的有效提交数: ${commits.length}`);
 
   const title = determineTitle(manualTitle, tagName);
   console.log(`📝 Release 标题: ${title}`);
@@ -491,9 +635,10 @@ async function handlePrepare() {
 
 | 参数 | 值 |
 | :--- | :--- |
+| **发布类型** | ${isPrerelease ? '🧪 Beta 预发布版本' : '⭐ 正式发布版本'} |
 | **目标 Tag** | \`${tagName}\` |
 | **纯数字版本** | \`${pureVer}\` |
-| **基准 Tag** | \`${baseTag || '初始发布'}\` |
+| **更新基准 Tag** | \`${baseTag || '初始发布'}\` |
 | **变动提交数** | ${commits.length} |
 | **Pre-release** | ${isPrerelease ? '是' : '否'} |
 | **Draft 草稿** | ${isDraft ? '是' : '否'} |
