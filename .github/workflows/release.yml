@@ -4,17 +4,27 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: '发布版本号 (例如 v0.1.0-beta 或 0.1.0-beta)'
-        required: true
-        default: 'v0.1.0-beta'
+        description: '发布版本号 (可选，留空则根据递增类型自动计算，如 v0.1.1)'
+        required: false
+        default: ''
         type: string
+      bump_type:
+        description: '版本号自动递增类型 (仅当未手动指定版本号时生效)'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - auto
       release_title:
-        description: 'Release 标题 (留空则默认为 TikClip <版本号>)'
+        description: 'Release 标题 (可选，留空则默认为 TikClip <版本号>)'
         required: false
         default: ''
         type: string
       release_notes:
-        description: '更新说明 (可选，建议留空直接在 Draft 草稿页面多行编辑)'
+        description: '更新说明 (可选，留空则由 AI 结合最近提交记录自动生成)'
         required: false
         default: ''
         type: string
@@ -22,9 +32,9 @@ on:
         description: '标记为 Pre-release (预发布版本)'
         required: true
         type: boolean
-        default: true
+        default: false
       is_draft:
-        description: '保存为 Draft 草稿 (推荐勾选！构建完后可在 GitHub Release 页面用多行 Markdown 编辑器修改并一键发布)'
+        description: '保存为 Draft 草稿 (推荐勾选！构建完成后可在 Release 页面核对后一键发布)'
         required: true
         type: boolean
         default: true
@@ -33,7 +43,48 @@ on:
       - 'v*'
 
 jobs:
+  prepare:
+    name: Prepare Release Metadata & Changelog
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tag_name: ${{ steps.prep.outputs.tag_name }}
+      pure_ver: ${{ steps.prep.outputs.pure_ver }}
+      title: ${{ steps.prep.outputs.title }}
+      body: ${{ steps.prep.outputs.body }}
+      prerelease: ${{ steps.prep.outputs.prerelease }}
+      draft: ${{ steps.prep.outputs.draft }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Calculate Version and Generate Changelog
+        id: prep
+        run: node scripts/release-helper.mjs prepare
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_BUMP_TYPE: ${{ inputs.bump_type || 'patch' }}
+          INPUT_RELEASE_TITLE: ${{ inputs.release_title }}
+          INPUT_RELEASE_NOTES: ${{ inputs.release_notes }}
+          INPUT_IS_PRERELEASE: ${{ inputs.is_prerelease || 'false' }}
+          INPUT_IS_DRAFT: ${{ inputs.is_draft != false }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_BASE_URL: ${{ secrets.AI_BASE_URL }}
+          AI_MODEL: ${{ secrets.AI_MODEL }}
+
   release:
+    name: Build Desktop Application (${{ matrix.platform }})
+    needs: prepare
     permissions:
       contents: write
     strategy:
@@ -69,103 +120,17 @@ jobs:
       - name: Install Frontend Dependencies
         run: npm ci
 
-      - name: Extract and Prepare Release Metadata
-        id: meta
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            RAW_VER="${{ inputs.version }}"
-            # 确保 Tag 格式规范 (例如 v0.1.0-beta)
-            if [[ "$RAW_VER" =~ ^v ]]; then
-              TAG_NAME="$RAW_VER"
-              PURE_VER="${RAW_VER#v}"
-            else
-              TAG_NAME="v$RAW_VER"
-              PURE_VER="$RAW_VER"
-            fi
-            
-            TITLE="${{ inputs.release_title }}"
-            if [ -z "$TITLE" ]; then
-              TITLE="TikClip $TAG_NAME"
-            fi
-            
-            PRERELEASE="${{ inputs.is_prerelease }}"
-            DRAFT="${{ inputs.is_draft }}"
-            BODY="${{ inputs.release_notes }}"
-            if [ -z "$BODY" ]; then
-              BODY="See assets below to download and install this release."
-            fi
-          else
-            TAG_NAME="${{ github.ref_name }}"
-            PURE_VER="${TAG_NAME#v}"
-            TITLE="TikClip $TAG_NAME"
-            PRERELEASE="false"
-            DRAFT="false"
-            BODY="See assets below to download and install this release."
-          fi
-
-          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
-          echo "pure_ver=$PURE_VER" >> $GITHUB_OUTPUT
-          echo "title=$TITLE" >> $GITHUB_OUTPUT
-          echo "prerelease=$PRERELEASE" >> $GITHUB_OUTPUT
-          echo "draft=$DRAFT" >> $GITHUB_OUTPUT
-
-          # 处理多行 Release 描述信息
-          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-          echo "body<<$EOF" >> $GITHUB_OUTPUT
-          echo "$BODY" >> $GITHUB_OUTPUT
-          echo "$EOF" >> $GITHUB_OUTPUT
-
       - name: Sync Version to Tauri and Package.json
-        shell: bash
-        env:
-          TARGET_VER: ${{ steps.meta.outputs.pure_ver }}
-        run: |
-          node -e "
-            const fs = require('fs');
-            const rawVer = process.env.TARGET_VER || '0.1.0';
-
-            // Windows MSI (WiX) 严格要求版本号必须为纯数字 major.minor.patch (如 0.1.0)
-            // 不能包含 -beta 等字母标识符
-            function toNumericVersion(v) {
-              const match = v.match(/(\d+)\.(\d+)(?:\.(\d+))?/);
-              if (match) {
-                const major = match[1];
-                const minor = match[2];
-                const patch = match[3] !== undefined ? match[3] : '0';
-                return major + '.' + minor + '.' + patch;
-              }
-              return '0.1.0';
-            }
-
-            const appVersion = toNumericVersion(rawVer);
-            console.log('Synchronizing App Version for Bundler:', appVersion, '(Raw Tag Version:', rawVer, ')');
-
-            // 更新 src-tauri/tauri.conf.json
-            const tauriPath = './src-tauri/tauri.conf.json';
-            if (fs.existsSync(tauriPath)) {
-              const conf = JSON.parse(fs.readFileSync(tauriPath, 'utf8'));
-              conf.version = appVersion;
-              fs.writeFileSync(tauriPath, JSON.stringify(conf, null, 2));
-            }
-            // 更新 package.json
-            const pkgPath = './package.json';
-            if (fs.existsSync(pkgPath)) {
-              const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-              pkg.version = appVersion;
-              fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
-            }
-          "
+        run: node scripts/release-helper.mjs sync "${{ needs.prepare.outputs.pure_ver }}"
 
       - name: Build Tauri Desktop Application
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ steps.meta.outputs.tag_name }}
-          releaseName: ${{ steps.meta.outputs.title }}
-          releaseBody: ${{ steps.meta.outputs.body }}
-          releaseDraft: ${{ steps.meta.outputs.draft == 'true' }}
-          prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
+          tagName: ${{ needs.prepare.outputs.tag_name }}
+          releaseName: ${{ needs.prepare.outputs.title }}
+          releaseBody: ${{ needs.prepare.outputs.body }}
+          releaseDraft: ${{ needs.prepare.outputs.draft == 'true' }}
+          prerelease: ${{ needs.prepare.outputs.prerelease == 'true' }}
           args: ${{ matrix.args }}
-
