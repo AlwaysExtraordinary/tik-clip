@@ -28,7 +28,8 @@ export const VideoDetailPage: React.FC = () => {
   const location = useLocation();
   const initialTime = (location.state as { initialTime?: number } | undefined)?.initialTime;
 
-  const { directoryRef, directoryHandle, isHandleRestoring } = useDirectory();
+  const { directoryRef, directoryHandle, isHandleRestoring, hasDirectoryPermission } =
+    useDirectory();
   const activeDirectory = useMemo(
     () =>
       directoryRef ||
@@ -68,7 +69,7 @@ export const VideoDetailPage: React.FC = () => {
       const clipList = await getClipsByVideoId(videoId);
       setClips(clipList);
 
-      if (activeDirectory) {
+      if (activeDirectory && hasDirectoryPermission) {
         try {
           const mediaSource = await getVideoMediaSource(activeDirectory, v.folderName, v.fileName);
           setVideoFile(mediaSource.file || null);
@@ -84,7 +85,7 @@ export const VideoDetailPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [videoId, activeDirectory, t]);
+  }, [videoId, activeDirectory, hasDirectoryPermission, t]);
 
   useEffect(() => {
     loadVideoData();
@@ -167,6 +168,10 @@ export const VideoDetailPage: React.FC = () => {
   }
 
   if (!activeDirectory) {
+    return <EmptyState type="no-directory" />;
+  }
+
+  if (!hasDirectoryPermission) {
     return <EmptyState type="permission-needed" />;
   }
 

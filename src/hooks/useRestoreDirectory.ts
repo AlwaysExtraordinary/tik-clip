@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useAppStore } from '@/stores/appStore';
 import { getStoredDirectoryRef } from '@/db/settings';
-import { verifyDirectoryPermission } from '@/services/fileSystem/index';
+import { queryDirectoryPermission } from '@/services/fileSystem/index';
 
 /**
  * 应用启动时恢复本地持久化视频目录及权限状态 Hook（仅在 App 根组件运行一次）
@@ -9,6 +9,7 @@ import { verifyDirectoryPermission } from '@/services/fileSystem/index';
 export function useRestoreDirectory(): void {
   const setDirectoryRef = useAppStore((s) => s.setDirectoryRef);
   const setIsHandleRestoring = useAppStore((s) => s.setIsHandleRestoring);
+  const setHasDirectoryPermission = useAppStore((s) => s.setHasDirectoryPermission);
 
   useEffect(() => {
     let mounted = true;
@@ -19,13 +20,14 @@ export function useRestoreDirectory(): void {
         const storedRef = await getStoredDirectoryRef();
 
         if (storedRef && mounted) {
-          const hasPerm = await verifyDirectoryPermission(storedRef, 'read');
-          if (hasPerm && mounted) {
-            setDirectoryRef(storedRef);
-          } else if (mounted) {
-            // 权限尚未激活（Web 模式下需重新交互授权），仅保存目录名以便界面提示
-            setDirectoryRef({ name: storedRef.name });
-          }
+          // 静默查询权限，避免在无用户手势时调用 requestPermission 触发 DOMException
+          const hasPerm = await queryDirectoryPermission(storedRef, 'read');
+          // 完整保留 storedRef（包含 handle），以便后续一键唤起重新授权
+          setDirectoryRef(storedRef);
+          setHasDirectoryPermission(hasPerm);
+        } else if (mounted) {
+          setDirectoryRef(null);
+          setHasDirectoryPermission(false);
         }
       } catch (err) {
         console.warn('Error restoring directory:', err);
@@ -40,5 +42,5 @@ export function useRestoreDirectory(): void {
     return () => {
       mounted = false;
     };
-  }, [setDirectoryRef, setIsHandleRestoring]);
+  }, [setDirectoryRef, setIsHandleRestoring, setHasDirectoryPermission]);
 }

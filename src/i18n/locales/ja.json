@@ -103,7 +103,9 @@
     "noClipsDesc": "動画ページで動画を選択し、ハサミツールを使って最初のクリップを作成してください。",
     "permissionRequiredTitle": "アクセス権限が必要です",
     "permissionRequiredDesc": "下のボタンをクリックして、ローカルフォルダへのアクセスを再許可してください：",
-    "authorizeFolder": "フォルダを許可",
+    "permissionTip": "ヒント：ブラウザのプロンプトで「アクセスするたびに許可」を選択すると、タブを閉じても権限が維持されます。",
+    "authorizeFolder": "フォルダへのアクセスを許可",
+    "selectAnotherFolder": "別のフォルダを選択",
     "selectFolderTitle": "ローカル動画フォルダを選択",
     "selectFolderDesc": "動画サブフォルダを含むルートフォルダを選択してください。すべてのクリップと処理はお使いのパソコン内でのみ保持されます。",
     "selectFolderBtn": "フォルダを選択"

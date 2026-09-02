@@ -56,6 +56,23 @@ export class TauriFileSystemAdapter implements IFileSystemAdapter {
     };
   }
 
+  /**
+   * 静默查询目录权限状态（Tauri 下依赖本地文件路径有效性）
+   */
+  async queryPermission(target: DirectoryRef): Promise<boolean> {
+    return Boolean(target.path);
+  }
+
+  /**
+   * 请求目录权限（Tauri 原生桌面端无需浏览器弹窗）
+   */
+  async requestPermission(target: DirectoryRef): Promise<boolean> {
+    return Boolean(target.path);
+  }
+
+  /**
+   * 验证目录读写权限
+   */
   async verifyPermission(target: DirectoryRef): Promise<boolean> {
     return Boolean(target.path);
   }

@@ -8,6 +8,7 @@ interface AppState {
   isScanning: boolean;
   scanProgress: ScanProgress | null;
   isHandleRestoring: boolean;
+  hasDirectoryPermission: boolean;
   errorMessage: string | null;
 
   setDirectoryRef: (ref: DirectoryRef | null) => void;
@@ -15,6 +16,7 @@ interface AppState {
   setIsScanning: (isScanning: boolean) => void;
   setScanProgress: (progress: ScanProgress | null) => void;
   setIsHandleRestoring: (restoring: boolean) => void;
+  setHasDirectoryPermission: (hasPerm: boolean) => void;
   setErrorMessage: (msg: string | null) => void;
 }
 
@@ -25,6 +27,7 @@ export const useAppStore = create<AppState>((set) => ({
   isScanning: false,
   scanProgress: null,
   isHandleRestoring: true,
+  hasDirectoryPermission: false,
   errorMessage: null,
 
   setDirectoryRef: (ref) =>
@@ -32,15 +35,18 @@ export const useAppStore = create<AppState>((set) => ({
       directoryRef: ref,
       directoryHandle: ref?.handle || null,
       directoryName: ref?.name || '',
+      ...(ref === null ? { hasDirectoryPermission: false } : {}),
     }),
   setDirectoryHandle: (handle, name) =>
     set({
       directoryRef: handle ? { name: name ?? handle.name, handle } : null,
       directoryHandle: handle,
       directoryName: name ?? (handle ? handle.name : ''),
+      ...(handle === null ? { hasDirectoryPermission: false } : {}),
     }),
   setIsScanning: (isScanning) => set({ isScanning }),
   setScanProgress: (scanProgress) => set({ scanProgress }),
   setIsHandleRestoring: (isHandleRestoring) => set({ isHandleRestoring }),
+  setHasDirectoryPermission: (hasDirectoryPermission) => set({ hasDirectoryPermission }),
   setErrorMessage: (errorMessage) => set({ errorMessage }),
 }));

@@ -103,7 +103,9 @@
     "noClipsDesc": "Go to the Videos page, select a video, and use the scissors tool to create your first clip.",
     "permissionRequiredTitle": "Permission Required",
     "permissionRequiredDesc": "Click below to re-authorize access to your local folder:",
+    "permissionTip": "Tip: Select \"Allow on every visit\" in the browser prompt to keep access across sessions.",
     "authorizeFolder": "Authorize Folder",
+    "selectAnotherFolder": "Select Another Folder",
     "selectFolderTitle": "Select Local Video Folder",
     "selectFolderDesc": "Choose a root folder containing your video subfolders. All clips and processing stay strictly on your computer.",
     "selectFolderBtn": "Select Folder"

@@ -80,19 +80,47 @@ export async function promptDirectoryPicker(): Promise<DirectoryRef | null> {
   return fileSystemAdapter.selectDirectory();
 }
 
-export async function verifyDirectoryPermission(
+function toDirectoryRef(target: DirectoryRef | FileSystemDirectoryHandle): DirectoryRef {
+  return typeof (target as FileSystemDirectoryHandle).getFileHandle === 'function'
+    ? {
+        name: (target as FileSystemDirectoryHandle).name,
+        handle: target as FileSystemDirectoryHandle,
+      }
+    : (target as DirectoryRef);
+}
+
+/**
+ * 静默查询目录权限状态（无需用户手势，适合初始化检查）
+ */
+export async function queryDirectoryPermission(
   target: DirectoryRef | FileSystemDirectoryHandle,
   mode: 'read' | 'readwrite' = 'read'
 ): Promise<boolean> {
-  const ref: DirectoryRef =
-    typeof (target as FileSystemDirectoryHandle).getFileHandle === 'function'
-      ? {
-          name: (target as FileSystemDirectoryHandle).name,
-          handle: target as FileSystemDirectoryHandle,
-        }
-      : (target as DirectoryRef);
+  const ref = toDirectoryRef(target);
+  return fileSystemAdapter.queryPermission(ref, mode);
+}
 
-  return fileSystemAdapter.verifyPermission(ref, mode);
+/**
+ * 请求目录读写权限（需由用户点击手势触发，调出浏览器授权弹窗）
+ */
+export async function requestDirectoryPermission(
+  target: DirectoryRef | FileSystemDirectoryHandle,
+  mode: 'read' | 'readwrite' = 'readwrite'
+): Promise<boolean> {
+  const ref = toDirectoryRef(target);
+  return fileSystemAdapter.requestPermission(ref, mode);
+}
+
+/**
+ * 验证目录权限（兼容方法）
+ */
+export async function verifyDirectoryPermission(
+  target: DirectoryRef | FileSystemDirectoryHandle,
+  mode: 'read' | 'readwrite' = 'read',
+  interactive = false
+): Promise<boolean> {
+  const ref = toDirectoryRef(target);
+  return fileSystemAdapter.verifyPermission(ref, mode, interactive);
 }
 
 export async function getVideoMediaSource(

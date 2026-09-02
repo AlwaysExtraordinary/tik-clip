@@ -24,7 +24,8 @@ export const VideosPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const navigate = useNavigate();
 
-  const { directoryRef, directoryHandle, isScanning, isHandleRestoring } = useDirectory();
+  const { directoryRef, directoryHandle, isScanning, isHandleRestoring, hasDirectoryPermission } =
+    useDirectory();
   const activeDirectory = useMemo(
     () =>
       directoryRef ||
@@ -172,11 +173,15 @@ export const VideosPage: React.FC = () => {
     }
   };
 
-  if (isHandleRestoring || (!activeDirectory && videos.length === 0)) {
+  if (isHandleRestoring) {
+    return <EmptyState type="loading" />;
+  }
+
+  if (!activeDirectory) {
     return <EmptyState type="no-directory" />;
   }
 
-  if (!activeDirectory && videos.length > 0) {
+  if (!hasDirectoryPermission) {
     return <EmptyState type="permission-needed" />;
   }
 

@@ -18,8 +18,16 @@ export const SettingsModal: React.FC = () => {
     showThumbnailPreview,
     setShowThumbnailPreview,
   } = useSettingsStore();
-  const { directoryName, selectDirectory, performScan, directoryRef, directoryHandle, isScanning } =
-    useDirectory();
+  const {
+    directoryName,
+    selectDirectory,
+    reauthorizeDirectory,
+    performScan,
+    directoryRef,
+    directoryHandle,
+    isScanning,
+    hasDirectoryPermission,
+  } = useDirectory();
   const activeDirectory = React.useMemo(
     () =>
       directoryRef ||
@@ -65,16 +73,27 @@ export const SettingsModal: React.FC = () => {
                   <div
                     className="flex items-center gap-1.5 min-w-0 px-3 py-1.5 bg-(--field-background) border border-border
                     rounded-full cursor-pointer"
-                    onClick={selectDirectory}
+                    onClick={hasDirectoryPermission ? selectDirectory : reauthorizeDirectory}
                   >
                     <Icon icon="lucide:folder" className="size-4 text-foreground-muted shrink-0" />
                     <span className="text-sm truncate text-foreground">
                       {directoryName || t('settings.noDirectorySelected')}
                     </span>
+                    {directoryName && !hasDirectoryPermission && (
+                      <span className="text-[10px] text-danger shrink-0 font-medium">
+                        ({t('emptyState.permissionRequiredTitle')})
+                      </span>
+                    )}
                   </div>
-                  <Button size="sm" variant="secondary" onPress={selectDirectory}>
-                    {t('settings.change')}
-                  </Button>
+                  {!hasDirectoryPermission && directoryName ? (
+                    <Button size="sm" variant="primary" onPress={reauthorizeDirectory}>
+                      {t('emptyState.authorizeFolder')}
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="secondary" onPress={selectDirectory}>
+                      {t('settings.change')}
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -84,7 +103,12 @@ export const SettingsModal: React.FC = () => {
                   <div
                     className="text-xs flex gap-1.5 items-center py-1 px-2 hover:bg-surface-hover rounded-full cursor-pointer"
                     onClick={() => {
-                      if (!isScanning) performScan(activeDirectory);
+                      if (isScanning) return;
+                      if (!hasDirectoryPermission) {
+                        reauthorizeDirectory();
+                      } else {
+                        performScan(activeDirectory);
+                      }
                     }}
                   >
                     <Icon

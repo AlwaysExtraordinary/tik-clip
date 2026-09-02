@@ -18,7 +18,8 @@ import { usePlayerStore } from '@/stores/playerStore';
 export const ClipsPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { directoryRef, directoryHandle, isScanning, isHandleRestoring } = useDirectory();
+  const { directoryRef, directoryHandle, isScanning, isHandleRestoring, hasDirectoryPermission } =
+    useDirectory();
   const activeDirectory = useMemo(
     () =>
       directoryRef ||
@@ -81,7 +82,7 @@ export const ClipsPage: React.FC = () => {
     let active = true;
 
     async function loadData() {
-      if (!activeDirectory || isScanning) {
+      if (!activeDirectory || !hasDirectoryPermission || isScanning) {
         return;
       }
 
@@ -158,9 +159,9 @@ export const ClipsPage: React.FC = () => {
       }
     }
 
-    if (!isScanning && activeDirectory) {
+    if (!isScanning && activeDirectory && hasDirectoryPermission) {
       loadData();
-    } else if (!activeDirectory) {
+    } else if (!activeDirectory || !hasDirectoryPermission) {
       setAllItems([]);
       setTotalVideoCount(0);
       setIsLoading(false);
@@ -172,6 +173,7 @@ export const ClipsPage: React.FC = () => {
     };
   }, [
     activeDirectory,
+    hasDirectoryPermission,
     isScanning,
     resetFeed,
     setCurrentShuffleItem,
@@ -239,9 +241,19 @@ export const ClipsPage: React.FC = () => {
     }
   }, [shuffleQueue, setCurrentShuffleItem, setFileError, setLastPlaybackTime]);
 
+  // 状态检查
+  if (isHandleRestoring) {
+    return <EmptyState type="loading" />;
+  }
+
   // 无目录状态
-  if (isHandleRestoring || !activeDirectory) {
+  if (!activeDirectory) {
     return <EmptyState type="no-directory" />;
+  }
+
+  // 需要重新授权访问权限状态
+  if (!hasDirectoryPermission) {
+    return <EmptyState type="permission-needed" />;
   }
 
   // 扫描状态

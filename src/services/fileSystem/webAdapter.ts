@@ -39,9 +39,29 @@ export class WebFileSystemAdapter implements IFileSystemAdapter {
     }
   }
 
-  async verifyPermission(
+  /**
+   * 静默查询目录权限状态（无需用户手势）
+   */
+  async queryPermission(
     target: DirectoryRef,
     mode: 'read' | 'readwrite' = 'read'
+  ): Promise<boolean> {
+    if (!target.handle) return false;
+    const options: FileSystemHandlePermissionDescriptor = { mode };
+
+    try {
+      return (await target.handle.queryPermission(options)) === 'granted';
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 请求目录权限（需在用户点击等交互手势中调用，触发浏览器权限弹窗）
+   */
+  async requestPermission(
+    target: DirectoryRef,
+    mode: 'read' | 'readwrite' = 'readwrite'
   ): Promise<boolean> {
     if (!target.handle) return false;
     const options: FileSystemHandlePermissionDescriptor = { mode };
@@ -50,13 +70,26 @@ export class WebFileSystemAdapter implements IFileSystemAdapter {
       if ((await target.handle.queryPermission(options)) === 'granted') {
         return true;
       }
-      if ((await target.handle.requestPermission(options)) === 'granted') {
-        return true;
-      }
-    } catch {
+      return (await target.handle.requestPermission(options)) === 'granted';
+    } catch (err) {
+      console.warn('Failed to request directory permission:', err);
       return false;
     }
-    return false;
+  }
+
+  /**
+   * 验证目录权限（兼容方法）
+   * @param interactive 若为 true 则在未授权时尝试发起请求，需在用户手势下调用
+   */
+  async verifyPermission(
+    target: DirectoryRef,
+    mode: 'read' | 'readwrite' = 'read',
+    interactive = false
+  ): Promise<boolean> {
+    if (interactive) {
+      return this.requestPermission(target, mode);
+    }
+    return this.queryPermission(target, mode);
   }
 
   async getVideoSource(

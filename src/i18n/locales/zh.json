@@ -103,7 +103,9 @@
     "noClipsDesc": "前往视频页面，选择视频并使用剪刀工具创建您的第一个片段。",
     "permissionRequiredTitle": "需要授予访问权限",
     "permissionRequiredDesc": "点击下方按钮重新授权访问本地文件夹：",
-    "authorizeFolder": "授权文件夹",
+    "permissionTip": "提示：在浏览器权限弹窗中选择“每次访问时允许”，关闭标签页后将保持授权。",
+    "authorizeFolder": "授权访问文件夹",
+    "selectAnotherFolder": "选择其他文件夹",
     "selectFolderTitle": "选择本地视频文件夹",
     "selectFolderDesc": "选择包含视频子文件夹的根目录。所有片段及处理均完全保存在您的本地电脑上。",
     "selectFolderBtn": "选择文件夹"

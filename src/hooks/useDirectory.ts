@@ -3,7 +3,7 @@ import { useAppStore } from '@/stores/appStore';
 import { getStoredDirectoryRef, setStoredDirectoryRef, clearStoredDirectory } from '@/db/settings';
 import {
   promptDirectoryPicker,
-  verifyDirectoryPermission,
+  requestDirectoryPermission,
   scanVideoDirectory,
   DirectoryRef,
 } from '@/services/fileSystem/index';
@@ -16,13 +16,13 @@ export function useDirectory() {
   const isScanning = useAppStore((s) => s.isScanning);
   const scanProgress = useAppStore((s) => s.scanProgress);
   const isHandleRestoring = useAppStore((s) => s.isHandleRestoring);
+  const hasDirectoryPermission = useAppStore((s) => s.hasDirectoryPermission);
   const setDirectoryRef = useAppStore((s) => s.setDirectoryRef);
   const setDirectoryHandle = useAppStore((s) => s.setDirectoryHandle);
   const setIsScanning = useAppStore((s) => s.setIsScanning);
   const setScanProgress = useAppStore((s) => s.setScanProgress);
+  const setHasDirectoryPermission = useAppStore((s) => s.setHasDirectoryPermission);
   const setErrorMessage = useAppStore((s) => s.setErrorMessage);
-
-
 
   // 扫描目录辅助方法
   const performScan = useCallback(
@@ -56,6 +56,7 @@ export function useDirectory() {
 
       await setStoredDirectoryRef(ref);
       setDirectoryRef(ref);
+      setHasDirectoryPermission(true);
       await performScan(ref);
       return true;
     } catch (err: unknown) {
@@ -63,26 +64,28 @@ export function useDirectory() {
       setErrorMessage(err instanceof Error ? err.message : 'Failed to select directory');
       return false;
     }
-  }, [setDirectoryRef, performScan, setErrorMessage]);
+  }, [setDirectoryRef, setHasDirectoryPermission, performScan, setErrorMessage]);
 
-  // 重新授权已保存的目录
+  // 重新授权已保存的目录（由用户交互点击触发，唤起浏览器权限弹窗）
   const reauthorizeDirectory = useCallback(async () => {
     try {
       const storedRef = await getStoredDirectoryRef();
-      if (storedRef) {
-        const hasPerm = await verifyDirectoryPermission(storedRef, 'readwrite');
+      if (storedRef && (storedRef.handle || storedRef.path)) {
+        const hasPerm = await requestDirectoryPermission(storedRef, 'readwrite');
         if (hasPerm) {
           setDirectoryRef(storedRef);
+          setHasDirectoryPermission(true);
           await performScan(storedRef);
           return true;
         }
+        return false;
       }
       return await selectDirectory();
     } catch (err) {
       console.error('Re-authorization error:', err);
       return await selectDirectory();
     }
-  }, [selectDirectory, setDirectoryRef, performScan]);
+  }, [selectDirectory, setDirectoryRef, setHasDirectoryPermission, performScan]);
 
   const openDirectoryByPath = useCallback(
     async (path: string) => {
@@ -96,6 +99,7 @@ export function useDirectory() {
         useClipsFeedStore.getState().resetFeed();
         await setStoredDirectoryRef(ref);
         setDirectoryRef(ref);
+        setHasDirectoryPermission(true);
         await performScan(ref);
         return true;
       } catch (err: unknown) {
@@ -104,14 +108,15 @@ export function useDirectory() {
         return false;
       }
     },
-    [setDirectoryRef, performScan, setErrorMessage]
+    [setDirectoryRef, setHasDirectoryPermission, performScan, setErrorMessage]
   );
 
   const disconnectDirectory = useCallback(async () => {
     useClipsFeedStore.getState().resetFeed();
     await clearStoredDirectory();
     setDirectoryRef(null);
-  }, [setDirectoryRef]);
+    setHasDirectoryPermission(false);
+  }, [setDirectoryRef, setHasDirectoryPermission]);
 
   return {
     directoryRef,
@@ -120,6 +125,7 @@ export function useDirectory() {
     isScanning,
     scanProgress,
     isHandleRestoring,
+    hasDirectoryPermission,
     selectDirectory,
     openDirectoryByPath,
     reauthorizeDirectory,

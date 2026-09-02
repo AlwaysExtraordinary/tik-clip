@@ -33,9 +33,23 @@ export interface IFileSystemAdapter {
   selectDirectory(): Promise<DirectoryRef | null>;
 
   /**
-   * 验证目录读写权限
+   * 静默查询目录读写权限（无需用户手势，适合应用启动检查）
    */
-  verifyPermission(target: DirectoryRef, mode?: 'read' | 'readwrite'): Promise<boolean>;
+  queryPermission(target: DirectoryRef, mode?: 'read' | 'readwrite'): Promise<boolean>;
+
+  /**
+   * 请求目录读写权限（需由用户点击等交互手势触发）
+   */
+  requestPermission(target: DirectoryRef, mode?: 'read' | 'readwrite'): Promise<boolean>;
+
+  /**
+   * 验证目录读写权限（兼容方法，interactive 为 true 时在未授权时尝试发起请求）
+   */
+  verifyPermission(
+    target: DirectoryRef,
+    mode?: 'read' | 'readwrite',
+    interactive?: boolean
+  ): Promise<boolean>;
 
   /**
    * 获取视频可播放媒体源
