@@ -97,48 +97,48 @@ export const TitleBar: React.FC = () => {
         data-tauri-drag-region
         className="flex-1 h-full flex items-center justify-center text-xs text-foreground-muted cursor-default relative"
       >
-      {/* macOS 预留左侧红绿灯区域 */}
-      {isMac ? <div data-tauri-drag-region className="w-20 h-full shrink-0 absolute left-0" /> : null}
-        
-      <span className="font-semibold text-xs tracking-wide">TikClip</span>
+        {/* macOS 预留左侧红绿灯区域 */}
+        {isMac ? (
+          <div data-tauri-drag-region className="w-20 h-full shrink-0 absolute left-0" />
+        ) : null}
 
-      {/* Windows 窗口控制按钮组 */}
-      {!isMac && (
-        <div
-          onMouseDown={(e) => e.stopPropagation()}
-          className="flex items-center h-full shrink-0 z-10 absolute right-0"
-        >
-          <button
-            onClick={handleMinimize}
-            aria-label="Minimize"
-            title="Minimize"
-            className="h-full px-3.5 inline-flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover active:bg-surface-active transition-colors cursor-pointer"
-          >
-            <Icon icon="lucide:minus" className="size-3.5" />
-          </button>
+        {/* <span className="font-semibold text-xs tracking-wide">TikClip</span>  */}
 
-          <button
-            onClick={handleToggleMaximize}
-            aria-label={isMaximized ? 'Restore' : 'Maximize'}
-            title={isMaximized ? 'Restore' : 'Maximize'}
-            className="h-full px-3.5 inline-flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover active:bg-surface-active transition-colors cursor-pointer"
+        {/* Windows 窗口控制按钮组 */}
+        {!isMac && (
+          <div
+            onMouseDown={(e) => e.stopPropagation()}
+            className="flex items-center h-full shrink-0 z-10 absolute right-0"
           >
-            <Icon icon={isMaximized ? 'lucide:copy' : 'lucide:square'} className="size-3.5" />
-          </button>
+            <button
+              onClick={handleMinimize}
+              aria-label="Minimize"
+              title="Minimize"
+              className="h-full px-3.5 inline-flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover active:bg-surface-active transition-colors cursor-pointer"
+            >
+              <Icon icon="lucide:minus" className="size-3.5" />
+            </button>
 
-          <button
-            onClick={handleClose}
-            aria-label="Close"
-            title="Close"
-            className="h-full px-3.5 inline-flex items-center justify-center text-foreground-muted hover:text-white hover:bg-danger active:bg-danger-hover transition-colors cursor-pointer"
-          >
-            <Icon icon="lucide:x" className="size-3.5" />
-          </button>
-        </div>
-      )}
+            <button
+              onClick={handleToggleMaximize}
+              aria-label={isMaximized ? 'Restore' : 'Maximize'}
+              title={isMaximized ? 'Restore' : 'Maximize'}
+              className="h-full px-3.5 inline-flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover active:bg-surface-active transition-colors cursor-pointer"
+            >
+              <Icon icon={isMaximized ? 'lucide:copy' : 'lucide:square'} className="size-3.5" />
+            </button>
+
+            <button
+              onClick={handleClose}
+              aria-label="Close"
+              title="Close"
+              className="h-full px-3.5 inline-flex items-center justify-center text-foreground-muted hover:text-white hover:bg-danger active:bg-danger-hover transition-colors cursor-pointer"
+            >
+              <Icon icon="lucide:x" className="size-3.5" />
+            </button>
+          </div>
+        )}
       </div>
-
-
     </header>
   );
 };
