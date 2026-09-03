@@ -19,9 +19,7 @@ export const TitleBar: React.FC = () => {
 
     const appWindow = getCurrentWindow();
 
-    /**
-     * 检查当前窗口是否最大化
-     */
+    //检查当前窗口是否最大化
     const checkMaximized = async () => {
       try {
         const maximized = await appWindow.isMaximized();
@@ -50,9 +48,7 @@ export const TitleBar: React.FC = () => {
 
   const appWindow = getCurrentWindow();
 
-  /**
-   * 鼠标按下拖拽窗口
-   */
+  //鼠标按下拖拽窗口
   const handleMouseDown = (e: React.MouseEvent) => {
     // 仅响应鼠标左键点击，且排除点击到按钮的情况
     if (e.button === 0 && (e.target as HTMLElement).closest('button') === null) {
@@ -60,9 +56,7 @@ export const TitleBar: React.FC = () => {
     }
   };
 
-  /**
-   * 最小化窗口
-   */
+  //最小化窗口
   const handleMinimize = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
@@ -72,9 +66,7 @@ export const TitleBar: React.FC = () => {
     }
   };
 
-  /**
-   * 切换最大化 / 还原窗口
-   */
+  //切换最大化 / 还原窗口
   const handleToggleMaximize = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
     try {
@@ -84,9 +76,7 @@ export const TitleBar: React.FC = () => {
     }
   };
 
-  /**
-   * 关闭窗口
-   */
+  //关闭窗口
   const handleClose = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
@@ -102,22 +92,21 @@ export const TitleBar: React.FC = () => {
       onDoubleClick={() => handleToggleMaximize()}
       className="h-8 w-full select-none flex items-center justify-between bg-background text-foreground shrink-0 z-50 relative border-b border-border/20"
     >
-      {/* macOS 预留左侧红绿灯区域 */}
-      {isMac ? <div data-tauri-drag-region className="w-20 h-full shrink-0" /> : <div></div>}
-
       {/* 中间主要拖拽区域 */}
       <div
         data-tauri-drag-region
-        className="flex-1 h-full flex items-center justify-center text-xs text-foreground-muted cursor-default"
+        className="flex-1 h-full flex items-center justify-center text-xs text-foreground-muted cursor-default relative"
       >
-        {isMac && <span className="font-semibold text-xs tracking-wide">TikClip</span>}
-      </div>
+      {/* macOS 预留左侧红绿灯区域 */}
+      {isMac ? <div data-tauri-drag-region className="w-20 h-full shrink-0 absolute left-0" /> : null}
+        
+      <span className="font-semibold text-xs tracking-wide">TikClip</span>
 
       {/* Windows 窗口控制按钮组 */}
       {!isMac && (
         <div
           onMouseDown={(e) => e.stopPropagation()}
-          className="flex items-center h-full shrink-0 z-10"
+          className="flex items-center h-full shrink-0 z-10 absolute right-0"
         >
           <button
             onClick={handleMinimize}
@@ -147,6 +136,9 @@ export const TitleBar: React.FC = () => {
           </button>
         </div>
       )}
+      </div>
+
+
     </header>
   );
 };

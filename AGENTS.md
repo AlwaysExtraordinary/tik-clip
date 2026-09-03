@@ -51,12 +51,10 @@ src-tauri/                # Tauri 桌面端后端 (Rust)
 # 注意事项
 
 1. 禁止使用tailwind css的font-mono类名
-2. 使用HeroUI构建页面前，仔细阅读相关组件的api，尽量只使用使用组件默认样式完成，功能需要时再添加tailwind类。
-3. 使用tailwind构建界面样式时，精简使用css类名实现功能。
-4. 类似w-3, h-3的类名，可以使用size-3替换。
-5. 实现功能或优化过程中，删除无用代码，保持代码精简。
-6. 为方法添加注释。
-7. 引入新的iconfy lucide icon时，在.src/utils/icons.ts中注册图标。
+2. 使用HeroUI构建页面前，仔细阅读相关组件的api，优先使用组件默认样式完成，功能需要时再添加tailwind类。
+3. 实现功能或优化过程中，删除无用代码，保持代码精简。
+4. 为方法添加注释，普通方法使用//单行注释，需要标注参数的方法则使用/** **/多行注释。
+5. 引入新的iconfy lucide icon时，在.src/utils/icons.ts中注册图标。
 
 # Git 提交规范
 
