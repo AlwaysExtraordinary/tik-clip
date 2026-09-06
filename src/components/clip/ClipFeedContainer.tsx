@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ShuffleItem } from '@/types/clip';
 import { ShuffleQueue } from '@/services/shuffle';
 import { VideoPlayer } from '@/components/video/VideoPlayer';
@@ -77,8 +77,14 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
   const currentIndexRef = useRef(currentIndex);
 
   const [maxRenderedIndex, setMaxRenderedIndex] = useState(() => Math.max(initialIndex + 3, 3));
-  const [containerHeight, setContainerHeight] = useState(1);
+  const [, setContainerHeight] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // 引用与标志：记录容器上一已知高度、初次挂载状态、尺寸变更防抖定时器等
+  const prevHeightRef = useRef<number>(0);
+  const isInitialMountedRef = useRef<boolean>(false);
+  const isResizingRef = useRef<boolean>(false);
+  const resizeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 媒体源状态映射：clipId -> MediaSourceData
   const [mediaMap, setMediaMap] = useState<Record<string, MediaSourceData>>({});
@@ -87,43 +93,68 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
   const isWheelThrottledRef = useRef(false);
   const wheelThrottleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /**
-   * 同步当前索引到 Ref 供事件监听读取
-   */
+  // 同步当前索引到 Ref 供事件监听读取
   useEffect(() => {
     currentIndexRef.current = currentIndex;
   }, [currentIndex]);
 
-  /**
-   * 视口尺寸监听与同步
-   */
+  // 标记尺寸变更（全屏切换/窗口缩放）中，暂时静默滚动结算，防止过渡帧误触发跳集
+  const markResizing = useCallback(() => {
+    isResizingRef.current = true;
+    if (resizeTimeoutRef.current) {
+      clearTimeout(resizeTimeoutRef.current);
+    }
+    resizeTimeoutRef.current = setTimeout(() => {
+      isResizingRef.current = false;
+    }, 200);
+  }, []);
+
+  // 视口尺寸监听与同步：容器高度变更时自动按当前片段索引重算滚动偏移量，防止全屏或缩放时误切视频
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    const syncHeight = () => {
-      const h = container.clientHeight || 1;
-      setContainerHeight(h);
+    const handleResize = () => {
+      const newHeight = container.clientHeight;
+      if (!newHeight || newHeight <= 0) return;
+
+      const oldHeight = prevHeightRef.current;
+      prevHeightRef.current = newHeight;
+      setContainerHeight(newHeight);
+
+      // 初次挂载：若有指定非 0 起始索引则执行初始定位
+      if (!isInitialMountedRef.current) {
+        isInitialMountedRef.current = true;
+        if (initialIndex > 0) {
+          container.scrollTo({
+            top: initialIndex * newHeight,
+            behavior: 'instant' as ScrollBehavior,
+          });
+        }
+        return;
+      }
+
+      // 后续尺寸变更（全屏、退出全屏、窗口缩放）：立即同步滚动位置到当前播放片段
+      if (oldHeight > 0 && Math.abs(oldHeight - newHeight) > 1) {
+        markResizing();
+        container.scrollTo({
+          top: currentIndexRef.current * newHeight,
+          behavior: 'instant' as ScrollBehavior,
+        });
+      }
     };
 
-    syncHeight();
-    const observer = new ResizeObserver(syncHeight);
+    handleResize();
+    const observer = new ResizeObserver(handleResize);
     observer.observe(container);
 
-    return () => observer.disconnect();
-  }, []);
-
-  /**
-   * 初始化挂载时的滚动位置定位
-   */
-  useLayoutEffect(() => {
-    const container = containerRef.current;
-    if (!container || initialIndex === 0) return;
-    container.scrollTo({
-      top: initialIndex * containerHeight,
-      behavior: 'instant' as ScrollBehavior,
-    });
-  }, [containerHeight, initialIndex]);
+    return () => {
+      observer.disconnect();
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+      }
+    };
+  }, [initialIndex, markResizing]);
 
   /**
    * 后台异步预加载当前项及前后相邻项（前后各 2 项）的视频媒体源
@@ -169,14 +200,15 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
     };
   }, [currentIndex, loadMediaSource, mediaMap, shuffleQueue]);
 
-  /**
-   * 滚动吸附完成结算
-   */
+  // 滚动吸附完成结算
   const handleScrollSettle = useCallback(() => {
+    // 处于全屏切换或窗口缩放中时忽略滚动结算，防止过渡帧导致跳集
+    if (isResizingRef.current) return;
+
     const container = containerRef.current;
     if (!container) return;
 
-    const h = container.clientHeight || containerHeight || 1;
+    const h = container.clientHeight || 1;
     const targetIdx = Math.max(0, Math.round(container.scrollTop / h));
 
     if (targetIdx !== currentIndexRef.current) {
@@ -190,32 +222,28 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
         onCurrentClipChange?.(activeItem);
       }
     }
-  }, [containerHeight, onCurrentClipChange, shuffleQueue]);
+  }, [onCurrentClipChange, shuffleQueue]);
 
-  /**
-   * 程序化切换至下一个片段
-   */
+  // 程序化切换至下一个片段
   const triggerNext = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const nextIdx = currentIndexRef.current + 1;
     setMaxRenderedIndex((prev) => Math.max(prev, nextIdx + 3));
-    const h = container.clientHeight || containerHeight;
+    const h = container.clientHeight || 1;
     container.scrollTo({ top: nextIdx * h, behavior: 'smooth' });
-  }, [containerHeight]);
+  }, []);
 
-  /**
-   * 程序化切换至上一个片段
-   */
+  // 程序化切换至上一个片段
   const triggerPrevious = useCallback(() => {
     const container = containerRef.current;
     if (!container || currentIndexRef.current <= 0) return;
 
     const prevIdx = currentIndexRef.current - 1;
-    const h = container.clientHeight || containerHeight;
+    const h = container.clientHeight || 1;
     container.scrollTo({ top: Math.max(0, prevIdx * h), behavior: 'smooth' });
-  }, [containerHeight]);
+  }, []);
 
   /**
    * 传统鼠标滚轮独立分流拦截处理
@@ -279,18 +307,21 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
     };
   }, [handleScrollSettle]);
 
-  // 全屏切换与监听
+  // 全屏切换
   const handleToggleFullscreen = useCallback(() => {
+    markResizing();
     toggleFullscreen(containerRef.current);
-  }, []);
+  }, [markResizing]);
 
+  // 全屏状态监听
   useEffect(() => {
     const handleFullscreenChange = () => {
+      markResizing();
       setIsFullscreen(!!document.fullscreenElement);
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
+  }, [markResizing]);
 
   // 生成要渲染的项目索引列表
   const renderedIndices: number[] = [];
