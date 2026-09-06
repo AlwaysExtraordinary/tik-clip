@@ -7,7 +7,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/utils/cn';
-
+import { toggleFullscreen } from '@/utils/fullscreen';
 import { useWakeLock } from '@/hooks/useWakeLock';
 
 interface VideoPlayerProps {
@@ -306,20 +306,14 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setIsFastForwarding(false);
   }, []);
 
+  // 切换全屏
   const handleToggleFullscreen = useCallback(() => {
     if (onToggleFullscreenProp) {
       onToggleFullscreenProp();
       return;
     }
 
-    const container = containerRef.current;
-    if (!container) return;
-
-    if (!document.fullscreenElement) {
-      container.requestFullscreen?.().catch(console.error);
-    } else {
-      document.exitFullscreen?.().catch(console.error);
-    }
+    toggleFullscreen(containerRef.current);
   }, [onToggleFullscreenProp]);
 
   // 监听全屏状态变更（仅在未传入外部 isFullscreenProp 时监听）

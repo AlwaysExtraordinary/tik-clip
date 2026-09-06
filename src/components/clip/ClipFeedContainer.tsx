@@ -3,6 +3,7 @@ import { ShuffleItem } from '@/types/clip';
 import { ShuffleQueue } from '@/services/shuffle';
 import { VideoPlayer } from '@/components/video/VideoPlayer';
 import { usePlayerStore } from '@/stores/playerStore';
+import { toggleFullscreen } from '@/utils/fullscreen';
 
 /** -------------------------------------------------------------
  *  手势、阈值与动画相关配置常量
@@ -280,14 +281,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
 
   // 全屏切换与监听
   const handleToggleFullscreen = useCallback(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    if (!document.fullscreenElement) {
-      container.requestFullscreen?.().catch(console.error);
-    } else {
-      document.exitFullscreen?.().catch(console.error);
-    }
+    toggleFullscreen(containerRef.current);
   }, []);
 
   useEffect(() => {

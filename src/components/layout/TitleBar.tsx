@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Icon } from '@iconify/react';
 import { isTauri } from '@/services/fileSystem/index';
@@ -10,6 +10,7 @@ import { isTauri } from '@/services/fileSystem/index';
 export const TitleBar: React.FC = () => {
   const [isMac, setIsMac] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
+  const lastToggleTimeRef = useRef(0);
 
   useEffect(() => {
     if (!isTauri()) return;
@@ -48,15 +49,19 @@ export const TitleBar: React.FC = () => {
 
   const appWindow = getCurrentWindow();
 
-  //鼠标按下拖拽窗口
+  // 鼠标按下：区分单击拖拽窗口与双击切换最大化
   const handleMouseDown = (e: React.MouseEvent) => {
     // 仅响应鼠标左键点击，且排除点击到按钮的情况
     if (e.button === 0 && (e.target as HTMLElement).closest('button') === null) {
-      appWindow.startDragging();
+      if (e.detail === 2) {
+        handleToggleMaximize(e);
+      } else {
+        appWindow.startDragging();
+      }
     }
   };
 
-  //最小化窗口
+  // 最小化窗口
   const handleMinimize = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
@@ -66,9 +71,15 @@ export const TitleBar: React.FC = () => {
     }
   };
 
-  //切换最大化 / 还原窗口
+  // 切换最大化 / 还原窗口（增加 300ms 防抖避免双击事件重复触发）
   const handleToggleMaximize = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
+    const now = Date.now();
+    if (now - lastToggleTimeRef.current < 300) {
+      return;
+    }
+    lastToggleTimeRef.current = now;
+
     try {
       await appWindow.toggleMaximize();
     } catch (err) {
@@ -76,7 +87,7 @@ export const TitleBar: React.FC = () => {
     }
   };
 
-  //关闭窗口
+  // 关闭窗口
   const handleClose = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
@@ -89,18 +100,13 @@ export const TitleBar: React.FC = () => {
   return (
     <header
       onMouseDown={handleMouseDown}
-      onDoubleClick={() => handleToggleMaximize()}
-      className="h-8 w-full select-none flex items-center justify-between bg-background text-foreground shrink-0 z-50 relative border-b border-border/20"
+      onDoubleClick={(e) => handleToggleMaximize(e)}
+      className="h-8 w-full select-none flex items-center justify-between bg-background text-foreground shrink-0 z-50 relative border-b border-border/20 cursor-default"
     >
-      {/* 中间主要拖拽区域 */}
-      <div
-        data-tauri-drag-region
-        className="flex-1 h-full flex items-center justify-center text-xs text-foreground-muted cursor-default relative"
-      >
+      {/* 中间主要拖拽与标题栏区域 */}
+      <div className="flex-1 h-full flex items-center justify-center text-xs text-foreground-muted cursor-default relative">
         {/* macOS 预留左侧红绿灯区域 */}
-        {isMac ? (
-          <div data-tauri-drag-region className="w-20 h-full shrink-0 absolute left-0" />
-        ) : null}
+        {isMac ? <div className="w-20 h-full shrink-0 absolute left-0" /> : null}
 
         {/* <span className="font-semibold text-xs tracking-wide">TikClip</span>  */}
 
