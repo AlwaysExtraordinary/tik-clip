@@ -178,11 +178,15 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   // 处理来自外部状态的跳转请求（例如编辑片段或点击时间标签）
   useEffect(() => {
     if (seekTargetTime !== null && videoRef.current) {
-      videoRef.current.currentTime = seekTargetTime;
-      setCurrentTime(seekTargetTime);
+      const minTime = isClipMode && startTime !== undefined ? startTime : 0;
+      const maxTime =
+        isClipMode && endTime !== undefined ? endTime : (duration || 999999);
+      const clamped = Math.max(minTime, Math.min(seekTargetTime, maxTime));
+      videoRef.current.currentTime = clamped;
+      setCurrentTime(clamped);
       requestSeek(null);
     }
-  }, [seekTargetTime, requestSeek]);
+  }, [seekTargetTime, requestSeek, isClipMode, startTime, endTime, duration]);
 
   // 清除自动隐藏定时器
   const clearHideTimer = useCallback(() => {
@@ -242,8 +246,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (!video) return;
 
     if (video.paused) {
-      // 若已到达片段末尾，播放前先跳回片段开头
-      if (isClipMode && endTime !== undefined && video.currentTime >= endTime - 0.05) {
+      // 若处于起始时间之前，先校准到起始时间
+      if (isClipMode && startTime !== undefined && video.currentTime < startTime) {
+        video.currentTime = startTime;
+      } else if (isClipMode && endTime !== undefined && video.currentTime >= endTime - 0.05) {
+        // 若已到达片段末尾，播放前先跳回片段开头
         video.currentTime = startTime || 0;
       }
       video.play().catch(console.error);
@@ -258,25 +265,66 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     showControlsWithTimeout();
   }, [handleTogglePlay, showControlsWithTimeout]);
 
+  /**
+   * 跳转视频到指定时间点，片段模式下严格限制在 [startTime, endTime] 区间内
+   * @param target 目标时间戳（秒）
+   */
   const handleSeek = useCallback(
     (target: number) => {
       const video = videoRef.current;
       if (!video) return;
 
-      const clamped = Math.max(0, Math.min(target, duration || 999999));
-      video.currentTime = clamped;
+      const minTime = isClipMode && startTime !== undefined ? startTime : 0;
+      const maxTime =
+        isClipMode && endTime !== undefined ? endTime : (duration || 999999);
+      const clamped = Math.max(minTime, Math.min(target, maxTime));
+
+      if (Math.abs(video.currentTime - clamped) > 0.05) {
+        video.currentTime = clamped;
+      }
       setCurrentTime(clamped);
       onCurrentTimeChange?.(clamped);
     },
-    [duration, onCurrentTimeChange]
+    [duration, isClipMode, startTime, endTime, onCurrentTimeChange]
   );
 
+  /**
+   * 相对当前时间进行快进/快退跳转
+   * 当快退到达或超出片段起点时，自动定位至起点并暂停播放
+   * @param offset 时间偏移量（秒，正数为快进，负数为快退）
+   */
   const handleSeekOffset = useCallback(
     (offset: number) => {
-      if (!videoRef.current) return;
-      handleSeek(videoRef.current.currentTime + offset);
+      const video = videoRef.current;
+      if (!video) return;
+
+      const minTime = isClipMode && startTime !== undefined ? startTime : 0;
+      const maxTime =
+        isClipMode && endTime !== undefined ? endTime : (duration || 999999);
+      const target = video.currentTime + offset;
+
+      // 快退到达或超出起点时，定位到起点并暂停
+      if (offset < 0 && target <= minTime) {
+        handleSeek(minTime);
+        video.pause();
+        setIsPlaying(false);
+        return;
+      }
+
+      // 快进到达或超出终点时，定位到终点并暂停
+      if (offset > 0 && target >= maxTime) {
+        handleSeek(maxTime);
+        if (isClipMode && endTime !== undefined) {
+          video.pause();
+          setIsPlaying(false);
+          onClipEnded?.();
+        }
+        return;
+      }
+
+      handleSeek(target);
     },
-    [handleSeek]
+    [handleSeek, isClipMode, startTime, endTime, duration, onClipEnded]
   );
 
   // 长按右方向键 3 倍速播放处理
@@ -438,6 +486,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   };
 
+  // 视频播放进度更新
   const handleTimeUpdate = () => {
     if (isPreloading) return;
     const video = videoRef.current;
@@ -447,7 +496,17 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setCurrentTime(time);
     onCurrentTimeChange?.(time);
 
-    // 片段边界控制与限制
+    // 片段边界控制与限制：低于起始时间时自动归位到起点并暂停
+    if (isClipMode && startTime !== undefined && duration > 0 && time < startTime) {
+      video.currentTime = startTime;
+      video.pause();
+      setIsPlaying(false);
+      setCurrentTime(startTime);
+      onCurrentTimeChange?.(startTime);
+      return;
+    }
+
+    // 片段边界控制与限制：到达结束时间时暂停
     if (isClipMode && endTime !== undefined && time >= endTime) {
       video.pause();
       setIsPlaying(false);

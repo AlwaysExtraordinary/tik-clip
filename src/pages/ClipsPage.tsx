@@ -218,12 +218,16 @@ export const ClipsPage: React.FC = () => {
     ]
   );
 
-  // 播放器时间更新时实时记录到 Store
+  /**
+   * 播放器时间更新时实时记录到 Store（确保不低于当前片段起始时间）
+   * @param time 当前播放时间戳（秒）
+   */
   const handleCurrentTimeChange = useCallback(
     (time: number) => {
-      setLastPlaybackTime(time);
+      const curStartTime = currentShuffleItem?.clip.startTime ?? 0;
+      setLastPlaybackTime(Math.max(curStartTime, time));
     },
-    [setLastPlaybackTime]
+    [currentShuffleItem, setLastPlaybackTime]
   );
 
   // 当前播放项变更时同步
@@ -366,13 +370,19 @@ export const ClipsPage: React.FC = () => {
             shuffleQueue={shuffleQueue}
             loadMediaSource={loadVideoSource}
             initialIndex={shuffleQueue.currentIndexValue}
-            initialTime={lastPlaybackTime ?? currentShuffleItem.clip.startTime}
+            initialTime={
+              lastPlaybackTime !== null && currentShuffleItem
+                ? Math.max(currentShuffleItem.clip.startTime, lastPlaybackTime)
+                : currentShuffleItem.clip.startTime
+            }
             onCurrentTimeChange={handleCurrentTimeChange}
             onCurrentClipChange={handleCurrentClipChange}
             onGoToVideoDetail={(item, time) => {
               usePlayerStore.getState().setEditingClip(item.clip);
               const targetTime =
-                typeof time === 'number' ? time : (lastPlaybackTime ?? item.clip.startTime);
+                typeof time === 'number'
+                  ? Math.max(item.clip.startTime, time)
+                  : Math.max(item.clip.startTime, lastPlaybackTime ?? item.clip.startTime);
               navigate(`/videos/${item.video.id}`, { state: { initialTime: targetTime } });
             }}
           />
