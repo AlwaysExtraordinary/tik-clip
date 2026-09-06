@@ -56,7 +56,7 @@ export const ClipProgress: React.FC<ClipProgressProps> = ({ currentTime, startTi
         )}
       >
         <div
-          className="h-full bg-foreground rounded-full transition-all duration-75"
+          className="h-full bg-foreground rounded-full"
           style={{ width: `${percentage}%` }}
         />
       </div>

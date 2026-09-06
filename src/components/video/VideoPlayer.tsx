@@ -86,6 +86,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [duration, setDuration] = useState(0);
   const [internalFullscreen, setInternalFullscreen] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(false);
+  // 控制栏及浮层是否挂载于 DOM 中（在淡出过渡动画完全播放完毕后再卸载）
+  const [isControlsMounted, setIsControlsMounted] = useState(false);
+  const unmountControlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isFastForwarding, setIsFastForwarding] = useState(false);
   const wasPausedBeforeFastForwardRef = useRef(false);
 
@@ -198,6 +201,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   // 显示控制栏并在 1 秒无操作后自动隐藏（悬浮在控制栏或剪辑按钮上时保持显示）
   const showControlsWithTimeout = useCallback(() => {
+    setIsControlsMounted(true);
     setControlsVisible(true);
     clearHideTimer();
     hideControlsTimerRef.current = setTimeout(() => {
@@ -211,6 +215,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const handleControlsMouseEnter = useCallback(() => {
     isHoveringControlsRef.current = true;
     clearHideTimer();
+    setIsControlsMounted(true);
     setControlsVisible(true);
   }, [clearHideTimer]);
 
@@ -220,23 +225,62 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     showControlsWithTimeout();
   }, [showControlsWithTimeout]);
 
+  // 记录上一帧鼠标真实物理坐标，避免因 DOM 卸载或重排触发浏览器伪 mousemove 导致控制栏无法自动隐藏
+  const lastMousePosRef = useRef({ x: -1, y: -1 });
+
   // 鼠标在播放容器内移动
-  const handleMouseMove = useCallback(() => {
-    if (isHoveringControlsRef.current) return;
-    showControlsWithTimeout();
-  }, [showControlsWithTimeout]);
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      // 过滤掉浏览器在 DOM 卸载或样式变更时自动派发的假 mousemove 事件
+      if (e.clientX === lastMousePosRef.current.x && e.clientY === lastMousePosRef.current.y) {
+        return;
+      }
+      lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+      if (isHoveringControlsRef.current) return;
+      showControlsWithTimeout();
+    },
+    [showControlsWithTimeout]
+  );
 
   // 鼠标移出播放区域立即隐藏
   const handleMouseLeave = useCallback(() => {
+    lastMousePosRef.current = { x: -1, y: -1 };
     isHoveringControlsRef.current = false;
     clearHideTimer();
     setControlsVisible(false);
   }, [clearHideTimer]);
 
+  // 监听 controlsVisible 状态变更：在淡出过渡动画（300ms）播放完毕后彻底卸载子组件
+  useEffect(() => {
+    if (controlsVisible) {
+      if (unmountControlsTimerRef.current) {
+        clearTimeout(unmountControlsTimerRef.current);
+        unmountControlsTimerRef.current = null;
+      }
+      setIsControlsMounted(true);
+    } else {
+      unmountControlsTimerRef.current = setTimeout(() => {
+        setIsControlsMounted(false);
+        unmountControlsTimerRef.current = null;
+      }, 300);
+    }
+
+    return () => {
+      if (unmountControlsTimerRef.current) {
+        clearTimeout(unmountControlsTimerRef.current);
+        unmountControlsTimerRef.current = null;
+      }
+    };
+  }, [controlsVisible]);
+
   // 组件卸载时清理定时器
   useEffect(() => {
     return () => {
       clearHideTimer();
+      if (unmountControlsTimerRef.current) {
+        clearTimeout(unmountControlsTimerRef.current);
+        unmountControlsTimerRef.current = null;
+      }
     };
   }, [clearHideTimer]);
 
@@ -593,27 +637,29 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       {/* 右上角操作按钮列表 */}
       {topRightButtons.length > 0 && (
         <div
-          className={`absolute top-5 right-5 z-20 flex items-center gap-2 transition-opacity duration-300 ${
+          className={cn(
+            'absolute top-5 right-5 z-20 flex items-center gap-2 transition-opacity duration-300',
             controlsVisible ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
-          }`}
+          )}
           onClick={(e) => e.stopPropagation()}
           onMouseEnter={handleControlsMouseEnter}
           onMouseLeave={handleControlsMouseLeave}
         >
-          {topRightButtons.map((btn) => (
-            <button
-              key={btn.key}
-              onClick={btn.onClick}
-              aria-label={btn.label}
-              title={btn.label}
-              className={cn(
-                'shadow-card flex size-8 items-center justify-center rounded-full border backdrop-blur-md transition-all duration-200 @xl:size-9 @3xl:size-10',
-                'bg-surface/80 text-foreground border-border hover:bg-surface-hover cursor-pointer'
-              )}
-            >
-              <Icon icon={btn.icon} className="size-4 @xl:size-4.5 @3xl:size-5" />
-            </button>
-          ))}
+          {isControlsMounted &&
+            topRightButtons.map((btn) => (
+              <button
+                key={btn.key}
+                onClick={btn.onClick}
+                aria-label={btn.label}
+                title={btn.label}
+                className={cn(
+                  'shadow-card flex size-8 items-center justify-center rounded-full border backdrop-blur-md transition-all duration-200 @xl:size-9 @3xl:size-10',
+                  'bg-surface/80 text-foreground border-border hover:bg-surface-hover cursor-pointer'
+                )}
+              >
+                <Icon icon={btn.icon} className="size-4 @xl:size-4.5 @3xl:size-5" />
+              </button>
+            ))}
         </div>
       )}
 
@@ -628,31 +674,33 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         onMouseEnter={handleControlsMouseEnter}
         onMouseLeave={handleControlsMouseLeave}
       >
-        <VideoControls
-          isPlaying={isPlaying}
-          currentTime={currentTime}
-          duration={duration}
-          onTogglePlay={handleTogglePlay}
-          onPrevious={onPrevious}
-          onNext={onNext}
-          onSeek={handleSeek}
-          onToggleFullscreen={handleToggleFullscreen}
-          isFullscreen={isFullscreen}
-          startTimeOffset={isClipMode ? startTime : 0}
-          clipDuration={clipDuration}
-          hasPrevious={hasPrevious}
-          hasNext={hasNext}
-          fitMode={activeFitMode}
-          onToggleFitMode={handleToggleFitMode}
-          showCountdownToggle={isClipMode}
-          showCountdown={activeShowCountdown}
-          onToggleCountdown={handleToggleCountdown}
-          volume={volume}
-          isMuted={isMuted}
-          onVolumeChange={setVolume}
-          onToggleMute={toggleMute}
-          videoUrl={showThumbnailPreview ? videoUrl : null}
-        />
+        {isControlsMounted && (
+          <VideoControls
+            isPlaying={isPlaying}
+            currentTime={currentTime}
+            duration={duration}
+            onTogglePlay={handleTogglePlay}
+            onPrevious={onPrevious}
+            onNext={onNext}
+            onSeek={handleSeek}
+            onToggleFullscreen={handleToggleFullscreen}
+            isFullscreen={isFullscreen}
+            startTimeOffset={isClipMode ? startTime : 0}
+            clipDuration={clipDuration}
+            hasPrevious={hasPrevious}
+            hasNext={hasNext}
+            fitMode={activeFitMode}
+            onToggleFitMode={handleToggleFitMode}
+            showCountdownToggle={isClipMode}
+            showCountdown={activeShowCountdown}
+            onToggleCountdown={handleToggleCountdown}
+            volume={volume}
+            isMuted={isMuted}
+            onVolumeChange={setVolume}
+            onToggleMute={toggleMute}
+            videoUrl={showThumbnailPreview ? videoUrl : null}
+          />
+        )}
       </div>
 
       {/* 控制栏隐藏状态：右下角极简片段进度 / 倒计时 */}

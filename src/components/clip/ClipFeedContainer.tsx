@@ -347,13 +347,10 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
                 onToggleFitMode={toggleClipsFitMode}
                 isFullscreen={isFullscreen}
                 onToggleFullscreen={handleToggleFullscreen}
-                onRevealInExplorer={
-                  onRevealInExplorer ? () => onRevealInExplorer(item) : undefined
-                }
+                onRevealInExplorer={onRevealInExplorer ? () => onRevealInExplorer(item) : undefined}
                 onGoToVideoDetail={
                   onGoToVideoDetail
-                    ? (currentTime) =>
-                        onGoToVideoDetail(item, currentTime ?? item.clip.startTime)
+                    ? (currentTime) => onGoToVideoDetail(item, currentTime ?? item.clip.startTime)
                     : undefined
                 }
               />
