@@ -44,7 +44,7 @@ export const ClipProgress: React.FC<ClipProgressProps> = ({ currentTime, startTi
 
   return (
     <div
-      className="absolute bottom-6 right-6 z-20 flex items-center gap-2 bg-surface/80 
+      className="absolute bottom-6 right-6 z-20 flex items-center gap-2 bg-surface/60 
       backdrop-blur-md px-4 py-2 rounded-2xl border border-border/40 shadow-card animate-in 
       fade-in duration-300 pointer-events-none"
     >
@@ -55,16 +55,13 @@ export const ClipProgress: React.FC<ClipProgressProps> = ({ currentTime, startTi
           trackWidth
         )}
       >
-        <div
-          className="h-full bg-foreground rounded-full"
-          style={{ width: `${percentage}%` }}
-        />
+        <div className="h-full bg-foreground rounded-full" style={{ width: `${percentage}%` }} />
       </div>
 
       {/* 剩余时间文本 */}
       <span
         className={cn(
-          'text-xs font-medium text-foreground-muted whitespace-nowrap text-right tabular-nums',
+          'text-xs font-medium text-foreground whitespace-nowrap text-right tabular-nums',
           textWidth
         )}
       >
