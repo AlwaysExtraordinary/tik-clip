@@ -288,6 +288,8 @@ export class WebFileSystemAdapter implements IFileSystemAdapter {
         // 如果存在 data.json 则读取元数据与片段列表
         let displayName = folderName;
         let category: string | undefined = undefined;
+        let actors: string | string[] | undefined = undefined;
+        let description: string | undefined = undefined;
         let clipsFromDataJson: Clip[] | null = null;
 
         if (dataJsonHandle) {
@@ -303,6 +305,14 @@ export class WebFileSystemAdapter implements IFileSystemAdapter {
             }
             if (parsed.category && typeof parsed.category === 'string') {
               category = parsed.category.trim();
+            }
+            if (Array.isArray(parsed.actors)) {
+              actors = parsed.actors.filter((a: unknown): a is string => typeof a === 'string' && a.trim() !== '');
+            } else if (typeof parsed.actors === 'string' && parsed.actors.trim()) {
+              actors = parsed.actors.trim();
+            }
+            if (typeof parsed.description === 'string' && parsed.description.trim()) {
+              description = parsed.description.trim();
             }
             if (Array.isArray(parsed.clips)) {
               clipsFromDataJson = parsed.clips
@@ -436,6 +446,8 @@ export class WebFileSystemAdapter implements IFileSystemAdapter {
           duration: duration || 0,
           thumbnail: thumbnailBlob,
           category,
+          actors,
+          description,
           clipsCount,
           createdAt: existingVideo?.createdAt || now,
           updatedAt: now,

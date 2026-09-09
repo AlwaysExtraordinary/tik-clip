@@ -25,6 +25,10 @@ export const router = createBrowserRouter([
         path: 'videos/:videoId',
         element: <VideoDetailPage />,
       },
+      {
+        path: 'coverflow',
+        element: null,
+      },
     ],
   },
 ]);

@@ -5,6 +5,7 @@
 ## 技术栈
 
 - **前端核心**：React 19 + TypeScript + Vite 8
+- **3D 引擎**：Three.js (`three`)
 - **UI 体系**：HeroUI v3 (`@heroui/react`) + Tailwind CSS v4 + Iconify 图标
 - **路由与状态**：React Router v7 + Zustand v4
 - **本地存储**：Dexie 4 (IndexedDB 本地持久化)
@@ -16,10 +17,11 @@
 ```
 src/
 ├── app/                  # 应用入口与路由配置 (App.tsx, router.tsx)
-├── pages/                # 核心页面 (ClipsPage 沉浸式流, VideosPage 视频库, VideoDetailPage 播放与切片)
+├── pages/                # 核心页面 (ClipsPage 沉浸式流, VideosPage 视频库, VideoDetailPage 播放与切片, CoverflowPage 3D封面流)
 ├── components/           # UI 组件
 │   ├── video/            # 视频播放器 (VideoPlayer)、控制器、进度条及悬停缩略图预览
 │   ├── clip/             # 片段 Feed 流容器 (ClipFeedContainer)、表单、列表与标签面板
+│   ├── coverflow/        # 3D 封面流组件 (CoverflowCanvas, CoverflowNavbar, MovieInfoPanel, ZoomControls, StatusPill)
 │   ├── layout/           # 布局框架 (MainLayout, Sidebar)
 │   └── settings/         # 设置弹窗
 ├── services/             # 核心服务层

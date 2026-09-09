@@ -2,6 +2,7 @@
   "nav": {
     "clips": "片段",
     "videos": "视频",
+    "coverflow": "封面流",
     "settings": "设置",
     "collapseSidebar": "收起侧边栏",
     "expandSidebar": "展开侧边栏"
@@ -133,6 +134,25 @@
     "fastForwarding": "快进中",
     "xTimes": "{{x}}倍速",
     "goToVideoDetail": "跳转到视频详情"
+  },
+  "coverflow": {
+    "title": "3D 封面流",
+    "viewMode": "视图模式",
+    "angledView": "斜角视图",
+    "verticalView": "垂直书脊",
+    "actors": "演员",
+    "category": "类别",
+    "description": "描述",
+    "playVideo": "播放视频",
+    "flip": "翻转",
+    "exit": "返回",
+    "prev": "上一个",
+    "next": "下一个",
+    "statusList": "影片列表",
+    "statusExpanded": "选中封面",
+    "statusDetail": "详细信息",
+    "noCoversTitle": "未检测到带封面的视频",
+    "noCoversDesc": "3D 封面流需要视频文件夹内包含封面图片（如 cover.jpg）。请在视频子目录下添加封面后重新扫描。"
   },
   "common": {
     "cancel": "取消",

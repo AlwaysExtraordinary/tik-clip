@@ -7,7 +7,7 @@ import prettierConfig from 'eslint-config-prettier';
 
 export default tseslint.config(
   {
-    ignores: ['dist', 'node_modules', '*.tsbuildinfo', 'src-tauri/target/**'],
+    ignores: ['dist', 'node_modules', '*.tsbuildinfo', 'src-tauri/target/**', 'movie-coverflow/**'],
   },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],

@@ -2,6 +2,7 @@
   "nav": {
     "clips": "クリップ",
     "videos": "動画",
+    "coverflow": "カバーフロー",
     "settings": "設定",
     "collapseSidebar": "サイドバーを折りたたむ",
     "expandSidebar": "サイドバーを展開"
@@ -133,6 +134,25 @@
     "fastForwarding": "早送り中",
     "xTimes": "{{x}}倍速",
     "goToVideoDetail": "動画詳細へ移動"
+  },
+  "coverflow": {
+    "title": "3D カバーフロー",
+    "viewMode": "表示モード",
+    "angledView": "斜め表示",
+    "verticalView": "垂直背表紙",
+    "actors": "出演者",
+    "category": "カテゴリ",
+    "description": "概要",
+    "playVideo": "動画を再生",
+    "flip": "裏返す",
+    "exit": "戻る",
+    "prev": "前へ",
+    "next": "次へ",
+    "statusList": "一覧表示",
+    "statusExpanded": "選択中",
+    "statusDetail": "詳細情報",
+    "noCoversTitle": "カバー画像付きの動画が見つかりません",
+    "noCoversDesc": "3Dカバーフローは動画フォルダ内にカバー画像（cover.jpgなど）が必要です。動画フォルダに画像を追加して再スキャンしてください。"
   },
   "common": {
     "cancel": "キャンセル",

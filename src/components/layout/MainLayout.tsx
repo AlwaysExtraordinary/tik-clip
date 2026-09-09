@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
@@ -7,11 +7,23 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { TitleBar } from '@/components/layout/TitleBar';
 import { SettingsModal } from '@/components/settings/SettingsModal';
 import { useSidebarStore } from '@/stores/sidebarStore';
+import { CoverflowPage } from '@/pages/CoverflowPage';
 import { cn } from '@/utils/cn';
 
 export const MainLayout: React.FC = () => {
   const { t } = useTranslation();
   const { isOpen, isMobile, openSidebar, closeSidebar, setIsMobile } = useSidebarStore();
+  const location = useLocation();
+
+  const isCoverflow = location.pathname === '/coverflow';
+  const [hasVisitedCoverflow, setHasVisitedCoverflow] = useState(isCoverflow);
+
+  // 首次访问 Coverflow 时激活挂载，之后保持常驻缓存
+  useEffect(() => {
+    if (isCoverflow && !hasVisitedCoverflow) {
+      setHasVisitedCoverflow(true);
+    }
+  }, [isCoverflow, hasVisitedCoverflow]);
 
   // 监听屏幕尺寸变化
   useEffect(() => {
@@ -66,7 +78,24 @@ export const MainLayout: React.FC = () => {
             'flex-1 h-full overflow-hidden relative flex flex-col transition-all duration-300 ease-in-out'
           )}
         >
-          <Outlet />
+          {/* Coverflow 独立持久化缓存容器，切换页面时不销毁 WebGL 场景与纹理 */}
+          {hasVisitedCoverflow && (
+            <div
+              className={clsx(
+                'absolute inset-0 w-full h-full',
+                isCoverflow
+                  ? 'z-10 visible opacity-100'
+                  : 'z-0 invisible opacity-0 pointer-events-none'
+              )}
+            >
+              <CoverflowPage isVisible={isCoverflow} />
+            </div>
+          )}
+
+          {/* 其它常规页面通过 Outlet 渲染 */}
+          <div className={clsx('w-full h-full flex flex-col', isCoverflow ? 'hidden' : 'block')}>
+            <Outlet />
+          </div>
         </main>
       </div>
 

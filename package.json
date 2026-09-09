@@ -39,6 +39,7 @@
     "react-i18next": "^17.0.11",
     "react-router-dom": "^7.18.2",
     "tailwind-merge": "^3.6.0",
+    "three": "^0.186.0",
     "zustand": "^4.5.5"
   },
   "devDependencies": {
@@ -47,6 +48,7 @@
     "@types/node": "^26.2.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
+    "@types/three": "^0.185.4",
     "@vitejs/plugin-react": "^6.1.0",
     "eslint": "^10.8.1",
     "eslint-config-prettier": "^10.1.8",

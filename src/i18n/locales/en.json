@@ -2,6 +2,7 @@
   "nav": {
     "clips": "Clips",
     "videos": "Videos",
+    "coverflow": "Coverflow",
     "settings": "Settings",
     "collapseSidebar": "Collapse Sidebar",
     "expandSidebar": "Expand Sidebar"
@@ -133,6 +134,25 @@
     "fastForwarding": "Fast Forwarding",
     "xTimes": "{{x}} Times ",
     "goToVideoDetail": "Go to Video Detail"
+  },
+  "coverflow": {
+    "title": "3D Coverflow",
+    "viewMode": "View Mode",
+    "angledView": "Angled View",
+    "verticalView": "Vertical View",
+    "actors": "Cast & Actors",
+    "category": "Category",
+    "description": "Description",
+    "playVideo": "Play Video",
+    "flip": "Flip",
+    "exit": "Exit",
+    "prev": "Previous",
+    "next": "Next",
+    "statusList": "Cover Flow",
+    "statusExpanded": "Selected Cover",
+    "statusDetail": "Details",
+    "noCoversTitle": "No Cover Videos Detected",
+    "noCoversDesc": "3D Coverflow only renders videos with folder cover images (e.g. cover.jpg). Please add cover images inside video folders and rescan."
   },
   "common": {
     "cancel": "Cancel",

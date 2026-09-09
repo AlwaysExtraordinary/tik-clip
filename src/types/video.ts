@@ -6,6 +6,8 @@ export interface Video {
   duration: number;
   thumbnail?: Blob; // 在 IndexedDB 中以 Blob 形式存储
   category?: string;
+  actors?: string | string[];
+  description?: string;
   clipsCount: number;
   createdAt: number;
   updatedAt: number;
@@ -19,6 +21,7 @@ export interface Video {
 export interface VideoMetadata {
   name?: string;
   category?: string;
+  actors?: string | string[];
   description?: string;
   tags?: string[];
 }
