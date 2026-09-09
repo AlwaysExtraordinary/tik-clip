@@ -99,6 +99,20 @@ export interface IFileSystemAdapter {
   updateVideoNameInDataJson(target: DirectoryRef, folderName: string, name: string): Promise<void>;
 
   /**
+   * 更新视频元数据（名称、类别、演员、描述）至 data.json
+   */
+  updateVideoMetadataInDataJson(
+    target: DirectoryRef,
+    folderName: string,
+    metadata: {
+      name: string;
+      category?: string;
+      actor?: string;
+      description?: string;
+    }
+  ): Promise<void>;
+
+  /**
    * 标记视频隐藏至 data.json
    */
   hideVideoInDataJson(target: DirectoryRef, folderName: string): Promise<void>;

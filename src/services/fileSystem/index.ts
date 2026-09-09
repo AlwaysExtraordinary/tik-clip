@@ -234,6 +234,33 @@ export async function updateVideoNameInDataJson(
   return fileSystemAdapter.updateVideoNameInDataJson(ref, folderName, name);
 }
 
+/**
+ * 更新视频元数据（名称、类别、演员、描述）至 data.json
+ * @param target 目录引用或目录句柄
+ * @param folderName 视频所属子文件夹名称
+ * @param metadata 视频元数据
+ */
+export async function updateVideoMetadataInDataJson(
+  target: DirectoryRef | FileSystemDirectoryHandle,
+  folderName: string,
+  metadata: {
+    name: string;
+    category?: string;
+    actor?: string;
+    description?: string;
+  }
+): Promise<void> {
+  const ref: DirectoryRef =
+    typeof (target as FileSystemDirectoryHandle).getFileHandle === 'function'
+      ? {
+          name: (target as FileSystemDirectoryHandle).name,
+          handle: target as FileSystemDirectoryHandle,
+        }
+      : (target as DirectoryRef);
+
+  return fileSystemAdapter.updateVideoMetadataInDataJson(ref, folderName, metadata);
+}
+
 export async function hideVideoInDataJson(
   target: DirectoryRef | FileSystemDirectoryHandle,
   folderName: string

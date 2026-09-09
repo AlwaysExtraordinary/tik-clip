@@ -40,7 +40,9 @@ export class ShuffleQueue {
   }
 
   /**
-   * 增量同步最新的片段列表，保留现有的播放队列游标
+   * 增量同步最新的片段列表，保留当前正在播放的片段（置于首位）并对其余项整体重新洗牌
+   * @param items 最新的目标片段列表
+   * @param currentClipId 当前正在播放的片段 ID（可选）
    */
   public syncItems(items: ShuffleItem[], currentClipId?: string) {
     this.rawItems = items;
@@ -53,22 +55,17 @@ export class ShuffleQueue {
     const itemMap = new Map<string, ShuffleItem>();
     items.forEach((it) => itemMap.set(it.clip.id, it));
 
-    // 更新 playlist 中已有项，过滤已删除项
-    this.playlist = this.playlist
-      .filter((it) => itemMap.has(it.clip.id))
-      .map((it) => itemMap.get(it.clip.id)!);
-
-    // 如果更新后为空，重新生成
-    if (this.playlist.length === 0) {
-      this.playlist = shuffleArray(items);
+    // 如果指定了当前播放片段且该片段在新列表中依然存在，保持该片段置顶并对其余项重新洗牌
+    if (currentClipId && itemMap.has(currentClipId)) {
+      const currentItem = itemMap.get(currentClipId)!;
+      const remainingItems = items.filter((it) => it.clip.id !== currentClipId);
+      this.playlist = [currentItem, ...shuffleArray(remainingItems)];
+      this.currentIndex = 0;
+      return;
     }
 
-    if (currentClipId) {
-      const idx = this.playlist.findIndex((it) => it.clip.id === currentClipId);
-      if (idx !== -1) {
-        this.currentIndex = idx;
-      }
-    }
+    // 否则直接重置并整体洗牌
+    this.reset();
   }
 
   /**

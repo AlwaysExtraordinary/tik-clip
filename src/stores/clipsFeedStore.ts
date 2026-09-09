@@ -10,6 +10,8 @@ interface ClipsFeedState {
   lastPlaybackTime: number | null;
   fileError: string | null;
   selectedTag: string | null;
+  selectedCategory: string | null;
+  selectedActor: string | null;
 
   setCurrentShuffleItem: (item: ShuffleItem | null) => void;
   setCurrentVideoFile: (file: File | null) => void;
@@ -17,6 +19,9 @@ interface ClipsFeedState {
   setLastPlaybackTime: (time: number | null) => void;
   setFileError: (error: string | null) => void;
   setSelectedTag: (tag: string | null) => void;
+  setSelectedCategory: (category: string | null) => void;
+  setSelectedActor: (actor: string | null) => void;
+  resetFilters: () => void;
   resetFeed: () => void;
 }
 
@@ -28,13 +33,26 @@ export const useClipsFeedStore = create<ClipsFeedState>((set) => ({
   lastPlaybackTime: null,
   fileError: null,
   selectedTag: null,
+  selectedCategory: null,
+  selectedActor: null,
 
   setCurrentShuffleItem: (currentShuffleItem) => set({ currentShuffleItem }),
   setCurrentVideoFile: (currentVideoFile) => set({ currentVideoFile }),
   setCurrentVideoSrc: (currentVideoSrc) => set({ currentVideoSrc }),
   setLastPlaybackTime: (lastPlaybackTime) => set({ lastPlaybackTime }),
   setFileError: (fileError) => set({ fileError }),
-  setSelectedTag: (selectedTag) => set({ selectedTag }),
+  setSelectedTag: (tag) =>
+    set({ selectedTag: !tag || tag === 'all' ? null : tag }),
+  setSelectedCategory: (category) =>
+    set({ selectedCategory: !category || category === 'all' ? null : category }),
+  setSelectedActor: (actor) =>
+    set({ selectedActor: !actor || actor === 'all' ? null : actor }),
+  resetFilters: () =>
+    set({
+      selectedTag: null,
+      selectedCategory: null,
+      selectedActor: null,
+    }),
   resetFeed: () =>
     set((state) => {
       if (
@@ -44,6 +62,8 @@ export const useClipsFeedStore = create<ClipsFeedState>((set) => ({
         state.lastPlaybackTime === null &&
         state.fileError === null &&
         state.selectedTag === null &&
+        state.selectedCategory === null &&
+        state.selectedActor === null &&
         state.shuffleQueue.totalCount === 0
       ) {
         return state;
@@ -56,6 +76,8 @@ export const useClipsFeedStore = create<ClipsFeedState>((set) => ({
         lastPlaybackTime: null,
         fileError: null,
         selectedTag: null,
+        selectedCategory: null,
+        selectedActor: null,
       };
     }),
 }));

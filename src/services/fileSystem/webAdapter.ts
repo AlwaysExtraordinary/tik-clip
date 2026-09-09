@@ -196,6 +196,27 @@ export class WebFileSystemAdapter implements IFileSystemAdapter {
     await this.saveDataJson(target, folderName, updatedData);
   }
 
+  async updateVideoMetadataInDataJson(
+    target: DirectoryRef,
+    folderName: string,
+    metadata: {
+      name: string;
+      category?: string;
+      actor?: string;
+      description?: string;
+    }
+  ): Promise<void> {
+    const existingData = (await this.getDataJson(target, folderName)) || {};
+    const updatedData: Record<string, unknown> = {
+      ...existingData,
+      name: metadata.name,
+      category: metadata.category ?? '',
+      actor: metadata.actor ?? '',
+      description: metadata.description ?? '',
+    };
+    await this.saveDataJson(target, folderName, updatedData);
+  }
+
   async hideVideoInDataJson(target: DirectoryRef, folderName: string): Promise<void> {
     const existingData = (await this.getDataJson(target, folderName)) || {};
     const updatedData: Record<string, unknown> = {
@@ -288,6 +309,8 @@ export class WebFileSystemAdapter implements IFileSystemAdapter {
         // 如果存在 data.json 则读取元数据与片段列表
         let displayName = folderName;
         let category: string | undefined = undefined;
+        let actor: string | undefined = undefined;
+        let description: string | undefined = undefined;
         let clipsFromDataJson: Clip[] | null = null;
 
         if (dataJsonHandle) {
@@ -303,6 +326,12 @@ export class WebFileSystemAdapter implements IFileSystemAdapter {
             }
             if (parsed.category && typeof parsed.category === 'string') {
               category = parsed.category.trim();
+            }
+            if (parsed.actor && typeof parsed.actor === 'string') {
+              actor = parsed.actor.trim();
+            }
+            if (parsed.description && typeof parsed.description === 'string') {
+              description = parsed.description.trim();
             }
             if (Array.isArray(parsed.clips)) {
               clipsFromDataJson = parsed.clips
@@ -436,6 +465,8 @@ export class WebFileSystemAdapter implements IFileSystemAdapter {
           duration: duration || 0,
           thumbnail: thumbnailBlob,
           category,
+          actor,
+          description,
           clipsCount,
           createdAt: existingVideo?.createdAt || now,
           updatedAt: now,

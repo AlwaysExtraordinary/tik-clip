@@ -1,8 +1,6 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Icon } from '@iconify/react';
 import { useTranslation } from 'react-i18next';
-import { Select, ListBox } from '@heroui/react';
 import { Video } from '@/types/video';
 import { ShuffleItem } from '@/types/clip';
 import { getAllVideos } from '@/db/videos';
@@ -14,6 +12,7 @@ import { ClipTagList } from '@/components/clip/ClipTagList';
 import { EmptyState } from '@/components/video/EmptyState';
 import { useClipsFeedStore } from '@/stores/clipsFeedStore';
 import { usePlayerStore } from '@/stores/playerStore';
+import { FilterSelect } from '@/components/general/FilterSelect';
 
 export const ClipsPage: React.FC = () => {
   const { t } = useTranslation();
@@ -32,11 +31,16 @@ export const ClipsPage: React.FC = () => {
     currentShuffleItem,
     lastPlaybackTime,
     fileError,
+    selectedCategory,
+    selectedActor,
     selectedTag,
     setCurrentShuffleItem,
     setLastPlaybackTime,
     setFileError,
+    setSelectedCategory,
+    setSelectedActor,
     setSelectedTag,
+    resetFilters,
     resetFeed,
   } = useClipsFeedStore();
 
@@ -44,20 +48,147 @@ export const ClipsPage: React.FC = () => {
   const [allItems, setAllItems] = useState<ShuffleItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // 提取所有已有片段中的全部不重复标签
-  const allTags = useMemo(() => {
-    const tagSet = new Set<string>();
+  // 检查片段库中是否有任何类别、演员或标签（用于保持选择器结构稳定，防止组件闪烁消失）
+  const hasAnyCategory = useMemo(() => {
+    return allItems.some((item) => Boolean(item.video.category && item.video.category.trim()));
+  }, [allItems]);
+
+  const hasAnyActor = useMemo(() => {
+    return allItems.some((item) => Boolean(item.video.actor && item.video.actor.trim()));
+  }, [allItems]);
+
+  const hasAnyTag = useMemo(() => {
+    return allItems.some((item) => Boolean(item.clip.tags && item.clip.tags.length > 0));
+  }, [allItems]);
+
+  // 根据当前已选演员与标签，动态级联计算可用的类别列表
+  const availableCategories = useMemo(() => {
+    const set = new Set<string>();
     for (const item of allItems) {
-      if (item.clip.tags) {
-        for (const tag of item.clip.tags) {
-          if (tag && tag.trim()) {
-            tagSet.add(tag.trim());
+      const matchActor =
+        !selectedActor || selectedActor === 'all'
+          ? true
+          : Boolean(item.video.actor && item.video.actor.includes(selectedActor));
+      const matchTag =
+        !selectedTag || selectedTag === 'all'
+          ? true
+          : Boolean(item.clip.tags && item.clip.tags.includes(selectedTag));
+
+      if (matchActor && matchTag && item.video.category && item.video.category.trim()) {
+        set.add(item.video.category.trim());
+      }
+    }
+    return Array.from(set).sort();
+  }, [allItems, selectedActor, selectedTag]);
+
+  // 根据当前已选类别与标签，动态级联计算可用的演员列表
+  const availableActors = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of allItems) {
+      const matchCategory =
+        !selectedCategory || selectedCategory === 'all'
+          ? true
+          : item.video.category === selectedCategory;
+      const matchTag =
+        !selectedTag || selectedTag === 'all'
+          ? true
+          : Boolean(item.clip.tags && item.clip.tags.includes(selectedTag));
+
+      if (matchCategory && matchTag && item.video.actor && item.video.actor.trim()) {
+        const parts = item.video.actor.split(/[,，/、;\s]+/);
+        for (const p of parts) {
+          const trimmed = p.trim();
+          if (trimmed) {
+            set.add(trimmed);
           }
         }
       }
     }
-    return Array.from(tagSet).sort();
-  }, [allItems]);
+    return Array.from(set).sort();
+  }, [allItems, selectedCategory, selectedTag]);
+
+  // 根据当前已选类别与演员，动态级联计算可用的标签列表
+  const availableTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of allItems) {
+      const matchCategory =
+        !selectedCategory || selectedCategory === 'all'
+          ? true
+          : item.video.category === selectedCategory;
+      const matchActor =
+        !selectedActor || selectedActor === 'all'
+          ? true
+          : Boolean(item.video.actor && item.video.actor.includes(selectedActor));
+
+      if (matchCategory && matchActor && item.clip.tags) {
+        for (const tag of item.clip.tags) {
+          const trimmed = tag.trim();
+          if (trimmed) {
+            set.add(trimmed);
+          }
+        }
+      }
+    }
+    return Array.from(set).sort();
+  }, [allItems, selectedCategory, selectedActor]);
+
+  // 当筛选条件改变后，若已选类别无符合条件则自动回退显示默认项
+  useEffect(() => {
+    if (
+      selectedCategory &&
+      selectedCategory !== 'all' &&
+      !availableCategories.includes(selectedCategory)
+    ) {
+      setSelectedCategory(null);
+    }
+  }, [availableCategories, selectedCategory, setSelectedCategory]);
+
+  // 当筛选条件改变后，若已选演员无符合条件则自动回退显示默认项
+  useEffect(() => {
+    if (selectedActor && selectedActor !== 'all' && !availableActors.includes(selectedActor)) {
+      setSelectedActor(null);
+    }
+  }, [availableActors, selectedActor, setSelectedActor]);
+
+  // 当筛选条件改变后，若已选标签无符合条件则自动回退显示默认项
+  useEffect(() => {
+    if (selectedTag && selectedTag !== 'all' && !availableTags.includes(selectedTag)) {
+      setSelectedTag(null);
+    }
+  }, [availableTags, selectedTag, setSelectedTag]);
+
+  /**
+   * 根据标签、类别、演员联合筛选片段列表
+   * @param items 待筛选的所有片段列表
+   * @param tag 选中的标签
+   * @param category 选中的类别
+   * @param actor 选中的演员
+   */
+  const filterItems = useCallback(
+    (
+      items: ShuffleItem[],
+      tag: string | null,
+      category: string | null,
+      actor: string | null
+    ): ShuffleItem[] => {
+      return items.filter((item) => {
+        const matchTag = !tag || tag === 'all' ? true : item.clip.tags?.includes(tag);
+        const matchCategory =
+          !category || category === 'all' ? true : item.video.category === category;
+        const matchActor =
+          !actor || actor === 'all'
+            ? true
+            : Boolean(item.video.actor && item.video.actor.includes(actor));
+        return matchTag && matchCategory && matchActor;
+      });
+    },
+    []
+  );
+
+  // 依据当前生效的筛选条件计算当前目标播放列表
+  const targetItems = useMemo(() => {
+    return filterItems(allItems, selectedTag, selectedCategory, selectedActor);
+  }, [allItems, filterItems, selectedTag, selectedCategory, selectedActor]);
 
   // 从文件系统加载视频媒体源
   const loadVideoSource = useCallback(
@@ -116,40 +247,6 @@ export const ClipsPage: React.FC = () => {
           resetFeed();
           return;
         }
-
-        // 根据当前已选 tag 筛选播放列表
-        const store = useClipsFeedStore.getState();
-        const curTag = store.selectedTag;
-        const targetItems =
-          !curTag || curTag === 'all'
-            ? items
-            : items.filter((item) => item.clip.tags?.includes(curTag));
-
-        if (targetItems.length === 0) {
-          setCurrentShuffleItem(null);
-          return;
-        }
-
-        // 检查当前已播放片段是否仍然有效且匹配当前筛选
-        const existingItem = store.currentShuffleItem;
-        const matchedItem = existingItem
-          ? targetItems.find((it) => it.clip.id === existingItem.clip.id)
-          : null;
-
-        if (matchedItem) {
-          store.shuffleQueue.syncItems(targetItems, matchedItem.clip.id);
-          store.setCurrentShuffleItem(matchedItem);
-          store.setFileError(null);
-        } else {
-          // 重新初始化洗牌队列并从首个片段开始播放
-          store.shuffleQueue.setItems(targetItems);
-          const first = store.shuffleQueue.current();
-          if (first) {
-            store.setCurrentShuffleItem(first);
-            store.setLastPlaybackTime(first.clip.startTime);
-            store.setFileError(null);
-          }
-        }
       } catch (err) {
         console.error('Error loading clips feed:', err);
       } finally {
@@ -171,51 +268,75 @@ export const ClipsPage: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [
-    activeDirectory,
-    hasDirectoryPermission,
-    isScanning,
-    resetFeed,
-    setCurrentShuffleItem,
-    setFileError,
-    setLastPlaybackTime,
-  ]);
+  }, [activeDirectory, hasDirectoryPermission, isScanning, resetFeed]);
 
-  /**
-   * 切换标签筛选
-   * @param newTag 选中的标签名称，为 'all' 或 null 时重置为全部片段
-   */
-  const handleTagChange = useCallback(
-    (newTag: string | null) => {
-      const activeTag = !newTag || newTag === 'all' ? null : newTag;
-      setSelectedTag(activeTag);
-      const targetItems = !activeTag
-        ? allItems
-        : allItems.filter((item) => item.clip.tags?.includes(activeTag));
+  // 同步当前播放片段到 Ref，避免普通播放滑动时重新触发队列同步 Effect
+  const currentShuffleItemRef = useRef(currentShuffleItem);
+  useEffect(() => {
+    currentShuffleItemRef.current = currentShuffleItem;
+  }, [currentShuffleItem]);
 
-      if (targetItems.length === 0) {
-        shuffleQueue.setItems([]);
-        setCurrentShuffleItem(null);
-        setLastPlaybackTime(null);
-        return;
-      }
+  // 当筛选目标片段列表发生变动时，自适应同步洗牌队列与当前播放项
+  useEffect(() => {
+    if (allItems.length === 0) {
+      return;
+    }
 
-      setFileError(null);
+    if (targetItems.length === 0) {
+      shuffleQueue.setItems([]);
+      setCurrentShuffleItem(null);
+      setLastPlaybackTime(null);
+      return;
+    }
+
+    setFileError(null);
+    const existingItem = currentShuffleItemRef.current;
+    const matchedItem = existingItem
+      ? targetItems.find((it) => it.clip.id === existingItem.clip.id)
+      : null;
+
+    if (matchedItem) {
+      shuffleQueue.syncItems(targetItems, matchedItem.clip.id);
+      setCurrentShuffleItem(matchedItem);
+    } else {
       shuffleQueue.setItems(targetItems);
       const first = shuffleQueue.current();
       if (first) {
         setCurrentShuffleItem(first);
         setLastPlaybackTime(first.clip.startTime);
       }
+    }
+  }, [
+    allItems.length,
+    setCurrentShuffleItem,
+    setFileError,
+    setLastPlaybackTime,
+    shuffleQueue,
+    targetItems,
+  ]);
+
+  // 切换标签筛选
+  const handleTagChange = useCallback(
+    (newTag: string | null) => {
+      setSelectedTag(newTag);
     },
-    [
-      allItems,
-      setCurrentShuffleItem,
-      setFileError,
-      setLastPlaybackTime,
-      setSelectedTag,
-      shuffleQueue,
-    ]
+    [setSelectedTag]
+  );
+
+  // 切换类别筛选
+  const handleCategoryChange = useCallback(
+    (newCategory: string | null) => {
+      setSelectedCategory(newCategory);
+    },
+    [setSelectedCategory]
+  );
+
+  // 切换演员筛选
+  const handleActorChange = useCallback(
+    (newActor: string | null) => {
+      setSelectedActor(newActor);
+    },
+    [setSelectedActor]
   );
 
   /**
@@ -313,47 +434,46 @@ export const ClipsPage: React.FC = () => {
           {currentShuffleItem && <ClipTagList tags={currentShuffleItem.clip.tags} />}
         </div>
 
-        {allTags.length > 0 && (
-          <div className="shrink-0">
-            <Select
-              value={selectedTag || 'all'}
-              onChange={(key) => handleTagChange(key as string | null)}
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          {/* 类别筛选器 */}
+          {hasAnyCategory && (
+            <FilterSelect
+              value={selectedCategory}
+              onChange={handleCategoryChange}
+              icon="lucide:folder"
+              defaultLabel={t('videos.allCategories')}
+              options={availableCategories}
+              placeholder={t('clipsFeed.selectCategory')}
+              ariaLabel={t('clipsFeed.filterByCategory')}
+            />
+          )}
+
+          {/* 演员筛选器 */}
+          {hasAnyActor && (
+            <FilterSelect
+              value={selectedActor}
+              onChange={handleActorChange}
+              icon="lucide:user"
+              defaultLabel={t('videos.allActors')}
+              options={availableActors}
+              placeholder={t('clipsFeed.selectActor')}
+              ariaLabel={t('clipsFeed.filterByActor')}
+            />
+          )}
+
+          {/* 标签筛选器 */}
+          {hasAnyTag && (
+            <FilterSelect
+              value={selectedTag}
+              onChange={handleTagChange}
+              icon="lucide:tag"
+              defaultLabel={t('clipsFeed.allTags')}
+              options={availableTags}
               placeholder={t('clipsFeed.selectTag')}
-              aria-label={t('clipsFeed.filterByTag')}
-            >
-              <Select.Trigger className="text-xs rounded-full min-h-0 py-1.5">
-                <div className="flex items-center gap-1.5 min-w-0 truncate">
-                  <Icon icon="lucide:tag" className="size-3.5 text-foreground-muted shrink-0" />
-                  <Select.Value className="text-[11px] sm:text-[12px]" />
-                </div>
-                <Select.Indicator className="text-foreground-muted" />
-              </Select.Trigger>
-              <Select.Popover className="min-w-30 rounded-xl">
-                <ListBox>
-                  <ListBox.Item
-                    id="all"
-                    textValue={t('clipsFeed.default')}
-                    className="text-foreground-muted text-[11px] sm:text-[12px] min-h-0 py-1 rounded-md"
-                  >
-                    <span>{t('clipsFeed.default')}</span>
-                    <ListBox.ItemIndicator className="text-accent" />
-                  </ListBox.Item>
-                  {allTags.map((tag) => (
-                    <ListBox.Item
-                      key={tag}
-                      id={tag}
-                      textValue={tag}
-                      className="text-[11px] sm:text-[12px] min-h-0 py-1 rounded-md"
-                    >
-                      <span>{tag}</span>
-                      <ListBox.ItemIndicator className="text-accent" />
-                    </ListBox.Item>
-                  ))}
-                </ListBox>
-              </Select.Popover>
-            </Select>
-          </div>
-        )}
+              ariaLabel={t('clipsFeed.filterByTag')}
+            />
+          )}
+        </div>
       </div>
 
       {/* 主播放区域 / 空状态 / 错误状态 */}
@@ -366,14 +486,16 @@ export const ClipsPage: React.FC = () => {
           />
         ) : currentShuffleItem ? (
           <ClipFeedContainer
-            key={`${activeDirectory.name}-${selectedTag || 'all'}`}
+            key={`${activeDirectory.name}-${selectedTag || 'all'}-${selectedCategory || 'all'}-${selectedActor || 'all'}`}
             shuffleQueue={shuffleQueue}
             loadMediaSource={loadVideoSource}
             initialIndex={shuffleQueue.currentIndexValue}
             initialTime={
               lastPlaybackTime !== null && currentShuffleItem
                 ? Math.max(currentShuffleItem.clip.startTime, lastPlaybackTime)
-                : currentShuffleItem.clip.startTime
+                : currentShuffleItem
+                  ? currentShuffleItem.clip.startTime
+                  : 0
             }
             onCurrentTimeChange={handleCurrentTimeChange}
             onCurrentClipChange={handleCurrentClipChange}
@@ -389,8 +511,10 @@ export const ClipsPage: React.FC = () => {
         ) : (
           <EmptyState
             type="no-clips"
-            title={t('clipsFeed.noClipsForTag')}
+            title={t('clipsFeed.noClipsForFilter')}
             description={t('clipsFeed.noClipsDesc')}
+            actionText={t('clipsFeed.default')}
+            onAction={resetFilters}
           />
         )}
       </div>
