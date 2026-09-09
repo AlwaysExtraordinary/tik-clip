@@ -75,6 +75,12 @@ export const Sidebar: React.FC = () => {
           text={t('nav.videos')}
           onClick={handleNavClick}
         />
+        <NavTab
+          to="/coverflow"
+          icon="lucide:gallery-thumbnails"
+          text={t('nav.coverflow', '封面流')}
+          onClick={handleNavClick}
+        />
       </div>
 
       {/* 底部设置按钮 */}

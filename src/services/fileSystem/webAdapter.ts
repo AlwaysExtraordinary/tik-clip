@@ -329,6 +329,12 @@ export class WebFileSystemAdapter implements IFileSystemAdapter {
             }
             if (parsed.actor && typeof parsed.actor === 'string') {
               actor = parsed.actor.trim();
+            } else if (Array.isArray(parsed.actors)) {
+              actor = parsed.actors
+                .filter((a: unknown): a is string => typeof a === 'string' && a.trim() !== '')
+                .join(', ');
+            } else if (typeof parsed.actors === 'string' && parsed.actors.trim()) {
+              actor = parsed.actors.trim();
             }
             if (parsed.description && typeof parsed.description === 'string') {
               description = parsed.description.trim();
