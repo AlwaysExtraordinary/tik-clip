@@ -156,8 +156,9 @@
   "coverflow": {
     "title": "3D Coverflow",
     "viewMode": "View Mode",
-    "angledView": "Angled View",
-    "verticalView": "Vertical View",
+    "frontView": "Front",
+    "angledView": "Angled",
+    "verticalView": "Side",
     "actors": "Cast & Actors",
     "category": "Category",
     "description": "Description",

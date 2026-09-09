@@ -13,7 +13,7 @@ interface CoverflowNavbarProps {
 
 /**
  * Coverflow 顶部导航栏组件
- * 仅保留视图模式切换（斜角视图 vs 垂直书脊视图），深浅色自动跟随系统
+ * 提供视图模式切换（正面、斜角、侧面），深浅色自动跟随系统
  */
 export const CoverflowNavbar: React.FC<CoverflowNavbarProps> = ({
   viewMode,
@@ -39,12 +39,21 @@ export const CoverflowNavbar: React.FC<CoverflowNavbarProps> = ({
         <Tabs.ListContainer className="min-w-0">
           <Tabs.List>
             <Tabs.Tab
+              key="front"
+              id="front"
+              className="flex items-center gap-1.5 px-2 @[400px]:px-3 py-1 cursor-pointer"
+            >
+              <Icon icon="lucide:rectangle-vertical" className="size-4" />
+              <span className="text-xs font-medium">{t('coverflow.frontView', '正面')}</span>
+              <Tabs.Indicator />
+            </Tabs.Tab>
+            <Tabs.Tab
               key="angled"
               id="angled"
               className="flex items-center gap-1.5 px-2 @[400px]:px-3 py-1 cursor-pointer"
             >
               <Icon icon="lucide:layers" className="size-4" />
-              <span className="text-xs font-medium">{t('coverflow.angledView', '斜角视图')}</span>
+              <span className="text-xs font-medium">{t('coverflow.angledView', '斜角')}</span>
               <Tabs.Indicator />
             </Tabs.Tab>
             <Tabs.Tab
@@ -53,7 +62,7 @@ export const CoverflowNavbar: React.FC<CoverflowNavbarProps> = ({
               className="flex items-center gap-1.5 px-2 @[400px]:px-3 py-1 cursor-pointer"
             >
               <Icon icon="lucide:columns-3" className="size-4" />
-              <span className="text-xs font-medium">{t('coverflow.verticalView', '垂直书脊')}</span>
+              <span className="text-xs font-medium">{t('coverflow.verticalView', '侧面')}</span>
               <Tabs.Indicator />
             </Tabs.Tab>
           </Tabs.List>

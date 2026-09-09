@@ -69,6 +69,7 @@ import laptop from '@iconify-icons/lucide/laptop';
 
 // Coverflow 3D 封面流与信息面板
 import galleryThumbnails from '@iconify-icons/lucide/gallery-thumbnails';
+import rectangleVertical from '@iconify-icons/lucide/rectangle-vertical';
 import layers from '@iconify-icons/lucide/layers';
 import columns3 from '@iconify-icons/lucide/columns-3';
 import chevronLeft from '@iconify-icons/lucide/chevron-left';
@@ -144,6 +145,7 @@ export function setupIcons(): void {
     'lucide:laptop': laptop,
 
     'lucide:gallery-thumbnails': galleryThumbnails,
+    'lucide:rectangle-vertical': rectangleVertical,
     'lucide:layers': layers,
     'lucide:columns-3': columns3,
     'lucide:chevron-left': chevronLeft,

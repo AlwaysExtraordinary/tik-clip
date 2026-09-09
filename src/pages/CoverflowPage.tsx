@@ -47,7 +47,7 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
   const [currentIndex, setCurrentIndex] = useState(0);
   const [totalMovies, setTotalMovies] = useState(0);
   const [viewState, setViewState] = useState<ViewState>(VIEW_STATES.LIST);
-  const [viewMode, setViewMode] = useState<ViewMode>('angled');
+  const [viewMode, setViewMode] = useState<ViewMode>('front');
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // 记录所有创建的 ObjectURL，用于在组件卸载或更新时释放内存
@@ -182,7 +182,7 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
     }
   }, [scene, movies]);
 
-  // 4. 视图模式切换 (斜角 56° vs 垂直书脊 90°)
+  // 4. 视图模式切换 (正面 0° vs 斜角 56° vs 侧面 90°)
   const handleViewModeChange = useCallback(
     (mode: ViewMode) => {
       setViewMode(mode);

@@ -156,8 +156,9 @@
   "coverflow": {
     "title": "3D 封面流",
     "viewMode": "视图模式",
-    "angledView": "斜角视图",
-    "verticalView": "垂直书脊",
+    "frontView": "正面",
+    "angledView": "斜角",
+    "verticalView": "侧面",
     "actors": "演员",
     "category": "类别",
     "description": "描述",

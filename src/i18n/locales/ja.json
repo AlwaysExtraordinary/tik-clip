@@ -156,8 +156,9 @@
   "coverflow": {
     "title": "3D カバーフロー",
     "viewMode": "表示モード",
-    "angledView": "斜め表示",
-    "verticalView": "垂直背表紙",
+    "frontView": "正面",
+    "angledView": "斜め",
+    "verticalView": "側面",
     "actors": "出演者",
     "category": "カテゴリ",
     "description": "概要",

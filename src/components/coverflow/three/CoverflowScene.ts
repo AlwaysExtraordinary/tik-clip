@@ -45,7 +45,15 @@ export class CoverflowScene {
   private targetScrollIndex = 0;
   private scrollVelocity = 0;
   private isFlipped = false;
-  private listViewMode: ViewMode = 'angled'; // 'angled' (+56°) 或 'vertical' (+90°)
+  private listViewMode: ViewMode = 'front'; // 'front' (正面 0°), 'angled' (斜角 56°), 'vertical' (侧面 90°)
+
+  // 滚轮步进防抖与累加器 (在 EXPANDED 和 DETAIL 状态生效)
+  private wheelAccumulator = 0;
+  private lastWheelTime = 0;
+  private lastWheelStepTime = 0;
+
+  // 详情模式切卡过渡方向 (用于驱动进入与退出切入动画)
+  private transitionDirection: 'next' | 'prev' | null = null;
 
   // 交互标志量
   private isDragging = false;
@@ -71,6 +79,8 @@ export class CoverflowScene {
   private isDestroyed = false;
   private isPaused = false;
   private isMobile = false;
+  private cameraTargetZ = 9.5;
+  private currentDetailTargetX = 0.9;
 
   // 事件解绑句柄
   private boundOnResize: () => void;
@@ -124,6 +134,7 @@ export class CoverflowScene {
 
     this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
     this.camera.position.set(0, 0.2, 9.5);
+    this.cameraTargetZ = 9.5;
 
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
@@ -162,12 +173,17 @@ export class CoverflowScene {
   }
 
   /**
-   * 设置列表视图模式：angled（56° 斜角）或 vertical（90° 垂直书脊）
+   * 设置列表视图模式：front（0° 正面）、angled（56° 斜角）或 vertical（90° 侧面）
+   * 若当前处于选中封面或详情聚焦状态，则自动平滑返回影片列表并切换到对应视图
    * @param mode 视图模式
    */
   public setListViewMode(mode: ViewMode): void {
     this.listViewMode = mode;
-    this.updateCardPositions();
+    if (this.state !== VIEW_STATES.LIST) {
+      this.setState(VIEW_STATES.LIST);
+    } else {
+      this.updateCardPositions();
+    }
   }
 
   /**
@@ -300,12 +316,49 @@ export class CoverflowScene {
 
   // 滚轮滑动事件处理
   private onWheel(e: WheelEvent): void {
-    if (this.state !== VIEW_STATES.LIST) return;
     e.preventDefault();
 
-    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX * 0.0012 : e.deltaY * 0.0012;
+    // 列表视图：平滑惯性连续滚动
+    if (this.state === VIEW_STATES.LIST) {
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX * 0.0012 : e.deltaY * 0.0012;
+      this.scrollVelocity += delta;
+      return;
+    }
 
-    this.scrollVelocity += delta;
+    // 选中封面 (EXPANDED) 或 详情模式 (DETAIL)：滚轮滑动切换上一个/下一个封面
+    if (this.state === VIEW_STATES.EXPANDED || this.state === VIEW_STATES.DETAIL) {
+      const now = performance.now();
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+
+      // 超过 300ms 无滚轮事件则重置累加器
+      if (now - this.lastWheelTime > 300) {
+        this.wheelAccumulator = 0;
+      }
+      this.lastWheelTime = now;
+
+      // 滚动方向反转时立即重置累加器，确保反向切换灵敏无阻滞
+      if ((delta > 0 && this.wheelAccumulator < 0) || (delta < 0 && this.wheelAccumulator > 0)) {
+        this.wheelAccumulator = 0;
+      }
+
+      this.wheelAccumulator += delta;
+
+      // 切换阈值与冷却时间（有效过滤触控板惯性拖尾，防止快速跳页）
+      const THRESHOLD = 50;
+      const COOLDOWN = 180; // 毫秒
+
+      if (now - this.lastWheelStepTime >= COOLDOWN) {
+        if (this.wheelAccumulator >= THRESHOLD) {
+          this.nextCard();
+          this.wheelAccumulator = 0;
+          this.lastWheelStepTime = now;
+        } else if (this.wheelAccumulator <= -THRESHOLD) {
+          this.prevCard();
+          this.wheelAccumulator = 0;
+          this.lastWheelStepTime = now;
+        }
+      }
+    }
   }
 
   // 触摸开始
@@ -525,6 +578,7 @@ export class CoverflowScene {
         this.resetCardRotations();
         this.selectedIndex = index;
         this.targetScrollIndex = index;
+        this.scrollIndex = index;
         this.updateCardPositions();
         this.emitCurrentMovieChange();
       }
@@ -564,8 +618,12 @@ export class CoverflowScene {
     this.state = newState;
     if (newState === VIEW_STATES.LIST) {
       this.resetCardRotations();
+      this.scrollIndex = this.selectedIndex;
+      this.targetScrollIndex = this.selectedIndex;
+      this.scrollVelocity = 0;
     }
 
+    this.updateCameraTargetZ();
     this.updateCardPositions();
 
     if (this.onStateChange) {
@@ -582,6 +640,8 @@ export class CoverflowScene {
       this.resetCardRotations();
       this.selectedIndex += 1;
       this.targetScrollIndex = this.selectedIndex;
+      this.scrollIndex = this.selectedIndex;
+      this.transitionDirection = 'next';
       this.updateCardPositions();
       this.emitCurrentMovieChange();
     }
@@ -595,6 +655,8 @@ export class CoverflowScene {
       this.resetCardRotations();
       this.selectedIndex -= 1;
       this.targetScrollIndex = this.selectedIndex;
+      this.scrollIndex = this.selectedIndex;
+      this.transitionDirection = 'prev';
       this.updateCardPositions();
       this.emitCurrentMovieChange();
     }
@@ -617,12 +679,22 @@ export class CoverflowScene {
 
       if (this.state === VIEW_STATES.LIST) {
         mesh.visible = true;
-        targetX = dx * (this.isMobile ? this.spacing * 0.85 : this.spacing);
+
+        let currentSpacing = this.spacing;
+        if (this.listViewMode === 'front') {
+          currentSpacing = this.cardWidth + (this.isMobile ? 0.35 : 0.65);
+        } else if (this.isMobile) {
+          currentSpacing = this.spacing * 0.85;
+        }
+
+        targetX = dx * currentSpacing;
         targetY = 0;
         targetZ = 0;
 
         if (this.listViewMode === 'vertical') {
-          targetRotY = Math.PI / 2; // 90° 垂直书脊侧视图
+          targetRotY = Math.PI / 2; // 90° 侧面书脊视图
+        } else if (this.listViewMode === 'front') {
+          targetRotY = 0; // 0° 正面视图
         } else {
           targetRotY = Math.PI / 3.2; // 56° 斜角侧视图
         }
@@ -649,28 +721,103 @@ export class CoverflowScene {
           targetScale = 0.9;
         }
       } else if (this.state === VIEW_STATES.DETAIL) {
+        const detailTargetY = this.isMobile ? 1.3 : 0.15;
+        const detailTargetZ = this.isMobile ? 3.5 : 3.6;
+
+        let detailTargetX = 0;
+        let detailTargetScale = this.isMobile ? 0.76 : 0.92;
+
+        if (!this.isMobile && this.canvas) {
+          const parent = this.canvas.parentElement;
+          const rect = parent
+            ? parent.getBoundingClientRect()
+            : this.canvas.getBoundingClientRect();
+          const width = rect.width || window.innerWidth;
+          const panelWidth = 344; // 左侧信息面板占用宽度 (left-6: 24px + w-80: 320px)
+
+          // 右侧剩余可用区域的屏幕中心偏移量 (相对画布正中)
+          const centerOffsetPx = panelWidth / 2; // +172px
+          const ndcX = centerOffsetPx / (width / 2); // 归一化屏幕坐标 [0, 1]
+
+          // 根据当前透视相机与目标 Z 轴，反算居中于右侧区域所需的 3D 世界坐标 X
+          const camZ = this.cameraTargetZ || this.camera.position.z;
+          const dist = Math.max(camZ - detailTargetZ, 1.0);
+          const fovRad = (this.camera.fov * Math.PI) / 180;
+          const visibleHalfWidth = dist * Math.tan(fovRad / 2) * this.camera.aspect;
+          detailTargetX = Math.max(0.6, Math.min(ndcX * visibleHalfWidth, 2.6));
+
+          // 适度补偿相机拉远带来的体量收缩，保持封面饱满体量感
+          const baseDist = 9.5 - 3.6; // 5.9 基准距离
+          const zoomRatio = dist / baseDist;
+          const compensatedScale = 0.92 * Math.min(Math.sqrt(zoomRatio), 1.25);
+
+          // 校验右侧可用宽度是否能容纳补偿后的卡片，确保不与左侧面板或右侧边缘冲突
+          const cardPixelWidth =
+            ((this.cardWidth * compensatedScale) / (2 * visibleHalfWidth)) * width;
+          const maxAllowedWidth = (width - panelWidth) * 0.75; // 最多占右侧可用空间的 75%
+          if (cardPixelWidth > maxAllowedWidth && cardPixelWidth > 0) {
+            detailTargetScale = compensatedScale * (maxAllowedWidth / cardPixelWidth);
+          } else {
+            detailTargetScale = compensatedScale;
+          }
+        }
+
+        this.currentDetailTargetX = detailTargetX;
+
         if (i === this.selectedIndex) {
           mesh.visible = true;
-          if (this.isMobile) {
-            // 移动端 (< md)：封面水平居中，向上微调位于面板正上方
-            targetX = 0;
-            targetY = 0.85;
-            targetZ = 3.3;
-            targetScale = 0.76;
-          } else {
-            // 桌面端 (>= md)：避开左侧悬浮信息面板，向右偏移 (targetX = 0.9)
-            targetX = 0.9;
-            targetY = 0.15;
-            targetZ = 3.6;
-            targetScale = 0.92;
-          }
+          targetX = detailTargetX;
+          targetY = detailTargetY;
+          targetZ = detailTargetZ;
+          targetScale = detailTargetScale;
           targetRotY = !this.isZoomDragging ? (this.isFlipped ? Math.PI : 0) : mesh.targetRotationY;
+
+          // 详情模式切卡动画：强制设置切入起点，确保入场滑入动画必定触发
+          if (this.transitionDirection === 'next') {
+            mesh.position.set(detailTargetX + 4.8, detailTargetY, detailTargetZ - 0.6);
+            mesh.rotation.set(0, Math.PI / 10, 0);
+            mesh.scale.set(
+              detailTargetScale * 0.75,
+              detailTargetScale * 0.75,
+              detailTargetScale * 0.75
+            );
+          } else if (this.transitionDirection === 'prev') {
+            mesh.position.set(detailTargetX - 4.8, detailTargetY, detailTargetZ - 0.6);
+            mesh.rotation.set(0, -Math.PI / 10, 0);
+            mesh.scale.set(
+              detailTargetScale * 0.75,
+              detailTargetScale * 0.75,
+              detailTargetScale * 0.75
+            );
+          }
         } else {
-          mesh.visible = false;
-          targetX = (i - this.selectedIndex) * 8.0;
-          targetZ = -15;
-          targetRotY = 0;
-          targetScale = 0.5;
+          // 上一张卡片退出动画：顺滑滑出屏幕边缘
+          const isPrevExiting = this.transitionDirection === 'next' && i === this.selectedIndex - 1;
+          const isNextExiting = this.transitionDirection === 'prev' && i === this.selectedIndex + 1;
+
+          if (isPrevExiting) {
+            mesh.visible = true;
+            targetX = detailTargetX - 4.8;
+            targetY = detailTargetY;
+            targetZ = detailTargetZ - 0.6;
+            targetRotY = -Math.PI / 10;
+            targetScale = detailTargetScale * 0.75;
+          } else if (isNextExiting) {
+            mesh.visible = true;
+            targetX = detailTargetX + 4.8;
+            targetY = detailTargetY;
+            targetZ = detailTargetZ - 0.6;
+            targetRotY = Math.PI / 10;
+            targetScale = detailTargetScale * 0.75;
+          } else {
+            // 其他卡片退至远景隐藏
+            mesh.visible = false;
+            targetX = (i - this.selectedIndex) * 8.0;
+            targetY = 0;
+            targetZ = -15;
+            targetRotY = 0;
+            targetScale = 0.5;
+          }
         }
       }
 
@@ -688,6 +835,9 @@ export class CoverflowScene {
         mesh.scale.set(targetScale, targetScale, targetScale);
       }
     });
+
+    // 重置过渡方向，避免被后续被动刷新（如 resize）重复消费
+    this.transitionDirection = null;
   }
 
   // 60FPS 动画循环与惯性物理模拟
@@ -714,11 +864,24 @@ export class CoverflowScene {
       if (Math.abs(diff) > 0.0001) {
         this.scrollIndex += diff * 0.1;
         this.updateCardPositions();
+
+        const roundedIndex = Math.round(this.scrollIndex);
+        if (roundedIndex !== this.selectedIndex && roundedIndex >= 0 && roundedIndex < count) {
+          this.selectedIndex = roundedIndex;
+          this.emitCurrentMovieChange();
+        }
       }
     }
 
     // 2. 顺滑 Lerp 运动插值
     const lerpSpeed = 0.12;
+
+    // 顺滑插值相机 Z 轴位置 (列表与详情模式切换时提供沉浸式镜头推拉)
+    if (Math.abs(this.camera.position.z - this.cameraTargetZ) > 0.001) {
+      this.camera.position.z += (this.cameraTargetZ - this.camera.position.z) * 0.1;
+      this.camera.updateProjectionMatrix();
+    }
+
     this.cardMeshes.forEach((mesh) => {
       if (!mesh.visible) return;
       mesh.position.x += (mesh.targetPosition.x - mesh.position.x) * lerpSpeed;
@@ -731,15 +894,42 @@ export class CoverflowScene {
       const currentScale = mesh.scale.x;
       const nextScale = currentScale + (mesh.targetScale - currentScale) * lerpSpeed;
       mesh.scale.set(nextScale, nextScale, nextScale);
+
+      // DETAIL 模式下：如果旧卡片已滑出视野（距离目标中心足够远），将其隐藏以节约渲染开销
+      if (this.state === VIEW_STATES.DETAIL && mesh.userData.index !== this.selectedIndex) {
+        if (Math.abs(mesh.position.x - this.currentDetailTargetX) > 4.2) {
+          mesh.visible = false;
+        }
+      }
     });
 
     this.renderer.render(this.scene, this.camera);
   }
 
+  // 根据视口宽高比与当前视图模式更新相机目标 Z 轴距离
+  private updateCameraTargetZ(immediate = false): void {
+    if (!this.canvas) return;
+    const aspect = this.camera.aspect;
+    const baseCamZ = 9.5;
+    let targetCamZ = baseCamZ;
+    if (aspect < 1.6) {
+      // 详情模式以单张聚焦封面为主，相机无需像列表模式那样大幅后退
+      const maxZoomFactor = this.state === VIEW_STATES.DETAIL ? 1.3 : 1.55;
+      const zoomFactor = Math.min(1.45 / Math.max(aspect, 0.45), maxZoomFactor);
+      targetCamZ = baseCamZ * zoomFactor;
+    }
+    this.cameraTargetZ = Math.min(Math.max(targetCamZ, 9.0), 16.0);
+    if (immediate) {
+      this.camera.position.z = this.cameraTargetZ;
+      this.camera.updateProjectionMatrix();
+    }
+  }
+
   /**
    * 响应容器与视口尺寸变化，重新计算画布大小与相机视口
+   * @param immediate 是否立即重置相机与卡片位置（默认 false，保持平滑插值过渡）
    */
-  public onResize(): void {
+  public onResize(immediate: boolean | unknown = false): void {
     if (this.isDestroyed || !this.canvas) return;
 
     const parent = this.canvas.parentElement;
@@ -749,23 +939,24 @@ export class CoverflowScene {
 
     if (width === 0 || height === 0) return;
 
+    const isImmediate = immediate === true;
     this.isMobile = width < 768;
     this.camera.aspect = width / height;
+    this.camera.updateProjectionMatrix();
 
     // 自适应相机距离与视场，确保不同窗口宽高比下 3D 封面均完整展示不被裁切
-    const aspect = width / height;
-    const baseCamZ = 9.5;
-    let targetCamZ = baseCamZ;
-    if (aspect < 1.0) {
-      targetCamZ = baseCamZ * Math.min(1.0 / Math.max(aspect, 0.45), 1.55);
-    } else if (aspect < 1.6) {
-      targetCamZ = baseCamZ * (1.45 / aspect);
-    }
-    this.camera.position.z = Math.min(Math.max(targetCamZ, 9.0), 16.0);
+    this.updateCameraTargetZ(isImmediate);
+    this.updateCardPositions(isImmediate);
 
-    this.camera.updateProjectionMatrix();
-    this.renderer.setSize(width, height);
-    this.updateCardPositions(true);
+    const pixelRatio = this.renderer.getPixelRatio();
+    const physicalWidth = Math.floor(width * pixelRatio);
+    const physicalHeight = Math.floor(height * pixelRatio);
+
+    if (this.canvas.width !== physicalWidth || this.canvas.height !== physicalHeight) {
+      this.renderer.setSize(width, height);
+      // WebGL 在修改物理像素尺寸后会清空绘制缓冲，立即同步补绘一帧，消除黑白闪烁与空白帧
+      this.renderer.render(this.scene, this.camera);
+    }
   }
 
   // 释放所有卡片的网格、材质与纹理

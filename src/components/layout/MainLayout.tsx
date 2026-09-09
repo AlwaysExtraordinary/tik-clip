@@ -73,11 +73,7 @@ export const MainLayout: React.FC = () => {
         </button>
 
         {/* 主内容区域 */}
-        <main
-          className={clsx(
-            'flex-1 h-full overflow-hidden relative flex flex-col transition-all duration-300 ease-in-out'
-          )}
-        >
+        <main className="flex-1 h-full overflow-hidden relative flex flex-col">
           {/* Coverflow 独立持久化缓存容器，切换页面时不销毁 WebGL 场景与纹理 */}
           {hasVisitedCoverflow && (
             <div

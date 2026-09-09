@@ -35,7 +35,9 @@ export const MovieInfoPanel: React.FC<MovieInfoPanelProps> = ({
   const actorsList = useMemo<string[]>(() => {
     if (!movieActor) return [];
     if (Array.isArray(movieActor)) {
-      return (movieActor as unknown[]).filter((a): a is string => typeof a === 'string' && a.trim() !== '');
+      return (movieActor as unknown[]).filter(
+        (a): a is string => typeof a === 'string' && a.trim() !== ''
+      );
     }
     return movieActor
       .split(/[,，/、;\s]+/)
@@ -50,18 +52,18 @@ export const MovieInfoPanel: React.FC<MovieInfoPanelProps> = ({
       className={cn(
         'absolute z-20 transition-all duration-300 ease-in-out',
         'bg-surface/90 backdrop-blur-xl border border-border rounded-2xl shadow-floating',
-        // 移动端 / 窄容器 (< 768px)：居中位于封面正下方抽屉式面板
-        'left-1/2 -translate-x-1/2 bottom-4 w-[calc(100%-32px)] max-w-md max-h-[42vh] p-4 flex flex-col justify-between gap-2.5',
-        // 宽屏容器 (>= 768px)：左侧垂直居中悬浮卡片
-        '@[768px]:left-6 @[768px]:top-1/2 @[768px]:-translate-y-1/2 @[768px]:bottom-auto @[768px]:translate-x-0 @[768px]:w-80 @[768px]:max-w-none @[768px]:max-h-[calc(100%-48px)] @[768px]:p-6 @[768px]:gap-4',
+        // 移动端 / 窄容器 (< 768px: 3xl)：居中位于封面正下方抽屉式面板
+        'left-1/2 -translate-x-1/2 bottom-4 w-[min(calc(100%-32px),28rem)] max-w-md max-h-[42vh] p-4 flex flex-col justify-between gap-2.5',
+        // 宽屏容器 (>= 768px: 3xl)：左侧垂直居中悬浮卡片
+        '@3xl:left-8 @3xl:top-1/2 @3xl:-translate-y-1/2 @3xl:bottom-auto @3xl:translate-x-0 @3xl:w-80 @3xl:max-h-[calc(100%-48px)] @3xl:p-6 @3xl:gap-4',
         // 隐藏状态平滑过渡
-        isHidden && 'pointer-events-none opacity-0 translate-y-8 @[768px]:translate-y-0 @[768px]:-translate-x-8'
+        isHidden && 'pointer-events-none opacity-0 translate-y-8 @3xl:translate-y-0'
       )}
     >
       <div className="flex flex-col gap-3 overflow-y-auto pr-1">
         {/* 视频名称 */}
         <div>
-          <h2 className="text-base @[768px]:text-lg font-bold text-foreground leading-snug break-words">
+          <h2 className="text-base @3xl:text-lg font-bold text-foreground leading-snug wrap-break-word">
             {movie.title}
           </h2>
 
@@ -95,7 +97,7 @@ export const MovieInfoPanel: React.FC<MovieInfoPanelProps> = ({
         {/* 描述信息 */}
         {movie.description && (
           <div className="flex flex-col gap-1 mt-1">
-            <p className="text-xs text-foreground-muted leading-relaxed select-text line-clamp-3 @[768px]:line-clamp-5">
+            <p className="text-xs text-foreground-muted leading-relaxed select-text line-clamp-3 @3xl:line-clamp-5">
               {movie.description}
             </p>
           </div>

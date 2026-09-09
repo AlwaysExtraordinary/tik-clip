@@ -50,14 +50,24 @@ export const CoverflowCanvas: React.FC<CoverflowCanvasProps> = ({
     sceneRef.current = scene;
     onSceneReadyRef.current?.(scene);
 
-    // 监听父容器大小变动，自适应 Three.js 相机与视口
+    // 监听父容器大小变动，通过 requestAnimationFrame 节流，自适应 Three.js 相机与视口
+    let resizeRafId: number | null = null;
     const resizeObserver = new ResizeObserver(() => {
-      scene.onResize();
+      if (resizeRafId !== null) {
+        cancelAnimationFrame(resizeRafId);
+      }
+      resizeRafId = requestAnimationFrame(() => {
+        resizeRafId = null;
+        scene.onResize(false);
+      });
     });
 
     resizeObserver.observe(containerRef.current);
 
     return () => {
+      if (resizeRafId !== null) {
+        cancelAnimationFrame(resizeRafId);
+      }
       resizeObserver.disconnect();
       scene.destroy();
       sceneRef.current = null;

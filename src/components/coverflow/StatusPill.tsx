@@ -28,7 +28,7 @@ export const StatusPill: React.FC<StatusPillProps> = ({ state }) => {
   };
 
   return (
-    <div className="absolute bottom-6 right-6 z-20 pointer-events-none transition-all duration-300 hidden @[768px]:block">
+    <div className="absolute bottom-6 right-6 z-20 pointer-events-none transition-all duration-300 hidden @3xl:block">
       <Chip color="accent" variant="soft" size="sm">
         {getStatusText()}
       </Chip>
