@@ -230,25 +230,26 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
 
   // 空状态展示判定
   if (!hasDirectoryPermission) {
-    return <EmptyState type="permission-needed" />;
+    return <EmptyState type="permission-needed" className="h-full" />;
   }
 
   if (!activeDirectory) {
-    return <EmptyState type="no-directory" />;
+    return <EmptyState type="no-directory" className="h-full" />;
   }
 
   if (isScanning) {
-    return <EmptyState type="scanning" />;
+    return <EmptyState type="scanning" className="h-full" />;
   }
 
   if (isLoading) {
-    return <EmptyState type="loading" />;
+    return <EmptyState type="loading" className="h-full" />;
   }
 
   if (movies.length === 0) {
     return (
       <EmptyState
         type="no-videos"
+        className="h-full"
         title={t('coverflow.noCoversTitle', '未检测到带封面的视频')}
         description={t(
           'coverflow.noCoversDesc',
