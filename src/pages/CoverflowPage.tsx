@@ -50,6 +50,50 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
   const [viewMode, setViewMode] = useState<ViewMode>('front');
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  // 演员筛选状态
+  const [selectedActor, setSelectedActorState] = useState<string | null>(null);
+
+  // 统一归一化为 null（当选择 'all' 或空时）
+  const setSelectedActor = useCallback((act: string | null) => {
+    setSelectedActorState(!act || act === 'all' ? null : act);
+  }, []);
+
+  // 计算所有具备封面的影片中的可用演员列表
+  const availableActors = useMemo(() => {
+    const set = new Set<string>();
+    for (const m of movies) {
+      if (m.actor && m.actor.trim()) {
+        const parts = m.actor.split(/[,，/、;\s]+/);
+        for (const p of parts) {
+          const trimmed = p.trim();
+          if (trimmed) {
+            set.add(trimmed);
+          }
+        }
+      }
+    }
+    return Array.from(set).sort();
+  }, [movies]);
+
+  // 当可用演员列表变动导致已选演员不再存在时，自动重置回退至默认项（全部）
+  useEffect(() => {
+    if (selectedActor && selectedActor !== 'all' && !availableActors.includes(selectedActor)) {
+      setSelectedActor(null);
+    }
+  }, [availableActors, selectedActor, setSelectedActor]);
+
+  // 依据演员筛选过滤后的影片列表
+  const filteredMovies = useMemo(() => {
+    if (!selectedActor || selectedActor === 'all') {
+      return movies;
+    }
+    return movies.filter((m) => {
+      if (!m.actor) return false;
+      const parts = m.actor.split(/[,，/、;\s]+/);
+      return parts.some((p) => p.trim() === selectedActor) || m.actor.includes(selectedActor);
+    });
+  }, [movies, selectedActor]);
+
   // 记录所有创建的 ObjectURL，用于在组件卸载或更新时释放内存
   const createdUrlsRef = useRef<string[]>([]);
 
@@ -175,14 +219,26 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
     };
   }, []);
 
-  // 3. 当数据和 Scene 准备就绪时载入模型
+  // 3. 当数据和 Scene 准备就绪时载入模型（支持按演员筛选后的列表）
   useEffect(() => {
-    if (scene && movies.length > 0) {
-      scene.setMovies(movies);
+    if (scene && (filteredMovies.length > 0 || movies.length > 0)) {
+      scene.setMovies(filteredMovies);
     }
-  }, [scene, movies]);
+  }, [scene, filteredMovies, movies.length]);
 
-  // 4. 视图模式切换 (正面 0° vs 斜角 56° vs 侧面 90°)
+  // 4. 演员筛选切换
+  const handleActorChange = useCallback(
+    (act: string | null) => {
+      setSelectedActor(act);
+      // 处于选中封面或详情聚焦状态下切换筛选时，平滑返回影片列表
+      if (scene && viewState !== VIEW_STATES.LIST) {
+        scene.setState(VIEW_STATES.LIST);
+      }
+    },
+    [scene, viewState, setSelectedActor]
+  );
+
+  // 5. 视图模式切换 (正面 0° vs 斜角 56° vs 侧面 90°)
   const handleViewModeChange = useCallback(
     (mode: ViewMode) => {
       setViewMode(mode);
@@ -191,7 +247,7 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
     [scene]
   );
 
-  // 5. 播放视频跳转
+  // 6. 播放视频跳转
   const handlePlayVideo = useCallback(
     (videoId: string) => {
       navigate(`/videos/${videoId}`);
@@ -199,10 +255,10 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
     [navigate]
   );
 
-  // 6. 键盘快捷键交互
+  // 7. 键盘快捷键交互
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!scene || movies.length === 0) return;
+      if (!scene || filteredMovies.length === 0) return;
 
       if (e.key === 'ArrowLeft') {
         scene.prevCard();
@@ -226,7 +282,7 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [scene, viewState, movies.length]);
+  }, [scene, viewState, filteredMovies.length]);
 
   // 空状态展示判定
   if (!hasDirectoryPermission) {
@@ -272,10 +328,13 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
         onStateChange={(st) => setViewState(st)}
       />
 
-      {/* 顶部极简导航栏 (仅视图切换，详情模式自动隐藏) */}
+      {/* 顶部极简导航栏 (视图切换与演员筛选，详情模式自动隐藏) */}
       <CoverflowNavbar
         viewMode={viewMode}
         onViewModeChange={handleViewModeChange}
+        selectedActor={selectedActor}
+        onSelectActor={handleActorChange}
+        actors={availableActors}
         isHidden={viewState === VIEW_STATES.DETAIL}
       />
 

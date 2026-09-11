@@ -8,9 +8,12 @@ interface CardMesh extends THREE.Mesh {
   targetRotationY: number;
   targetRotationX: number;
   targetScale: number;
+  reflectionMesh?: THREE.Mesh;
+  reflectionMaterials?: THREE.MeshBasicMaterial[];
   userData: {
     index: number;
     movie: CoverflowMovie;
+    isReflection?: boolean;
   };
 }
 
@@ -31,6 +34,20 @@ export class CoverflowScene {
   private mouse!: THREE.Vector2;
   private plasticEdgeMat!: THREE.MeshBasicMaterial;
   private boxGeometry!: THREE.BoxGeometry;
+
+  // ==========================================
+  // 倒影与地面反光调节参数 (在此处快速微调视觉效果)
+  // ==========================================
+  private reflectionBaseOpacityDark = 0.22; // 暗色主题下倒影不透明度 (数值越小反光越微弱，建议 0.15 ~ 0.28)
+  private reflectionBaseOpacityLight = 0.15; // 亮色主题下倒影不透明度 (建议 0.10 ~ 0.20)
+  private reflectionBaseOpacity = 0.22; // 当前生效的倒影不透明度
+  private reflectionBlurRadius = 2; // 倒影磨砂模糊半径 (单位 px，0 为完全镜面，3~8 为柔和磨砂感)
+  private reflectionGap = 0.015; // 封面底边与倒影之间的微小空隙 (避免贴合重叠与 Z-fighting)
+
+  // 倒影相关资源与参数
+  private reflectionGeometry!: THREE.BoxGeometry;
+  private reflectionAlphaMap!: THREE.CanvasTexture;
+  private reflectionPlasticEdgeMat!: THREE.MeshBasicMaterial;
 
   // 主题配色
   private bgColorDark = new THREE.Color('#121214');
@@ -154,6 +171,64 @@ export class CoverflowScene {
     });
 
     this.boxGeometry = new THREE.BoxGeometry(this.cardWidth, this.cardHeight, this.cardDepth);
+    this.initReflectionAssets();
+  }
+
+  // 初始化倒影几何体、Alpha渐变贴图与边框材质
+  private initReflectionAssets(): void {
+    // 1. 创建镜像反转的 BoxGeometry，顶点 Y 坐标取负
+    this.reflectionGeometry = this.boxGeometry.clone();
+    const pos = this.reflectionGeometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      pos.setY(i, -pos.getY(i));
+    }
+    pos.needsUpdate = true;
+
+    // 翻转三角形索引环绕方向，确保法线指向模型外部，适配标准 FrontSide 面剔除
+    const index = this.reflectionGeometry.index;
+    if (index) {
+      for (let i = 0; i < index.count; i += 3) {
+        const b = index.getX(i + 1);
+        const c = index.getX(i + 2);
+        index.setX(i + 1, c);
+        index.setX(i + 2, b);
+      }
+      index.needsUpdate = true;
+    }
+    this.reflectionGeometry.computeVertexNormals();
+
+    // 2. 构造轻微倒影渐隐 Alpha 渐变贴图
+    // Canvas 坐标 y=0 对应 WebGL UV v=1.0（远端地下），y=256 对应 UV v=0.0（地面接触端）
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      const grad = ctx.createLinearGradient(0, 0, 0, 256);
+      grad.addColorStop(0.0, 'rgb(0, 0, 0)'); // 远端深处完全透明 (v=1.0)
+      grad.addColorStop(0.45, 'rgb(0, 0, 0)'); // 倒影下半截完全透明 (v=0.55)
+      grad.addColorStop(0.7, 'rgb(35, 35, 35)'); // 柔和渐变过渡区 (v=0.30)
+      grad.addColorStop(0.88, 'rgb(120, 120, 120)'); // 靠近地面处柔和漫反射 (v=0.12)
+      grad.addColorStop(1.0, 'rgb(200, 200, 200)'); // 接触地面处柔化高光 (v=0.0，避免生硬镜面感)
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 1, 256);
+    }
+
+    this.reflectionAlphaMap = new THREE.CanvasTexture(canvas);
+    this.reflectionAlphaMap.wrapS = THREE.ClampToEdgeWrapping;
+    this.reflectionAlphaMap.wrapT = THREE.ClampToEdgeWrapping;
+    this.reflectionAlphaMap.minFilter = THREE.LinearFilter;
+    this.reflectionAlphaMap.magFilter = THREE.LinearFilter;
+
+    // 3. 倒影塑料边框材质（同样应用渐变透明，开启深度写入与透明裁剪消除重叠）
+    this.reflectionPlasticEdgeMat = new THREE.MeshBasicMaterial({
+      color: '#1e293b',
+      alphaMap: this.reflectionAlphaMap,
+      transparent: true,
+      opacity: this.reflectionBaseOpacity,
+      depthWrite: true,
+      alphaTest: 0.001,
+    });
   }
 
   /**
@@ -170,6 +245,38 @@ export class CoverflowScene {
     if (this.plasticEdgeMat) {
       this.plasticEdgeMat.color.set(isDark ? '#1e293b' : '#e2e8f0');
     }
+
+    // 同步倒影透明度与边框色
+    this.reflectionBaseOpacity = isDark
+      ? this.reflectionBaseOpacityDark
+      : this.reflectionBaseOpacityLight;
+    if (this.reflectionPlasticEdgeMat) {
+      this.reflectionPlasticEdgeMat.color.set(isDark ? '#1e293b' : '#e2e8f0');
+      this.reflectionPlasticEdgeMat.opacity = this.reflectionBaseOpacity;
+    }
+    this.cardMeshes.forEach((mesh) => {
+      if (mesh.reflectionMaterials) {
+        mesh.reflectionMaterials.forEach((mat) => {
+          mat.opacity = this.reflectionBaseOpacity;
+        });
+      }
+    });
+  }
+
+  // 为倒影生成带有微磨砂高斯模糊的降采样纹理 Canvas
+  private createBlurredCanvas(source: HTMLCanvasElement, blurRadius: number): HTMLCanvasElement {
+    const canvas = document.createElement('canvas');
+    // 降采样到 50% 尺寸：节约显存的同时自然产生柔和低通漫反射滤波
+    canvas.width = Math.max(32, Math.round(source.width * 0.5));
+    canvas.height = Math.max(32, Math.round(source.height * 0.5));
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      if (blurRadius > 0) {
+        ctx.filter = `blur(${blurRadius}px)`;
+      }
+      ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+    }
+    return canvas;
   }
 
   /**
@@ -276,6 +383,62 @@ export class CoverflowScene {
 
         const mesh = new THREE.Mesh(this.boxGeometry, materials) as unknown as CardMesh;
         mesh.userData = { index: i, movie };
+
+        // 为倒影生成带有微磨砂高斯模糊的材质纹理（降采样 + 模糊，消除生硬镜面感）
+        const spineBlurRadius = Math.max(1, Math.round(this.reflectionBlurRadius * 0.5));
+        const refFrontCanvas = this.createBlurredCanvas(frontCanvas, this.reflectionBlurRadius);
+        const refSpineCanvas = this.createBlurredCanvas(spineCanvas, spineBlurRadius);
+        const refBackCanvas = this.createBlurredCanvas(backCanvas, this.reflectionBlurRadius);
+
+        const refFrontTex = new THREE.CanvasTexture(refFrontCanvas);
+        const refSpineTex = new THREE.CanvasTexture(refSpineCanvas);
+        const refBackTex = new THREE.CanvasTexture(refBackCanvas);
+
+        [refFrontTex, refSpineTex, refBackTex].forEach((t) => {
+          t.colorSpace = THREE.SRGBColorSpace;
+          t.generateMipmaps = true;
+          t.minFilter = THREE.LinearMipmapLinearFilter;
+          t.magFilter = THREE.LinearFilter;
+        });
+
+        // 倒影 6 面材质映射（使用共享 Alpha 渐隐贴图与磨砂模糊贴图，启用深度写入与裁剪消除重叠）
+        const reflectionMaterials: THREE.MeshBasicMaterial[] = [
+          this.reflectionPlasticEdgeMat,
+          new THREE.MeshBasicMaterial({
+            map: refSpineTex,
+            alphaMap: this.reflectionAlphaMap,
+            transparent: true,
+            opacity: this.reflectionBaseOpacity,
+            depthWrite: true,
+            alphaTest: 0.001,
+          }),
+          this.reflectionPlasticEdgeMat,
+          this.reflectionPlasticEdgeMat,
+          new THREE.MeshBasicMaterial({
+            map: refFrontTex,
+            alphaMap: this.reflectionAlphaMap,
+            transparent: true,
+            opacity: this.reflectionBaseOpacity,
+            depthWrite: true,
+            alphaTest: 0.001,
+          }),
+          new THREE.MeshBasicMaterial({
+            map: refBackTex,
+            alphaMap: this.reflectionAlphaMap,
+            transparent: true,
+            opacity: this.reflectionBaseOpacity,
+            depthWrite: true,
+            alphaTest: 0.001,
+          }),
+        ];
+
+        const reflectionMesh = new THREE.Mesh(this.reflectionGeometry, reflectionMaterials);
+        reflectionMesh.position.set(0, -this.cardHeight - this.reflectionGap, 0);
+        reflectionMesh.userData = { index: i, movie, isReflection: true };
+        mesh.add(reflectionMesh);
+
+        mesh.reflectionMesh = reflectionMesh;
+        mesh.reflectionMaterials = reflectionMaterials;
 
         // 初始化平滑插值目标变换
         mesh.targetPosition = new THREE.Vector3();
@@ -500,7 +663,7 @@ export class CoverflowScene {
       this.raycaster.setFromCamera(this.mouse, this.camera);
 
       const visibleMeshes = this.cardMeshes.filter((m) => m.visible);
-      const intersects = this.raycaster.intersectObjects(visibleMeshes);
+      const intersects = this.raycaster.intersectObjects(visibleMeshes, true);
 
       this.canvas.style.cursor = intersects.length > 0 ? 'pointer' : 'default';
     }
@@ -547,12 +710,17 @@ export class CoverflowScene {
     this.raycaster.setFromCamera(this.mouse, this.camera);
 
     const visibleMeshes = this.cardMeshes.filter((m) => m.visible);
-    const intersects = this.raycaster.intersectObjects(visibleMeshes);
+    const intersects = this.raycaster.intersectObjects(visibleMeshes, true);
 
     if (intersects.length > 0) {
-      const clickedMesh = intersects[0].object as CardMesh;
-      const clickedIndex = clickedMesh.userData.index;
-      this.handleCardInteraction(clickedIndex);
+      const hitObj = intersects[0].object;
+      const clickedIndex =
+        hitObj.userData?.index !== undefined
+          ? hitObj.userData.index
+          : (hitObj.parent as CardMesh)?.userData?.index;
+      if (clickedIndex !== undefined) {
+        this.handleCardInteraction(clickedIndex);
+      }
     } else {
       // 点击空白背景退出聚焦
       if (this.state !== VIEW_STATES.LIST) {
@@ -901,6 +1069,38 @@ export class CoverflowScene {
           mesh.visible = false;
         }
       }
+
+      // 倒影倾斜与悬空动态淡出：当卡片在 3D 自由旋转或悬空时平滑衰减倒影
+      if (mesh.reflectionMesh && mesh.reflectionMaterials) {
+        const tiltFactor = Math.max(0, 1 - Math.abs(mesh.rotation.x) / 0.35);
+        const heightFactor = Math.max(0, 1 - Math.max(0, mesh.position.y - 0.25) / 0.8);
+        const factor = tiltFactor * heightFactor;
+        if (factor <= 0.01) {
+          mesh.reflectionMesh.visible = false;
+        } else {
+          mesh.reflectionMesh.visible = true;
+          const targetOpacity = this.reflectionBaseOpacity * factor;
+          mesh.reflectionMaterials.forEach((mat) => {
+            mat.opacity = targetOpacity;
+          });
+        }
+      }
+
+      // 倒影前后遮挡层级排序（Front-to-Back 逆序渲染，配合 depthWrite 深度测试消除斜角视图下的重叠鬼影）
+      if (mesh.reflectionMesh && mesh.reflectionMesh.visible) {
+        if (
+          (this.state === VIEW_STATES.EXPANDED || this.state === VIEW_STATES.DETAIL) &&
+          mesh.userData.index === this.selectedIndex
+        ) {
+          // 聚焦/详情模式下，选中的焦点封面倒影享有最高绘制优先级（最先渲染并写入深度）
+          mesh.reflectionMesh.renderOrder = 1;
+        } else {
+          // 根据世界坐标与 Y 轴旋转角计算卡片面向相机视锥的有效深度 (Z 轴越靠近相机越先绘制)
+          const effectiveZ = mesh.position.z + mesh.position.x * Math.sin(mesh.rotation.y);
+          // 越靠近相机（effectiveZ 越大），renderOrder 越小（越先绘制并写入深度缓冲）
+          mesh.reflectionMesh.renderOrder = Math.max(10, Math.round(1000 - effectiveZ * 50));
+        }
+      }
     });
 
     this.renderer.render(this.scene, this.camera);
@@ -962,6 +1162,19 @@ export class CoverflowScene {
   // 释放所有卡片的网格、材质与纹理
   private disposeCards(): void {
     this.cardMeshes.forEach((mesh) => {
+      if (mesh.reflectionMesh) {
+        mesh.remove(mesh.reflectionMesh);
+        if (Array.isArray(mesh.reflectionMesh.material)) {
+          mesh.reflectionMesh.material.forEach((mat) => {
+            if (mat !== this.reflectionPlasticEdgeMat) {
+              if ('map' in mat && mat.map) {
+                (mat.map as THREE.Texture).dispose();
+              }
+              mat.dispose();
+            }
+          });
+        }
+      }
       this.scene.remove(mesh);
       if (Array.isArray(mesh.material)) {
         mesh.material.forEach((mat) => {
@@ -1002,6 +1215,15 @@ export class CoverflowScene {
 
     if (this.boxGeometry) {
       this.boxGeometry.dispose();
+    }
+    if (this.reflectionGeometry) {
+      this.reflectionGeometry.dispose();
+    }
+    if (this.reflectionAlphaMap) {
+      this.reflectionAlphaMap.dispose();
+    }
+    if (this.reflectionPlasticEdgeMat) {
+      this.reflectionPlasticEdgeMat.dispose();
     }
     if (this.plasticEdgeMat) {
       this.plasticEdgeMat.dispose();

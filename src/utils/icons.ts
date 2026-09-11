@@ -69,12 +69,13 @@ import laptop from '@iconify-icons/lucide/laptop';
 
 // Coverflow 3D 封面流与信息面板
 import galleryThumbnails from '@iconify-icons/lucide/gallery-thumbnails';
-import rectangleVertical from '@iconify-icons/lucide/rectangle-vertical';
+import galleryHorizontal from '@iconify-icons/lucide/gallery-horizontal';
 import layers from '@iconify-icons/lucide/layers';
 import columns3 from '@iconify-icons/lucide/columns-3';
 import chevronLeft from '@iconify-icons/lucide/chevron-left';
 import chevronRight from '@iconify-icons/lucide/chevron-right';
 import rotateCw from '@iconify-icons/lucide/rotate-cw';
+import galleryHorizontalEnd from '@iconify-icons/lucide/gallery-horizontal-end';
 
 /**
  * 集中注册项目中所有使用的 Lucide 图标至 Iconify 本地离线缓存
@@ -145,12 +146,13 @@ export function setupIcons(): void {
     'lucide:laptop': laptop,
 
     'lucide:gallery-thumbnails': galleryThumbnails,
-    'lucide:rectangle-vertical': rectangleVertical,
+    'lucide:gallery-horizontal': galleryHorizontal,
     'lucide:layers': layers,
     'lucide:columns-3': columns3,
     'lucide:chevron-left': chevronLeft,
     'lucide:chevron-right': chevronRight,
     'lucide:rotate-cw': rotateCw,
+    'lucide:gallery-horizontal-end': galleryHorizontalEnd,
   };
 
   Object.entries(iconMap).forEach(([name, iconData]) => {

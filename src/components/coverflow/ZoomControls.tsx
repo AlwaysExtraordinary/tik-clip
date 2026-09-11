@@ -20,7 +20,7 @@ export const ZoomControls: React.FC<ZoomControlsProps> = ({ onFlip, onExit, isHi
   return (
     <div
       className={cn(
-        'absolute top-3 right-3 gap-2 @[480px]:top-5 @[480px]:right-6 @[480px]:gap-2.5 z-30 flex items-center transition-all duration-300 ease-in-out',
+        'absolute top-3 right-3 gap-2 @3xl:top-5 @3xl:right-5 @3xl:gap-2.5 z-30 flex items-center transition-all duration-300 ease-in-out',
         isHidden && 'opacity-0 -translate-y-4 pointer-events-none'
       )}
     >
@@ -29,7 +29,7 @@ export const ZoomControls: React.FC<ZoomControlsProps> = ({ onFlip, onExit, isHi
         variant="primary"
         size="sm"
         onPress={onFlip}
-        className="flex items-center gap-1.5 rounded-full px-2.5 @[480px]:px-3.5 shadow-subtle cursor-pointer"
+        className="flex items-center h-7 gap-1.5 rounded-full px-2.5 @3xl:px-3.5 @3xl:h-8 shadow-subtle cursor-pointer"
       >
         <Icon icon="lucide:rotate-cw" className="size-3.5" />
         <span className="text-xs font-medium">{t('coverflow.flip', '翻转')}</span>
@@ -40,7 +40,8 @@ export const ZoomControls: React.FC<ZoomControlsProps> = ({ onFlip, onExit, isHi
         variant="outline"
         size="sm"
         onPress={onExit}
-        className="flex items-center gap-1.5 rounded-full px-2.5 @[480px]:px-3.5 bg-surface/80 backdrop-blur-md border border-border shadow-subtle cursor-pointer hover:bg-surface-hover"
+        className="flex items-center h-7 gap-1.5 rounded-full px-2.5 @3xl:px-3.5 @3xl:h-8 bg-surface/80 backdrop-blur-md border 
+        border-border shadow-subtle cursor-pointer hover:bg-surface-hover"
       >
         <Icon icon="lucide:x" className="size-3.5" />
         <span className="text-xs font-medium">{t('coverflow.exit', '返回')}</span>

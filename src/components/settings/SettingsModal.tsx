@@ -128,10 +128,10 @@ export const SettingsModal: React.FC = () => {
                   aria-label={t('settings.language')}
                   className="w-40"
                 >
-                  <Select.Trigger className=" text-sm rounded-full">
+                  <Select.Trigger className="text-sm rounded-full">
                     <div className="flex items-center gap-1.5">
                       <Icon icon="lucide:languages" className="size-4 text-foreground-muted" />
-                      <Select.Value />
+                      <Select.Value className="text-sm" />
                     </div>
                     <Select.Indicator className="text-foreground-muted" />
                   </Select.Trigger>
