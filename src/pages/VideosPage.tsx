@@ -414,7 +414,7 @@ export const VideosPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={(e) => handleStartRename(video, e)}
-                            className="p-1 rounded-md hover:bg-surface-hover transition-colors text-foreground-muted hover:text-foreground 
+                            className="p-1 rounded-md hover:bg-surface-hover text-foreground-muted hover:text-foreground 
                           cursor-pointer flex items-center justify-center opacity-0 group-hover:opacity-100 ease-in transition-opacity duration-200"
                             aria-label={t('videos.rename')}
                           >
