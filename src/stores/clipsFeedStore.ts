@@ -12,6 +12,7 @@ interface ClipsFeedState {
   selectedTag: string | null;
   selectedCategory: string | null;
   selectedActor: string | null;
+  allItems: ShuffleItem[];
 
   setCurrentShuffleItem: (item: ShuffleItem | null) => void;
   setCurrentVideoFile: (file: File | null) => void;
@@ -21,6 +22,7 @@ interface ClipsFeedState {
   setSelectedTag: (tag: string | null) => void;
   setSelectedCategory: (category: string | null) => void;
   setSelectedActor: (actor: string | null) => void;
+  setAllItems: (items: ShuffleItem[]) => void;
   resetFilters: () => void;
   resetFeed: () => void;
 }
@@ -35,6 +37,7 @@ export const useClipsFeedStore = create<ClipsFeedState>((set) => ({
   selectedTag: null,
   selectedCategory: null,
   selectedActor: null,
+  allItems: [],
 
   setCurrentShuffleItem: (currentShuffleItem) => set({ currentShuffleItem }),
   setCurrentVideoFile: (currentVideoFile) => set({ currentVideoFile }),
@@ -47,6 +50,7 @@ export const useClipsFeedStore = create<ClipsFeedState>((set) => ({
     set({ selectedCategory: !category || category === 'all' ? null : category }),
   setSelectedActor: (actor) =>
     set({ selectedActor: !actor || actor === 'all' ? null : actor }),
+  setAllItems: (allItems) => set({ allItems }),
   resetFilters: () =>
     set({
       selectedTag: null,
@@ -64,6 +68,7 @@ export const useClipsFeedStore = create<ClipsFeedState>((set) => ({
         state.selectedTag === null &&
         state.selectedCategory === null &&
         state.selectedActor === null &&
+        state.allItems.length === 0 &&
         state.shuffleQueue.totalCount === 0
       ) {
         return state;
@@ -78,6 +83,7 @@ export const useClipsFeedStore = create<ClipsFeedState>((set) => ({
         selectedTag: null,
         selectedCategory: null,
         selectedActor: null,
+        allItems: [],
       };
     }),
 }));

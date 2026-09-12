@@ -87,7 +87,13 @@ export const VideosPage: React.FC = () => {
           ? true
           : Boolean(v.actor && v.actor.includes(selectedActor));
       if (matchActor && v.category && v.category.trim()) {
-        set.add(v.category.trim());
+        const parts = v.category.split(/[,，/、;\s]+/);
+        for (const p of parts) {
+          const trimmed = p.trim();
+          if (trimmed) {
+            set.add(trimmed);
+          }
+        }
       }
     }
     return Array.from(set).sort();
@@ -98,7 +104,9 @@ export const VideosPage: React.FC = () => {
     const set = new Set<string>();
     for (const v of videos) {
       const matchCategory =
-        !selectedCategory || selectedCategory === 'all' ? true : v.category === selectedCategory;
+        !selectedCategory || selectedCategory === 'all'
+          ? true
+          : Boolean(v.category && v.category.includes(selectedCategory));
       if (matchCategory && v.actor && v.actor.trim()) {
         const parts = v.actor.split(/[,，/、;\s]+/);
         for (const p of parts) {
@@ -134,7 +142,9 @@ export const VideosPage: React.FC = () => {
   const filteredVideos = useMemo(() => {
     return videos.filter((v) => {
       const matchCategory =
-        !selectedCategory || selectedCategory === 'all' ? true : v.category === selectedCategory;
+        !selectedCategory || selectedCategory === 'all'
+          ? true
+          : Boolean(v.category && v.category.includes(selectedCategory));
 
       const matchActor =
         !selectedActor || selectedActor === 'all'

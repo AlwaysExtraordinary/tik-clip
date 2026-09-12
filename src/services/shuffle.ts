@@ -40,7 +40,40 @@ export class ShuffleQueue {
   }
 
   /**
-   * 增量同步最新的片段列表，保留当前正在播放的片段（置于首位）并对其余项整体重新洗牌
+   * 当筛选条件变动时重新构建播放列表：
+   * 1. 若当前正在播放的片段存在于新的目标集合中，将其置于首位（index 0）保持平滑播放，
+   *    将其余所有目标片段洗牌后紧随其后，确保后续切页立即呈现全量候选池；
+   * 2. 若当前片段不在目标集合中，全量洗牌并从第 0 项开始播放。
+   * @param items 最新的目标片段列表
+   * @param currentClipId 当前正在播放的片段 ID（可选）
+   */
+  public resetWithCurrent(items: ShuffleItem[], currentClipId?: string) {
+    this.rawItems = items;
+    if (items.length === 0) {
+      this.playlist = [];
+      this.currentIndex = 0;
+      return;
+    }
+
+    if (currentClipId) {
+      const currentItem = items.find((it) => it.clip.id === currentClipId);
+      if (currentItem) {
+        const remaining = items.filter((it) => it.clip.id !== currentClipId);
+        this.playlist = [currentItem, ...shuffleArray(remaining)];
+        this.currentIndex = 0;
+        return;
+      }
+    }
+
+    this.playlist = shuffleArray(items);
+    this.currentIndex = 0;
+  }
+
+  /**
+   * 增量同步最新的片段列表：
+   * 1. 保持当前播放队列序列稳定，原地更新已变更项，移除已删除项；
+   * 2. 将新增片段洗牌后追加至队列后方；
+   * 3. 精准维护当前正在播放项在队列中的索引指针（或保持在有效边界内）。
    * @param items 最新的目标片段列表
    * @param currentClipId 当前正在播放的片段 ID（可选）
    */
@@ -52,20 +85,70 @@ export class ShuffleQueue {
       return;
     }
 
-    const itemMap = new Map<string, ShuffleItem>();
-    items.forEach((it) => itemMap.set(it.clip.id, it));
-
-    // 如果指定了当前播放片段且该片段在新列表中依然存在，保持该片段置顶并对其余项重新洗牌
-    if (currentClipId && itemMap.has(currentClipId)) {
-      const currentItem = itemMap.get(currentClipId)!;
-      const remainingItems = items.filter((it) => it.clip.id !== currentClipId);
-      this.playlist = [currentItem, ...shuffleArray(remainingItems)];
-      this.currentIndex = 0;
+    // 若当前播放列表为空，直接重新初始化并洗牌
+    if (this.playlist.length === 0) {
+      this.reset();
+      if (currentClipId) {
+        const foundIdx = this.playlist.findIndex((it) => it.clip.id === currentClipId);
+        if (foundIdx !== -1) {
+          this.currentIndex = foundIdx;
+        }
+      }
       return;
     }
 
-    // 否则直接重置并整体洗牌
-    this.reset();
+    const itemMap = new Map<string, ShuffleItem>();
+    items.forEach((it) => itemMap.set(it.clip.id, it));
+
+    // 1. 同步 playlist：原地更新已变更项，移除不再存在的项
+    const updatedPlaylist: ShuffleItem[] = [];
+    const seenIds = new Set<string>();
+
+    for (const queueItem of this.playlist) {
+      const latest = itemMap.get(queueItem.clip.id);
+      if (latest) {
+        updatedPlaylist.push(latest);
+        seenIds.add(latest.clip.id);
+      }
+    }
+
+    // 2. 将新增但尚未进入当前播放列表的片段洗牌后追加到后方
+    const newItems = items.filter((it) => !seenIds.has(it.clip.id));
+    if (newItems.length > 0) {
+      updatedPlaylist.push(...shuffleArray(newItems));
+    }
+
+    this.playlist = updatedPlaylist;
+
+    // 3. 精准定位当前播放项指针
+    if (currentClipId && this.playlist.length > 0) {
+      // 优先检查原当前索引位置是否依然是该片段
+      if (this.playlist[this.currentIndex]?.clip.id === currentClipId) {
+        // 当前索引精准匹配，无需变动
+      } else {
+        // 查找最接近当前索引的该片段实例
+        let bestIdx = -1;
+        let minDiff = Infinity;
+        for (let i = 0; i < this.playlist.length; i++) {
+          if (this.playlist[i].clip.id === currentClipId) {
+            const diff = Math.abs(i - this.currentIndex);
+            if (diff < minDiff) {
+              minDiff = diff;
+              bestIdx = i;
+            }
+          }
+        }
+        if (bestIdx !== -1) {
+          this.currentIndex = bestIdx;
+        } else {
+          this.currentIndex = Math.min(this.currentIndex, this.playlist.length - 1);
+        }
+      }
+    } else if (this.playlist.length > 0) {
+      this.currentIndex = Math.min(Math.max(0, this.currentIndex), this.playlist.length - 1);
+    } else {
+      this.currentIndex = 0;
+    }
   }
 
   /**

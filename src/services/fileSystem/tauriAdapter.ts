@@ -299,6 +299,28 @@ export class TauriFileSystemAdapter implements IFileSystemAdapter {
             }
             if (parsed.category && typeof parsed.category === 'string') {
               category = parsed.category.trim();
+            } else if (Array.isArray(parsed.category)) {
+              category = parsed.category
+                .filter((c: unknown): c is string => typeof c === 'string' && c.trim() !== '')
+                .join(', ');
+            } else if (Array.isArray(parsed.categories)) {
+              category = parsed.categories
+                .filter((c: unknown): c is string => typeof c === 'string' && c.trim() !== '')
+                .join(', ');
+            } else if (typeof parsed.categories === 'string' && parsed.categories.trim()) {
+              category = parsed.categories.trim();
+            } else if (Array.isArray(parsed.genre)) {
+              category = parsed.genre
+                .filter((c: unknown): c is string => typeof c === 'string' && c.trim() !== '')
+                .join(', ');
+            } else if (typeof parsed.genre === 'string' && parsed.genre.trim()) {
+              category = parsed.genre.trim();
+            } else if (Array.isArray(parsed.genres)) {
+              category = parsed.genres
+                .filter((c: unknown): c is string => typeof c === 'string' && c.trim() !== '')
+                .join(', ');
+            } else if (typeof parsed.genres === 'string' && parsed.genres.trim()) {
+              category = parsed.genres.trim();
             }
             if (parsed.actor && typeof parsed.actor === 'string') {
               actor = parsed.actor.trim();
@@ -450,9 +472,9 @@ export class TauriFileSystemAdapter implements IFileSystemAdapter {
           fileName: videoFileName,
           duration: duration || 0,
           thumbnail: thumbnailBlob,
-          category,
-          actor,
-          description,
+          category: category || existingVideo?.category,
+          actor: actor || existingVideo?.actor,
+          description: description || existingVideo?.description,
           clipsCount,
           createdAt: existingVideo?.createdAt || now,
           updatedAt: now,

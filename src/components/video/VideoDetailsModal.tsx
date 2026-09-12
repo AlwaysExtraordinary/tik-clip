@@ -127,18 +127,16 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
             <Modal.CloseTrigger className="absolute top-5 right-5" />
 
             <Modal.Header className="pb-4 border-b border-border">
-              <Modal.Heading className="text-lg font-semibold">
-                {t('videos.detailsTitle')}
-              </Modal.Heading>
+              <Modal.Heading className="text-md">{t('videos.detailsTitle')}</Modal.Heading>
             </Modal.Header>
 
             <Modal.Body className="py-5 overflow-y-auto">
               <form id="video-details-form" onSubmit={handleSave} className="space-y-4">
                 {/* 1. 名称 */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">
+                  <div className="text-sm text-foreground mb-2">
                     {t('videos.name')} <span className="text-danger">*</span>
-                  </label>
+                  </div>
                   <Input
                     autoFocus
                     value={name}
@@ -154,9 +152,7 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
 
                 {/* 2. 类别 */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">
-                    {t('videos.category')}
-                  </label>
+                  <div className="text-sm text-foreground mb-2">{t('videos.category')}</div>
                   <Input
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
@@ -167,9 +163,7 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
 
                 {/* 3. 演员 */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">
-                    {t('videos.actor')}
-                  </label>
+                  <div className="text-sm text-foreground mb-2">{t('videos.actor')}</div>
                   <Input
                     value={actor}
                     onChange={(e) => setActor(e.target.value)}
@@ -180,9 +174,7 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
 
                 {/* 4. 描述 */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">
-                    {t('videos.description')}
-                  </label>
+                  <div className="text-sm text-foreground mb-2">{t('videos.description')}</div>
                   <TextArea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
@@ -192,20 +184,12 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
                   />
                 </div>
 
-                {errorMessage && (
-                  <p className="text-xs text-danger font-medium">{errorMessage}</p>
-                )}
+                {errorMessage && <p className="text-xs text-danger font-medium">{errorMessage}</p>}
               </form>
             </Modal.Body>
 
             <Modal.Footer className="pt-4 border-t border-border flex justify-end gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                isDisabled={isSaving}
-                onClick={onClose}
-                className="rounded-2xl text-xs font-semibold cursor-pointer"
-              >
+              <Button variant="secondary" size="sm" isDisabled={isSaving} onClick={onClose}>
                 {t('common.cancel')}
               </Button>
               <Button
@@ -214,7 +198,6 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
                 isDisabled={isSaving || !name.trim()}
                 type="submit"
                 form="video-details-form"
-                className="rounded-2xl text-xs font-semibold cursor-pointer"
               >
                 {t('common.save')}
               </Button>
