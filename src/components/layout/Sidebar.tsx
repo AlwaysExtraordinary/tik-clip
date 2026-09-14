@@ -7,6 +7,7 @@ import { useSidebarStore } from '@/stores/sidebarStore';
 import { cn } from '@/utils/cn';
 import brandIconLight from '@/assets/svg/tik-clip-text-dark.svg';
 import brandIconDark from '@/assets/svg/tik-clip-text-white.svg';
+import { isTauri } from '@/services/fileSystem';
 
 export const Sidebar: React.FC = () => {
   const { t } = useTranslation();
@@ -32,7 +33,8 @@ export const Sidebar: React.FC = () => {
         'flex flex-col justify-between items-center select-none bg-background transition-all duration-300 ease-in-out',
         // 移动端样式：悬浮抽屉
         isMobile && [
-          'fixed inset-y-0 left-0 z-50 w-44 py-6 px-3.5 border-r border-border/40 backdrop-blur-md',
+          'fixed inset-y-0 left-0 z-900 w-44 py-6 px-3.5 border-r border-border/40 backdrop-blur-md',
+          isTauri() ? 'pt-14' : '',
           isOpen ? 'translate-x-0 shadow-floating' : '-translate-x-full pointer-events-none',
         ],
         // 桌面端样式：常规 flex 侧边栏与折叠过渡

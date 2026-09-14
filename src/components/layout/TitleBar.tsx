@@ -101,7 +101,7 @@ export const TitleBar: React.FC = () => {
     <header
       onMouseDown={handleMouseDown}
       onDoubleClick={(e) => handleToggleMaximize(e)}
-      className="h-8 w-full select-none flex items-center justify-between bg-background text-foreground shrink-0 z-9999 relative border-b border-border/20 cursor-default"
+      className="h-8 w-full select-none flex items-center justify-between bg-background text-foreground shrink-0 z-999 relative border-b border-border/20 cursor-default"
     >
       {/* 中间主要拖拽与标题栏区域 */}
       <div className="flex-1 h-full flex items-center justify-center text-xs text-foreground-muted cursor-default relative">
