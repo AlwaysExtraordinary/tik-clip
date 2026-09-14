@@ -80,6 +80,10 @@ export const MovieInfoPanel: React.FC<MovieInfoPanelProps> = ({
 
   return (
     <aside
+      onKeyDown={(e) => {
+        // 阻止视频信息面板内部键盘事件向外冒泡
+        e.stopPropagation();
+      }}
       className={cn(
         'absolute z-20 transition-all duration-300 ease-in-out select-text',
         'bg-surface/90 backdrop-blur-xl border border-border rounded-2xl shadow-floating',

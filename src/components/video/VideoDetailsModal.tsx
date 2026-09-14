@@ -207,106 +207,132 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
       <Modal.Backdrop variant="blur">
         <Modal.Container placement="center" size="md">
           <Modal.Dialog className="w-full bg-surface border border-border rounded-3xl p-6 sm:p-7 shadow-floating text-foreground relative max-h-[90vh] flex flex-col">
-            <Modal.CloseTrigger className="absolute top-5 right-5" />
+            <div
+              className="contents"
+              onKeyDown={(e: React.KeyboardEvent) => {
+                // 阻止弹窗内键盘事件向外冒泡，避免触发底层封面流快捷键
+                e.stopPropagation();
+                if (e.key === 'Escape' && !isSaving) {
+                  onClose();
+                }
+              }}
+            >
+              <Modal.CloseTrigger className="absolute top-5 right-5" />
 
-            <Modal.Header className="pb-4 border-b border-border">
-              <Modal.Heading className="text-md">{t('videos.detailsTitle')}</Modal.Heading>
-            </Modal.Header>
+              <Modal.Header className="pb-4 border-b border-border">
+                <Modal.Heading className="text-md">{t('videos.detailsTitle')}</Modal.Heading>
+              </Modal.Header>
 
-            <Modal.Body className="py-5 overflow-y-auto">
-              <form id="video-details-form" onSubmit={handleSave} className="space-y-4">
-                {/* 1. 名称 */}
-                <div className="space-y-1.5">
-                  <div className="text-sm text-foreground mb-2">
-                    {t('videos.name')} <span className="text-danger">*</span>
+              <Modal.Body className="py-5 overflow-y-auto">
+                <form
+                  id="video-details-form"
+                  onSubmit={handleSave}
+                  onKeyDown={(e: React.KeyboardEvent) => {
+                    // 阻止表单内按键事件冒泡
+                    e.stopPropagation();
+                  }}
+                  className="space-y-4"
+                >
+                  {/* 1. 名称 */}
+                  <div className="space-y-1.5">
+                    <div className="text-sm text-foreground mb-2">
+                      {t('videos.name')} <span className="text-danger">*</span>
+                    </div>
+                    <Input
+                      autoFocus
+                      value={name}
+                      onChange={(e) => {
+                        setName(e.target.value);
+                        if (errorMessage) setErrorMessage(null);
+                      }}
+                      placeholder={t('videos.name')}
+                      className="w-full"
+                      required
+                    />
                   </div>
-                  <Input
-                    autoFocus
-                    value={name}
-                    onChange={(e) => {
-                      setName(e.target.value);
-                      if (errorMessage) setErrorMessage(null);
-                    }}
-                    placeholder={t('videos.name')}
-                    className="w-full"
-                    required
-                  />
-                </div>
 
-                {/* 2. 类别 */}
-                <div className="space-y-1.5">
-                  <div className="text-sm text-foreground mb-2">{t('videos.category')}</div>
-                  <Input
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    placeholder={t('videos.category')}
-                    className="w-full"
-                  />
-                </div>
+                  {/* 2. 类别 */}
+                  <div className="space-y-1.5">
+                    <div className="text-sm text-foreground mb-2">{t('videos.category')}</div>
+                    <Input
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      placeholder={t('videos.category')}
+                      className="w-full"
+                    />
+                  </div>
 
-                {/* 3. 演员 */}
-                <div className="space-y-1.5">
-                  <div className="text-sm text-foreground mb-2">{t('videos.actor')}</div>
-                  <ComboBox
-                    fullWidth
-                    allowsCustomValue
-                    inputValue={actor}
-                    onInputChange={(val) => {
-                      setActor(val);
-                    }}
-                    onChange={(key) => {
-                      if (key !== null) {
-                        setActor(String(key));
-                      }
-                    }}
-                  >
-                    <ComboBox.InputGroup>
-                      <Input placeholder={t('videos.actor')} />
-                      <ComboBox.Trigger />
-                    </ComboBox.InputGroup>
-                    <ComboBox.Popover>
-                      <ListBox>
-                        {actorOptions.map((opt) => (
-                          <ListBox.Item key={opt} id={opt} textValue={opt}>
-                            {opt}
-                            <ListBox.ItemIndicator />
-                          </ListBox.Item>
-                        ))}
-                      </ListBox>
-                    </ComboBox.Popover>
-                  </ComboBox>
-                </div>
+                  {/* 3. 演员 */}
+                  <div className="space-y-1.5">
+                    <div className="text-sm text-foreground mb-2">{t('videos.actor')}</div>
+                    <ComboBox
+                      fullWidth
+                      allowsCustomValue
+                      inputValue={actor}
+                      onInputChange={(val) => {
+                        setActor(val);
+                      }}
+                      onChange={(key) => {
+                        if (key !== null) {
+                          setActor(String(key));
+                        }
+                      }}
+                    >
+                      <ComboBox.InputGroup>
+                        <Input placeholder={t('videos.actor')} />
+                        <ComboBox.Trigger />
+                      </ComboBox.InputGroup>
+                      <ComboBox.Popover>
+                        <div
+                          onKeyDown={(e: React.KeyboardEvent) => {
+                            // 阻止候选列表内按键事件冒泡
+                            e.stopPropagation();
+                          }}
+                        >
+                          <ListBox>
+                            {actorOptions.map((opt) => (
+                              <ListBox.Item key={opt} id={opt} textValue={opt}>
+                                {opt}
+                                <ListBox.ItemIndicator />
+                              </ListBox.Item>
+                            ))}
+                          </ListBox>
+                        </div>
+                      </ComboBox.Popover>
+                    </ComboBox>
+                  </div>
 
-                {/* 4. 描述 */}
-                <div className="space-y-1.5">
-                  <div className="text-sm text-foreground mb-2">{t('videos.description')}</div>
-                  <TextArea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder={t('videos.description')}
-                    rows={3}
-                    className="w-full"
-                  />
-                </div>
+                  {/* 4. 描述 */}
+                  <div className="space-y-1.5">
+                    <div className="text-sm text-foreground mb-2">{t('videos.description')}</div>
+                    <TextArea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder={t('videos.description')}
+                      rows={3}
+                      className="w-full"
+                    />
+                  </div>
 
-                {errorMessage && <p className="text-xs text-danger font-medium">{errorMessage}</p>}
-              </form>
-            </Modal.Body>
+                  {errorMessage && <p className="text-xs text-danger font-medium">{errorMessage}</p>}
+                </form>
+              </Modal.Body>
 
-            <Modal.Footer className="pt-4 border-t border-border flex justify-end gap-2">
-              <Button variant="secondary" size="sm" isDisabled={isSaving} onClick={onClose}>
-                {t('common.cancel')}
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                isDisabled={isSaving || !name.trim()}
-                type="submit"
-                form="video-details-form"
-              >
-                {t('common.save')}
-              </Button>
-            </Modal.Footer>
+              <Modal.Footer className="pt-4 border-t border-border flex justify-end gap-2">
+                <Button variant="secondary" size="sm" isDisabled={isSaving} onClick={onClose}>
+                  {t('common.cancel')}
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  isDisabled={isSaving || !name.trim()}
+                  type="submit"
+                  form="video-details-form"
+                >
+                  {t('common.save')}
+                </Button>
+              </Modal.Footer>
+            </div>
           </Modal.Dialog>
         </Modal.Container>
       </Modal.Backdrop>

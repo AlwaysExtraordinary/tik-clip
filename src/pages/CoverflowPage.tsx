@@ -306,6 +306,23 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!scene || filteredMovies.length === 0) return;
 
+      // 当用户正在与输入框、可编辑元素或弹窗交互时不触发封面快捷键
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable ||
+          Boolean(
+            target.closest(
+              'input, textarea, select, [contenteditable="true"], [role="dialog"], [role="combobox"], [role="listbox"]'
+            )
+          ))
+      ) {
+        return;
+      }
+
       if (e.key === 'ArrowLeft') {
         scene.prevCard();
       } else if (e.key === 'ArrowRight') {
