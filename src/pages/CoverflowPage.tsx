@@ -255,7 +255,41 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
     [navigate]
   );
 
-  // 7. 键盘快捷键交互
+  // 7. 更新影片元数据并同步当前视图
+  const handleMovieUpdated = useCallback(
+    (updatedVideo: Video) => {
+      scene?.updateMovie(updatedVideo);
+      setMovies((prev) =>
+        prev.map((m) => {
+          if (m.id === updatedVideo.id) {
+            return {
+              ...m,
+              title: updatedVideo.name || updatedVideo.folderName,
+              category: updatedVideo.category,
+              actor: updatedVideo.actor,
+              description: updatedVideo.description,
+              video: updatedVideo,
+            };
+          }
+          return m;
+        })
+      );
+      setCurrentMovie((prev) => {
+        if (!prev || prev.id !== updatedVideo.id) return prev;
+        return {
+          ...prev,
+          title: updatedVideo.name || updatedVideo.folderName,
+          category: updatedVideo.category,
+          actor: updatedVideo.actor,
+          description: updatedVideo.description,
+          video: updatedVideo,
+        };
+      });
+    },
+    [scene]
+  );
+
+  // 8. 键盘快捷键交互
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!scene || filteredMovies.length === 0) return;
@@ -353,6 +387,7 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
         onPrev={() => scene?.prevCard()}
         onNext={() => scene?.nextCard()}
         onPlay={handlePlayVideo}
+        onMovieUpdated={handleMovieUpdated}
         isHidden={viewState !== VIEW_STATES.DETAIL}
       />
 

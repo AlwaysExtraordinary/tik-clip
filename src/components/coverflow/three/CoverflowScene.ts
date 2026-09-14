@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { processCoverSpreadTexture } from './textureProcessor';
 import { CoverflowMovie, VIEW_STATES, ViewMode, ViewState } from '../types';
+import { Video } from '@/types/video';
 
 /** 拓展带有平滑插值目标属性的 Mesh */
 interface CardMesh extends THREE.Mesh {
@@ -339,10 +340,34 @@ export class CoverflowScene {
   }
 
   /**
+   * 更新指定视频的元数据信息并通知外部变更
+   * @param updatedVideo 更新后的视频对象
+   */
+  public updateMovie(updatedVideo: Video): void {
+    const movie = this.movies.find((m) => m.id === updatedVideo.id);
+    if (movie) {
+      movie.title = updatedVideo.name || updatedVideo.folderName;
+      movie.category = updatedVideo.category;
+      movie.actor = updatedVideo.actor;
+      movie.description = updatedVideo.description;
+      movie.video = updatedVideo;
+    }
+    for (const mesh of this.cardMeshes) {
+      if (mesh.userData?.movie?.id === updatedVideo.id) {
+        mesh.userData.movie = movie ? { ...movie } : mesh.userData.movie;
+      }
+    }
+    this.emitCurrentMovieChange();
+  }
+
+  /**
    * 载入电影列表，为每个包含有效封面的视频生成 3D 实体模型
    * @param movieList 视频封面数据数组
    */
   public async setMovies(movieList: CoverflowMovie[]): Promise<void> {
+    // 记录之前选中的卡片 ID，便于在重载后恢复聚焦状态
+    const prevSelectedId = this.movies[this.selectedIndex]?.id;
+
     // 销毁并移除旧网格模型
     this.disposeCards();
     this.movies = movieList;
@@ -453,9 +478,18 @@ export class CoverflowScene {
       }
     }
 
-    this.selectedIndex = 0;
-    this.scrollIndex = 0;
-    this.targetScrollIndex = 0;
+    // 尽量保持当前选中的卡片位置，如果不存在则回退至首项
+    let targetIndex = 0;
+    if (prevSelectedId) {
+      const foundIdx = movieList.findIndex((m) => m.id === prevSelectedId);
+      if (foundIdx !== -1) {
+        targetIndex = foundIdx;
+      }
+    }
+
+    this.selectedIndex = targetIndex;
+    this.scrollIndex = targetIndex;
+    this.targetScrollIndex = targetIndex;
     this.scrollVelocity = 0;
     this.updateCardPositions(true);
 

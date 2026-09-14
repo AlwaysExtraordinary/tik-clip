@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Icon } from '@iconify/react';
 import { Chip, Button } from '@heroui/react';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +6,8 @@ import { CoverflowMovie } from './types';
 import { cn } from '@/utils/cn';
 import { useAppStore } from '@/stores/appStore';
 import { isTauri, openPathInOs } from '@/services/fileSystem/index';
+import { Video } from '@/types/video';
+import { VideoDetailsModal } from '@/components/video/VideoDetailsModal';
 
 interface MovieInfoPanelProps {
   movie: CoverflowMovie | null;
@@ -15,6 +17,7 @@ interface MovieInfoPanelProps {
   onNext: () => void;
   onPlay: (videoId: string) => void;
   onOpenFolder?: (movie: CoverflowMovie) => void;
+  onMovieUpdated?: (updatedVideo: Video) => void;
   isHidden?: boolean;
 }
 
@@ -30,10 +33,19 @@ export const MovieInfoPanel: React.FC<MovieInfoPanelProps> = ({
   onNext,
   onPlay,
   onOpenFolder,
+  onMovieUpdated,
   isHidden = false,
 }) => {
   const { t } = useTranslation();
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const directoryRef = useAppStore((s) => s.directoryRef);
+  const directoryHandle = useAppStore((s) => s.directoryHandle);
+  const activeDirectory = useMemo(
+    () =>
+      directoryRef ||
+      (directoryHandle ? { name: directoryHandle.name, handle: directoryHandle } : null),
+    [directoryRef, directoryHandle]
+  );
   const canOpenFolder = isTauri() && Boolean(directoryRef?.path);
 
   // 打开当前电影所在的本地文件夹
@@ -87,19 +99,33 @@ export const MovieInfoPanel: React.FC<MovieInfoPanelProps> = ({
               {movie.title}
             </h2>
 
-            {/* 在文件夹中显示按钮 */}
-            {canOpenFolder && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* 编辑详细信息按钮 */}
               <Button
                 size="sm"
                 variant="ghost"
                 isIconOnly
-                aria-label={t('videos.revealInExplorer', '在文件夹中显示')}
-                className="size-7 @3xl:size-8 shrink-0 bg-surface-hover hover:bg-surface-active text-foreground-muted hover:text-foreground"
-                onPress={handleOpenFolder}
+                aria-label={t('videos.details', '详细信息')}
+                className="size-7 @3xl:size-8 bg-surface-hover hover:bg-surface-active text-foreground-muted hover:text-foreground cursor-pointer"
+                onPress={() => setIsDetailsOpen(true)}
               >
-                <Icon icon="lucide:folder-symlink" className="size-4" />
+                <Icon icon="lucide:pencil-line" className="size-4" />
               </Button>
-            )}
+
+              {/* 在文件夹中显示按钮 */}
+              {canOpenFolder && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  isIconOnly
+                  aria-label={t('videos.revealInExplorer', '在文件夹中显示')}
+                  className="size-7 @3xl:size-8 bg-surface-hover hover:bg-surface-active text-foreground-muted hover:text-foreground cursor-pointer"
+                  onPress={handleOpenFolder}
+                >
+                  <Icon icon="lucide:folder-symlink" className="size-4" />
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* 类别标签 */}
@@ -181,6 +207,17 @@ export const MovieInfoPanel: React.FC<MovieInfoPanelProps> = ({
           </Button>
         </div>
       </div>
+
+      {/* 视频详细信息编辑弹窗 */}
+      <VideoDetailsModal
+        isOpen={isDetailsOpen}
+        video={movie.video}
+        activeDirectory={activeDirectory}
+        onClose={() => setIsDetailsOpen(false)}
+        onSaved={(updatedVideo) => {
+          onMovieUpdated?.(updatedVideo);
+        }}
+      />
     </aside>
   );
 };

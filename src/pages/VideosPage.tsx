@@ -3,15 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Video } from '@/types/video';
 import { getAllVideos, deleteVideo } from '@/db/videos';
-import { db } from '@/db/database';
 import { VideoThumbnail } from '@/components/video/VideoThumbnail';
 import { EmptyState } from '@/components/video/EmptyState';
 import { useDirectory } from '@/hooks/useDirectory';
 import { Icon } from '@iconify/react';
-import { Dropdown, Input, Modal, useOverlayState } from '@heroui/react';
+import { Dropdown, Modal, useOverlayState } from '@heroui/react';
 import { FilterSelect } from '@/components/general/FilterSelect';
 import {
-  updateVideoNameInDataJson,
   hideVideoInDataJson,
   isTauri,
   openPathInOs,
@@ -34,10 +32,6 @@ export const VideosPage: React.FC = () => {
       (directoryHandle ? { name: directoryHandle.name, handle: directoryHandle } : null),
     [directoryRef, directoryHandle]
   );
-
-  // 重命名状态
-  const [editingVideoId, setEditingVideoId] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState('');
 
   // 封面查看弹窗状态
   const [previewCoverVideo, setPreviewCoverVideo] = useState<Video | null>(null);
@@ -158,12 +152,6 @@ export const VideosPage: React.FC = () => {
   // 卡片操作列表
   const videoActionList = [
     {
-      text: t('videos.details'),
-      key: 'details',
-      iconName: 'lucide:info',
-      isShow: true,
-    },
-    {
       text: t('videos.revealInExplorer'),
       key: 'reveal',
       iconName: 'lucide:folder-symlink',
@@ -230,42 +218,7 @@ export const VideosPage: React.FC = () => {
     },
   });
 
-  const handleStartRename = (video: Video, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditingVideoId(video.id);
-    setEditingName(video.name);
-  };
 
-  // 保存更改视频名称
-  const handleSaveRename = async (video: Video) => {
-    const trimmed = editingName.trim();
-    setEditingVideoId(null);
-    if (!trimmed || trimmed === video.name) {
-      return;
-    }
-
-    const now = Date.now();
-    setVideos((prev) =>
-      prev.map((v) => (v.id === video.id ? { ...v, name: trimmed, updatedAt: now } : v))
-    );
-
-    try {
-      await db.videos.update(video.id, {
-        name: trimmed,
-        updatedAt: now,
-      });
-    } catch (err) {
-      console.error('Failed to update video name in DB:', err);
-    }
-
-    if (activeDirectory) {
-      try {
-        await updateVideoNameInDataJson(activeDirectory, video.folderName, trimmed);
-      } catch (err) {
-        console.warn('Failed to update data.json on video rename:', err);
-      }
-    }
-  };
 
   // 隐藏视频
   const handleDeleteVideo = async (video: Video) => {
@@ -382,100 +335,79 @@ export const VideosPage: React.FC = () => {
                 {/* 缩略图下方的视频信息 */}
                 <div className="mt-2.5 px-0.5 text-center">
                   <div className="flex items-center justify-center relative h-7">
-                    {/* 输入框 */}
-                    {editingVideoId === video.id ? (
-                      <Input
-                        autoFocus
-                        value={editingName}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => setEditingName(e.target.value)}
-                        onBlur={() => handleSaveRename(video)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleSaveRename(video);
-                          } else if (e.key === 'Escape') {
-                            setEditingVideoId(null);
-                          }
+                    {/* 标题 */}
+                    <div
+                      className="w-full text-xs font-semibold text-foreground truncate px-12 py-0.5 border border-transparent"
+                      title={video.name}
+                    >
+                      {video.name}
+                    </div>
+                    {/* 操作按钮 */}
+                    <div className="flex items-center gap-1.5 absolute right-0">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDetailsModalVideo(video);
                         }}
-                        className="w-full text-xs font-semibold px-2 py-0.5 rounded-md text-center bg-surface 
-                      border border-accent focus:outline-none focus:ring-1"
-                        aria-label={t('videos.rename')}
-                      />
-                    ) : (
-                      <>
-                        {/* 标题与操作按钮 */}
-                        <div
-                          className="w-full text-xs font-semibold text-foreground truncate px-12 py-0.5 border border-transparent"
-                          title={video.name}
+                        className="p-1 rounded-md hover:bg-surface-hover text-foreground-muted hover:text-foreground 
+                      cursor-pointer flex items-center justify-center opacity-0 group-hover:opacity-100 ease-in transition-opacity duration-200"
+                        aria-label={t('videos.details')}
+                      >
+                        <Icon icon="lucide:pencil-line" className="size-3.5" />
+                      </button>
+
+                      {/* 操作列表 */}
+                      <Dropdown>
+                        <Dropdown.Trigger
+                          className="p-1 rounded-md hover:bg-surface-hover text-foreground-muted hover:text-foreground cursor-pointer flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                          aria-label={t('common.more')}
                         >
-                          {video.name}
-                        </div>
-                        <div className="flex items-center gap-1.5 absolute right-0">
-                          <button
-                            type="button"
-                            onClick={(e) => handleStartRename(video, e)}
-                            className="p-1 rounded-md hover:bg-surface-hover text-foreground-muted hover:text-foreground 
-                          cursor-pointer flex items-center justify-center opacity-0 group-hover:opacity-100 ease-in transition-opacity duration-200"
-                            aria-label={t('videos.rename')}
+                          <Icon icon="lucide:ellipsis" className="size-3.5" />
+                        </Dropdown.Trigger>
+
+                        {/* 操作列表 */}
+                        <Dropdown.Popover className="min-w-30 rounded-xl">
+                          <Dropdown.Menu
+                            onAction={(key) => {
+                              if (key === 'delete') {
+                                // 隐藏视频
+                                setHideConfirmVideo(video);
+                                setIsShowHideConfirm(true);
+                              } else if (key === 'reveal' && activeDirectory?.path) {
+                                const dirPath = activeDirectory.path;
+                                const sep = dirPath.includes('\\') ? '\\' : '/';
+                                const fullPath = `${dirPath.replace(/[\\/]+$/, '')}${sep}${video.folderName}`;
+                                openPathInOs(fullPath);
+                              }
+                            }}
                           >
-                            <Icon icon="lucide:pencil-line" className="size-3.5" />
-                          </button>
-
-                          {/* 操作列表 */}
-                          <Dropdown>
-                            <Dropdown.Trigger
-                              className="p-1 rounded-md hover:bg-surface-hover text-foreground-muted hover:text-foreground cursor-pointer flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                              aria-label={t('common.more')}
-                            >
-                              <Icon icon="lucide:ellipsis" className="size-3.5" />
-                            </Dropdown.Trigger>
-
                             {/* 操作列表 */}
-                            <Dropdown.Popover className="min-w-30 rounded-xl">
-                              <Dropdown.Menu
-                                onAction={(key) => {
-                                  if (key === 'details') {
-                                    // 打开详细信息弹窗
-                                    setDetailsModalVideo(video);
-                                  } else if (key === 'delete') {
-                                    // 隐藏视频
-                                    setHideConfirmVideo(video);
-                                    setIsShowHideConfirm(true);
-                                  } else if (key === 'reveal' && activeDirectory?.path) {
-                                    const dirPath = activeDirectory.path;
-                                    const sep = dirPath.includes('\\') ? '\\' : '/';
-                                    const fullPath = `${dirPath.replace(/[\\/]+$/, '')}${sep}${video.folderName}`;
-                                    openPathInOs(fullPath);
-                                  }
-                                }}
-                              >
-                                {/* 操作列表 */}
-                                {videoActionList
-                                  .filter((item) => item.isShow)
-                                  .map((item) => (
-                                    <Dropdown.Item
-                                      id={item.key}
-                                      className="rounded-md px-1.5 py-1 min-h-0"
-                                    >
-                                      <div
-                                        className={cn(
-                                          'flex items-center gap-2 w-full text-xs font-medium rounded-xl',
-                                          item.textColorClass
-                                            ? item.textColorClass
-                                            : 'text-foreground'
-                                        )}
-                                      >
-                                        <Icon icon={item.iconName} className="size-3.5" />
-                                        <div>{item.text}</div>
-                                      </div>
-                                    </Dropdown.Item>
-                                  ))}
-                              </Dropdown.Menu>
-                            </Dropdown.Popover>
-                          </Dropdown>
-                        </div>
-                      </>
-                    )}
+                            {videoActionList
+                              .filter((item) => item.isShow)
+                              .map((item) => (
+                                <Dropdown.Item
+                                  key={item.key}
+                                  id={item.key}
+                                  className="rounded-md px-1.5 py-1 min-h-0"
+                                >
+                                  <div
+                                    className={cn(
+                                      'flex items-center gap-2 w-full text-xs font-medium rounded-xl',
+                                      item.textColorClass
+                                        ? item.textColorClass
+                                        : 'text-foreground'
+                                    )}
+                                  >
+                                    <Icon icon={item.iconName} className="size-3.5" />
+                                    <div>{item.text}</div>
+                                  </div>
+                                </Dropdown.Item>
+                              ))}
+                          </Dropdown.Menu>
+                        </Dropdown.Popover>
+                      </Dropdown>
+                    </div>
                   </div>
 
                   <p className="text-[11px] text-foreground-muted font-medium mt-0.5">
