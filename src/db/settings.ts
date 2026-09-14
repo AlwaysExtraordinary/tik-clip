@@ -1,10 +1,11 @@
 import { db } from '@/db/database';
-import { ThemeMode, SupportedLanguage } from '@/types/settings';
+import { ThemeMode, SupportedLanguage, StartupPage } from '@/types/settings';
 import { DirectoryRef, isTauri } from '@/services/fileSystem/index';
 
 // 存储键常量定义
 const KEY_THEME = 'theme';
 const KEY_LANGUAGE = 'language';
+const KEY_STARTUP_PAGE = 'startupPage';
 const KEY_DIR_HANDLE = 'videoDirectoryHandle';
 const KEY_DIR_PATH = 'videoDirectoryPath';
 const KEY_DIR_NAME = 'videoDirectoryName';
@@ -41,6 +42,23 @@ export async function getStoredLanguage(): Promise<SupportedLanguage> {
  */
 export async function setStoredLanguage(language: SupportedLanguage): Promise<void> {
   await db.settings.put({ key: KEY_LANGUAGE, value: language });
+}
+
+/**
+ * 获取本地存储的启动页面设置
+ * @returns 启动页面路径 ('/clips' | '/videos' | '/coverflow')，默认为 '/clips'
+ */
+export async function getStoredStartupPage(): Promise<StartupPage> {
+  const entry = await db.settings.get(KEY_STARTUP_PAGE);
+  return (entry?.value as StartupPage) || '/clips';
+}
+
+/**
+ * 保存启动页面设置到本地数据库
+ * @param startupPage 启动页面路径 ('/clips' | '/videos' | '/coverflow')
+ */
+export async function setStoredStartupPage(startupPage: StartupPage): Promise<void> {
+  await db.settings.put({ key: KEY_STARTUP_PAGE, value: startupPage });
 }
 
 /**

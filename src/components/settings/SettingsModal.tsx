@@ -4,7 +4,7 @@ import { Modal, Tabs, Button, Select, ListBox, Switch, useOverlayState } from '@
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useDirectory } from '@/hooks/useDirectory';
-import { ThemeMode, SupportedLanguage } from '@/types/settings';
+import { ThemeMode, SupportedLanguage, StartupPage } from '@/types/settings';
 
 export const SettingsModal: React.FC = () => {
   const { t } = useTranslation();
@@ -15,6 +15,8 @@ export const SettingsModal: React.FC = () => {
     setTheme,
     language,
     setLanguage,
+    startupPage,
+    setStartupPage,
     showThumbnailPreview,
     setShowThumbnailPreview,
   } = useSettingsStore();
@@ -51,6 +53,14 @@ export const SettingsModal: React.FC = () => {
     { id: 'en', label: 'English' },
     { id: 'ja', label: '日本語' },
   ];
+
+  const startupPages: { id: StartupPage; label: string; icon: string }[] = [
+    { id: '/clips', label: t('nav.clips'), icon: 'lucide:zap' },
+    { id: '/videos', label: t('nav.videos'), icon: 'lucide:square-play' },
+    { id: '/coverflow', label: t('nav.coverflow'), icon: 'lucide:gallery-horizontal-end' },
+  ];
+
+  const currentStartupPage = startupPages.find((p) => p.id === startupPage) || startupPages[0];
 
   return (
     <Modal state={modalState}>
@@ -114,6 +124,44 @@ export const SettingsModal: React.FC = () => {
                   </div>
                 </div>
               )}
+
+              {/* 启动页面 */}
+              <div className="flex items-center justify-between gap-4">
+                <label className="text-sm font-medium text-foreground shrink-0">
+                  {t('settings.startupPage')}
+                </label>
+                <Select
+                  value={startupPage}
+                  onChange={(key) => {
+                    if (key) setStartupPage(key as StartupPage);
+                  }}
+                  aria-label={t('settings.startupPage')}
+                  className="w-40"
+                >
+                  <Select.Trigger className="text-sm rounded-full">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Select.Value className="text-sm truncate" />
+                    </div>
+                    <Select.Indicator className="text-foreground-muted" />
+                  </Select.Trigger>
+                  <Select.Popover>
+                    <ListBox>
+                      {startupPages.map((page) => (
+                        <ListBox.Item key={page.id} id={page.id} textValue={page.label}>
+                          <div className="flex items-center gap-2">
+                            <Icon
+                              icon={page.icon}
+                              className="size-4 text-foreground-muted shrink-0"
+                            />
+                            <span>{page.label}</span>
+                          </div>
+                          <ListBox.ItemIndicator className="text-accent" />
+                        </ListBox.Item>
+                      ))}
+                    </ListBox>
+                  </Select.Popover>
+                </Select>
+              </div>
 
               {/* 语言 */}
               <div className="flex items-center justify-between gap-4">

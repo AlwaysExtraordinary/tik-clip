@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Input, TextArea, Button, useOverlayState } from '@heroui/react';
+import {
+  Modal,
+  Input,
+  TextArea,
+  Button,
+  useOverlayState,
+  ComboBox,
+  ListBox,
+} from '@heroui/react';
 import { Video } from '@/types/video';
 import { db } from '@/db/database';
 import { updateVideoMetadataInDataJson } from '@/services/fileSystem/index';
@@ -30,6 +38,7 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
   const [actor, setActor] = useState('');
+  const [actorOptions, setActorOptions] = useState<string[]>([]);
   const [description, setDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -45,6 +54,72 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
     }
   }, [video, isOpen]);
 
+  // 当弹窗打开时，从 IndexedDB 异步提取所有视频的已有演员列表并初始化选项
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const loadActors = async () => {
+      try {
+        const allVideos = await db.videos.toArray();
+        const set = new Set<string>();
+        for (const v of allVideos) {
+          if (v.actor && v.actor.trim()) {
+            const parts = v.actor.split(/[,，/、;\s]+/);
+            for (const p of parts) {
+              const trimmed = p.trim();
+              if (trimmed) {
+                set.add(trimmed);
+              }
+            }
+          }
+        }
+        if (video?.actor?.trim()) {
+          const parts = video.actor.split(/[,，/、;\s]+/);
+          for (const p of parts) {
+            const trimmed = p.trim();
+            if (trimmed) {
+              set.add(trimmed);
+            }
+          }
+        }
+        setActorOptions(
+          Array.from(set).sort((a, b) =>
+            a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+          )
+        );
+      } catch (err) {
+        console.error('Failed to load actors for ComboBox:', err);
+      }
+    };
+
+    loadActors();
+  }, [isOpen, video]);
+
+  /**
+   * 向候选演员列表中追加新演员（若列表中不存在则更新到选项中）
+   * @param newActor 待添加的新演员名称字符串（支持包含分隔符的多演员输入）
+   */
+  const addActorOption = (newActor: string) => {
+    const trimmed = newActor.trim();
+    if (!trimmed) return;
+    const parts = trimmed.split(/[,，/、;\s]+/);
+    setActorOptions((prev) => {
+      const nextSet = new Set(prev);
+      let changed = false;
+      for (const part of parts) {
+        const p = part.trim();
+        if (p && !Array.from(nextSet).some((item) => item.toLowerCase() === p.toLowerCase())) {
+          nextSet.add(p);
+          changed = true;
+        }
+      }
+      if (!changed) return prev;
+      return Array.from(nextSet).sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+      );
+    });
+  };
+
   const modalState = useOverlayState({
     isOpen,
     onOpenChange: (open) => {
@@ -54,7 +129,10 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
     },
   });
 
-  // 保存视频元数据修改
+  /**
+   * 保存视频元数据修改并同步持久化
+   * @param e 表单提交事件对象（可选）
+   */
   const handleSave = async (e?: React.FormEvent) => {
     if (e) {
       e.preventDefault();
@@ -108,7 +186,12 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
         updatedAt: now,
       });
 
-      // 3. 通知父组件刷新列表状态
+      // 3. 点击保存成功后，将新演员追加至候选列表中
+      if (trimmedActor) {
+        addActorOption(trimmedActor);
+      }
+
+      // 4. 通知父组件刷新列表状态
       onSaved(updatedVideo);
       onClose();
     } catch (err) {
@@ -164,12 +247,34 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
                 {/* 3. 演员 */}
                 <div className="space-y-1.5">
                   <div className="text-sm text-foreground mb-2">{t('videos.actor')}</div>
-                  <Input
-                    value={actor}
-                    onChange={(e) => setActor(e.target.value)}
-                    placeholder={t('videos.actor')}
-                    className="w-full"
-                  />
+                  <ComboBox
+                    fullWidth
+                    allowsCustomValue
+                    inputValue={actor}
+                    onInputChange={(val) => {
+                      setActor(val);
+                    }}
+                    onChange={(key) => {
+                      if (key !== null) {
+                        setActor(String(key));
+                      }
+                    }}
+                  >
+                    <ComboBox.InputGroup>
+                      <Input placeholder={t('videos.actor')} />
+                      <ComboBox.Trigger />
+                    </ComboBox.InputGroup>
+                    <ComboBox.Popover>
+                      <ListBox>
+                        {actorOptions.map((opt) => (
+                          <ListBox.Item key={opt} id={opt} textValue={opt}>
+                            {opt}
+                            <ListBox.ItemIndicator />
+                          </ListBox.Item>
+                        ))}
+                      </ListBox>
+                    </ComboBox.Popover>
+                  </ComboBox>
                 </div>
 
                 {/* 4. 描述 */}

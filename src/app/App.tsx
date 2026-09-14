@@ -14,10 +14,12 @@ export const App: React.FC = () => {
   useGlobalShortcuts();
 
   const initLanguage = useSettingsStore((state) => state.initLanguage);
+  const initStartupPage = useSettingsStore((state) => state.initStartupPage);
 
   useEffect(() => {
     initLanguage();
-  }, [initLanguage]);
+    initStartupPage();
+  }, [initLanguage, initStartupPage]);
 
   return <RouterProvider router={router} />;
 };
