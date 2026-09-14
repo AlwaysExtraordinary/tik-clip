@@ -79,7 +79,7 @@ export const MovieInfoPanel: React.FC<MovieInfoPanelProps> = ({
   if (!movie) return null;
 
   return (
-    <aside
+    <div
       onKeyDown={(e) => {
         // 阻止视频信息面板内部键盘事件向外冒泡
         e.stopPropagation();
@@ -91,11 +91,13 @@ export const MovieInfoPanel: React.FC<MovieInfoPanelProps> = ({
         'left-1/2 -translate-x-1/2 bottom-4 w-[min(calc(100%-32px),28rem)] max-w-md max-h-[42vh] p-4 flex flex-col justify-between gap-2.5',
         // 宽屏容器 (>= 768px: 3xl)：左侧垂直居中悬浮卡片
         '@3xl:left-8 @3xl:top-1/2 @3xl:-translate-y-1/2 @3xl:bottom-auto @3xl:translate-x-0 @3xl:w-80 @3xl:max-h-[calc(100%-48px)] @3xl:p-6 @3xl:gap-4',
+        // 更宽容器
+        '@6xl:w-100',
         // 隐藏状态平滑过渡
         isHidden && 'pointer-events-none opacity-0 translate-y-8 @3xl:translate-y-0'
       )}
     >
-      <div className="flex flex-col gap-3 overflow-y-auto pr-1">
+      <div className="flex flex-col gap-2 overflow-y-auto pr-1">
         {/* 视频名称与在文件夹中显示按钮 */}
         <div>
           <div className="flex items-start justify-between gap-2">
@@ -162,7 +164,7 @@ export const MovieInfoPanel: React.FC<MovieInfoPanelProps> = ({
         {/* 描述信息 */}
         {movie.description && (
           <div className="flex flex-col gap-1 mt-1">
-            <p className="text-xs text-foreground-muted leading-relaxed line-clamp-3 @3xl:line-clamp-5">
+            <p className="text-xs text-foreground-muted leading-relaxed whitespace-pre-wrap wrap-break-word line-clamp-3 @3xl:line-clamp-7">
               {movie.description}
             </p>
           </div>
@@ -175,7 +177,7 @@ export const MovieInfoPanel: React.FC<MovieInfoPanelProps> = ({
         <Button
           size="sm"
           variant="primary"
-          className="w-full flex items-center justify-center gap-1.5 font-medium cursor-pointer"
+          className="w-full flex items-center justify-center gap-1.5 font-medium cursor-pointer @6xl:h-10"
           onPress={() => onPlay(movie.video.id)}
         >
           <Icon icon="lucide:play" className="size-4" />
@@ -222,6 +224,6 @@ export const MovieInfoPanel: React.FC<MovieInfoPanelProps> = ({
           onMovieUpdated?.(updatedVideo);
         }}
       />
-    </aside>
+    </div>
   );
 };

@@ -11,7 +11,6 @@ import { CoverflowCanvas } from '@/components/coverflow/CoverflowCanvas';
 import { CoverflowNavbar } from '@/components/coverflow/CoverflowNavbar';
 import { MovieInfoPanel } from '@/components/coverflow/MovieInfoPanel';
 import { ZoomControls } from '@/components/coverflow/ZoomControls';
-import { StatusPill } from '@/components/coverflow/StatusPill';
 import { CoverflowScene } from '@/components/coverflow/three/CoverflowScene';
 import { CoverflowMovie, VIEW_STATES, ViewMode, ViewState } from '@/components/coverflow/types';
 
@@ -430,9 +429,6 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
         onMovieUpdated={handleMovieUpdated}
         isHidden={viewState !== VIEW_STATES.DETAIL}
       />
-
-      {/* 状态胶囊指示器 */}
-      <StatusPill state={viewState} />
     </div>
   );
 };

@@ -21,7 +21,7 @@ src/
 ├── components/           # UI 组件
 │   ├── video/            # 视频播放器 (VideoPlayer)、控制器、进度条及悬停缩略图预览
 │   ├── clip/             # 片段 Feed 流容器 (ClipFeedContainer)、表单、列表与标签面板
-│   ├── coverflow/        # 3D 封面流组件 (CoverflowCanvas, CoverflowNavbar, MovieInfoPanel, ZoomControls, StatusPill)
+│   ├── coverflow/        # 3D 封面流组件 (CoverflowCanvas, CoverflowNavbar, MovieInfoPanel, ZoomControls)
 │   ├── layout/           # 布局框架 (MainLayout, Sidebar)
 │   └── settings/         # 设置弹窗
 ├── services/             # 核心服务层
