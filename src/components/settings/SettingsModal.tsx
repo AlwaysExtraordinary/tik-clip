@@ -60,8 +60,6 @@ export const SettingsModal: React.FC = () => {
     { id: '/coverflow', label: t('nav.coverflow'), icon: 'lucide:gallery-horizontal-end' },
   ];
 
-  const currentStartupPage = startupPages.find((p) => p.id === startupPage) || startupPages[0];
-
   return (
     <Modal state={modalState}>
       <Modal.Backdrop variant="blur">
