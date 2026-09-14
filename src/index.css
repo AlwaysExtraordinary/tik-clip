@@ -129,6 +129,16 @@ body {
   background: rgb(var(--foreground-muted) / 0.4);
 }
 
+/* 隐藏元素滚动条 */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* 自定义滑块输入控件样式 */
 input[type='range'] {
   -webkit-appearance: none;

@@ -310,7 +310,7 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
                       onChange={(e) => setDescription(e.target.value)}
                       placeholder={t('videos.description')}
                       rows={3}
-                      className="w-full"
+                      className="w-full no-scrollbar"
                     />
                   </div>
 

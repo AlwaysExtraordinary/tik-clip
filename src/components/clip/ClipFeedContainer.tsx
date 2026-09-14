@@ -332,7 +332,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`relative w-full h-full overflow-y-scroll overflow-x-hidden select-none snap-y snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+      className={`relative w-full h-full overflow-y-scroll overflow-x-hidden select-none snap-y snap-mandatory no-scrollbar ${
         isFullscreen ? 'rounded-none' : 'rounded-3xl'
       }`}
       style={{

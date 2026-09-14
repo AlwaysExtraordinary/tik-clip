@@ -44,6 +44,28 @@ export const VideoDetailPage: React.FC = () => {
     toggleDetailFitMode,
   } = usePlayerStore();
 
+  // 控制片段面板挂载与过渡动画：关闭时等待 300ms 过渡完成再卸载 DOM，展开时通过双 rAF 触发平滑过渡
+  const [shouldRenderClipPanel, setShouldRenderClipPanel] = useState(isClipPanelOpen);
+  const [isClipPanelExpanded, setIsClipPanelExpanded] = useState(isClipPanelOpen);
+
+  useEffect(() => {
+    if (isClipPanelOpen) {
+      setShouldRenderClipPanel(true);
+      const rafId = requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsClipPanelExpanded(true);
+        });
+      });
+      return () => cancelAnimationFrame(rafId);
+    } else {
+      setIsClipPanelExpanded(false);
+      const timer = setTimeout(() => {
+        setShouldRenderClipPanel(false);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isClipPanelOpen]);
+
   const [video, setVideo] = useState<Video | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
@@ -194,21 +216,23 @@ export const VideoDetailPage: React.FC = () => {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col p-4 md:p-6 lg:p-8">
+    <div className="@container flex h-full min-h-0 flex-1 flex-col p-4 md:p-6 lg:p-8">
       {/* 移动端片段面板背景遮罩 */}
-      <div
-        onClick={() => {
-          setIsClipPanelOpen(false);
-          setEditingClip(null);
-        }}
-        aria-hidden="true"
-        className={cn(
-          'fixed inset-0 z-40 bg-black/40 backdrop-blur-xs transition-opacity duration-300 md:hidden',
-          isClipPanelOpen
-            ? 'pointer-events-auto opacity-100'
-            : 'pointer-events-none hidden opacity-0'
-        )}
-      />
+      {shouldRenderClipPanel && (
+        <div
+          onClick={() => {
+            setIsClipPanelOpen(false);
+            setEditingClip(null);
+          }}
+          aria-hidden="true"
+          className={cn(
+            'fixed inset-0 z-40 bg-black/40 backdrop-blur-xs transition-opacity duration-300 @3xl:hidden',
+            isClipPanelExpanded
+              ? 'pointer-events-auto opacity-100'
+              : 'pointer-events-none opacity-0'
+          )}
+        />
+      )}
 
       {/* 顶部返回导航栏 */}
       <div className="flex items-center justify-between pb-3 select-none">
@@ -226,9 +250,12 @@ export const VideoDetailPage: React.FC = () => {
           <span className="text-md text-foreground truncate font-semibold" title={video.name}>
             {video.name}
           </span>
-          <span className="text-foreground-muted hidden text-xs sm:inline">
-            ({t('videoDetail.clipCount', { count: clips.length })})
-          </span>
+          {/* 片段数量 */}
+          {isClipPanelOpen && (
+            <span className="text-foreground-muted hidden text-xs sm:inline">
+              ({t('videoDetail.clipCount', { count: clips.length })})
+            </span>
+          )}
         </div>
       </div>
 
@@ -236,7 +263,7 @@ export const VideoDetailPage: React.FC = () => {
       <div
         className={cn(
           'relative flex min-h-0 min-w-0 flex-1 transition-all duration-300 ease-in-out',
-          isClipPanelOpen ? 'md:gap-4' : 'gap-0'
+          isClipPanelExpanded ? '@3xl:gap-4' : 'gap-0'
         )}
       >
         {/* 视频播放器容器 */}
@@ -266,28 +293,32 @@ export const VideoDetailPage: React.FC = () => {
         </div>
 
         {/* 右侧片段面板 */}
-        <div
-          className={cn(
-            'h-full shrink-0 transition-all duration-300 ease-in-out',
-            // 移动端样式：从右侧悬浮滑出
-            'fixed inset-y-0 right-0 z-50 w-80 max-w-[85vw] p-3 sm:w-88 sm:p-4',
-            // 桌面端样式：常规 flex 侧边栏与折叠过渡
-            'md:static md:inset-auto md:z-auto md:max-w-none md:p-0',
-            isClipPanelOpen
-              ? 'translate-x-0 opacity-100 md:w-88'
-              : 'pointer-events-none translate-x-full opacity-0 md:w-0 md:translate-x-[calc(100%+3rem)]'
-          )}
-        >
-          <div className="h-full w-full md:w-88">
-            <ClipPanel
-              videoDuration={video.duration}
-              currentVideoTime={currentVideoTime}
-              clips={clips}
-              onSaveClip={handleSaveClip}
-              onDeleteClip={handleDeleteClip}
-            />
+        {shouldRenderClipPanel && (
+          <div
+            className={cn(
+              'h-full shrink-0 transition-all duration-300 ease-in-out',
+              // 移动端样式：从右侧悬浮滑出
+              'fixed inset-y-0 right-0 z-50 w-88 max-w-[85vw] p-4',
+              // 桌面端给标题栏空位
+              isTauri() ? 'pt-10' : '',
+              // 桌面端样式：常规 flex 侧边栏与折叠过渡
+              '@3xl:static @3xl:inset-auto @3xl:z-auto @3xl:max-w-none @3xl:p-0',
+              isClipPanelExpanded
+                ? 'translate-x-0 opacity-100 @3xl:w-88'
+                : 'pointer-events-none translate-x-full opacity-0 overflow-hidden @3xl:w-0 @3xl:translate-x-[calc(100%+3rem)]'
+            )}
+          >
+            <div className="h-full w-full @3xl:w-88">
+              <ClipPanel
+                videoDuration={video.duration}
+                currentVideoTime={currentVideoTime}
+                clips={clips}
+                onSaveClip={handleSaveClip}
+                onDeleteClip={handleDeleteClip}
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
