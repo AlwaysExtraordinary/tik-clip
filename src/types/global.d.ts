@@ -47,7 +47,14 @@ interface Window {
   showDirectoryPicker(options?: {
     id?: string;
     mode?: 'read' | 'readwrite';
-    startIn?: 'desktop' | 'documents' | 'downloads' | 'music' | 'pictures' | 'videos';
+    startIn?:
+      | 'desktop'
+      | 'documents'
+      | 'downloads'
+      | 'music'
+      | 'pictures'
+      | 'videos'
+      | FileSystemHandle;
   }): Promise<FileSystemDirectoryHandle>;
   showOpenFilePicker(options?: unknown): Promise<FileSystemFileHandle[]>;
 }

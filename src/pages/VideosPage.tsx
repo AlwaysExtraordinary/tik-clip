@@ -14,7 +14,7 @@ import {
   updateVideoNameInDataJson,
   hideVideoInDataJson,
   isTauri,
-  revealInFileManager,
+  openPathInOs,
 } from '@/services/fileSystem/index';
 import { ConfirmModal } from '@/components/general/ConfirmModal';
 import { VideoDetailsModal } from '@/components/video/VideoDetailsModal';
@@ -442,9 +442,10 @@ export const VideosPage: React.FC = () => {
                                     setHideConfirmVideo(video);
                                     setIsShowHideConfirm(true);
                                   } else if (key === 'reveal' && activeDirectory?.path) {
-                                    const sep = activeDirectory.path.includes('\\') ? '\\' : '/';
-                                    const fullPath = `${activeDirectory.path}${sep}${video.folderName}`;
-                                    revealInFileManager(fullPath);
+                                    const dirPath = activeDirectory.path;
+                                    const sep = dirPath.includes('\\') ? '\\' : '/';
+                                    const fullPath = `${dirPath.replace(/[\\/]+$/, '')}${sep}${video.folderName}`;
+                                    openPathInOs(fullPath);
                                   }
                                 }}
                               >

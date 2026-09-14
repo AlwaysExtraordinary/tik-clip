@@ -25,6 +25,10 @@
     "core:window:allow-hide",
     "dialog:default",
     "opener:default",
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [{ "path": "**" }]
+    },
     "global-shortcut:default",
     "fs:default",
     {

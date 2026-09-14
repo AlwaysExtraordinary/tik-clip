@@ -32,6 +32,33 @@ function getDirectoryName(fullPath: string): string {
   return parts[parts.length - 1] || fullPath;
 }
 
+/**
+ * 获取指定文件/目录路径的父级目录路径
+ * @param fullPath 绝对路径
+ */
+function getParentDirectory(fullPath: string): string {
+  const normalized = fullPath.replace(/[\\/]+$/, '');
+
+  // 匹配 Windows 盘符根目录，例如 "C:" 或 "C:\"
+  if (/^[a-zA-Z]:[\\/]?$/.test(normalized)) {
+    return normalized.endsWith('\\') || normalized.endsWith('/') ? normalized : `${normalized}\\`;
+  }
+
+  const lastIndex = Math.max(normalized.lastIndexOf('/'), normalized.lastIndexOf('\\'));
+  if (lastIndex === -1) {
+    return normalized;
+  }
+
+  const parent = normalized.slice(0, lastIndex);
+  if (!parent) {
+    return '/';
+  }
+  if (/^[a-zA-Z]:$/.test(parent)) {
+    return `${parent}\\`;
+  }
+  return parent;
+}
+
 export class TauriFileSystemAdapter implements IFileSystemAdapter {
   readonly isTauri = true;
 
@@ -39,11 +66,22 @@ export class TauriFileSystemAdapter implements IFileSystemAdapter {
     return isTauri();
   }
 
-  async selectDirectory(): Promise<DirectoryRef | null> {
+  /**
+   * 弹出系统目录选择对话框（支持定位至上次选择目录的父级目录）
+   * @param defaultRef 上次选择的目录引用
+   */
+  async selectDirectory(defaultRef?: DirectoryRef | null): Promise<DirectoryRef | null> {
+    let defaultPath: string | undefined;
+
+    if (defaultRef?.path) {
+      defaultPath = getParentDirectory(defaultRef.path);
+    }
+
     const selected = await open({
       directory: true,
       multiple: false,
       title: '选择视频存储根目录',
+      defaultPath,
     });
 
     if (!selected || typeof selected !== 'string') {

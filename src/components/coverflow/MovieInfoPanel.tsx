@@ -4,6 +4,8 @@ import { Chip, Button } from '@heroui/react';
 import { useTranslation } from 'react-i18next';
 import { CoverflowMovie } from './types';
 import { cn } from '@/utils/cn';
+import { useAppStore } from '@/stores/appStore';
+import { isTauri, openPathInOs } from '@/services/fileSystem/index';
 
 interface MovieInfoPanelProps {
   movie: CoverflowMovie | null;
@@ -12,6 +14,7 @@ interface MovieInfoPanelProps {
   onPrev: () => void;
   onNext: () => void;
   onPlay: (videoId: string) => void;
+  onOpenFolder?: (movie: CoverflowMovie) => void;
   isHidden?: boolean;
 }
 
@@ -26,9 +29,25 @@ export const MovieInfoPanel: React.FC<MovieInfoPanelProps> = ({
   onPrev,
   onNext,
   onPlay,
+  onOpenFolder,
   isHidden = false,
 }) => {
   const { t } = useTranslation();
+  const directoryRef = useAppStore((s) => s.directoryRef);
+  const canOpenFolder = isTauri() && Boolean(directoryRef?.path);
+
+  // 打开当前电影所在的本地文件夹
+  const handleOpenFolder = () => {
+    if (onOpenFolder && movie) {
+      onOpenFolder(movie);
+      return;
+    }
+    if (!directoryRef?.path || !movie?.video?.folderName) return;
+    const dirPath = directoryRef.path;
+    const sep = dirPath.includes('\\') ? '\\' : '/';
+    const fullPath = `${dirPath.replace(/[\\/]+$/, '')}${sep}${movie.video.folderName}`;
+    openPathInOs(fullPath);
+  };
 
   // 格式化演员数据为标签数组（对齐 dev 分支分割规则）
   const movieActor = movie?.actor ?? movie?.video?.actor;
@@ -50,7 +69,7 @@ export const MovieInfoPanel: React.FC<MovieInfoPanelProps> = ({
   return (
     <aside
       className={cn(
-        'absolute z-20 transition-all duration-300 ease-in-out',
+        'absolute z-20 transition-all duration-300 ease-in-out select-text',
         'bg-surface/90 backdrop-blur-xl border border-border rounded-2xl shadow-floating',
         // 移动端 / 窄容器 (< 768px: 3xl)：居中位于封面正下方抽屉式面板
         'left-1/2 -translate-x-1/2 bottom-4 w-[min(calc(100%-32px),28rem)] max-w-md max-h-[42vh] p-4 flex flex-col justify-between gap-2.5',
@@ -61,16 +80,32 @@ export const MovieInfoPanel: React.FC<MovieInfoPanelProps> = ({
       )}
     >
       <div className="flex flex-col gap-3 overflow-y-auto pr-1">
-        {/* 视频名称 */}
+        {/* 视频名称与在文件夹中显示按钮 */}
         <div>
-          <h2 className="text-base @3xl:text-lg font-bold text-foreground leading-snug wrap-break-word">
-            {movie.title}
-          </h2>
+          <div className="flex items-start justify-between gap-2">
+            <h2 className="text-base @3xl:text-lg font-bold text-foreground leading-snug wrap-break-word flex-1">
+              {movie.title}
+            </h2>
+
+            {/* 在文件夹中显示按钮 */}
+            {canOpenFolder && (
+              <Button
+                size="sm"
+                variant="ghost"
+                isIconOnly
+                aria-label={t('videos.revealInExplorer', '在文件夹中显示')}
+                className="size-7 @3xl:size-8 shrink-0 bg-surface-hover hover:bg-surface-active text-foreground-muted hover:text-foreground"
+                onPress={handleOpenFolder}
+              >
+                <Icon icon="lucide:folder-symlink" className="size-4" />
+              </Button>
+            )}
+          </div>
 
           {/* 类别标签 */}
           {movie.category && (
             <div className="mt-2 flex items-center gap-2">
-              <Chip color="accent" variant="primary" size="sm">
+              <Chip color="accent" variant="soft" size="sm">
                 {movie.category}
               </Chip>
             </div>
@@ -97,7 +132,7 @@ export const MovieInfoPanel: React.FC<MovieInfoPanelProps> = ({
         {/* 描述信息 */}
         {movie.description && (
           <div className="flex flex-col gap-1 mt-1">
-            <p className="text-xs text-foreground-muted leading-relaxed select-text line-clamp-3 @3xl:line-clamp-5">
+            <p className="text-xs text-foreground-muted leading-relaxed line-clamp-3 @3xl:line-clamp-5">
               {movie.description}
             </p>
           </div>

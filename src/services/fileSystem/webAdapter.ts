@@ -16,7 +16,11 @@ export class WebFileSystemAdapter implements IFileSystemAdapter {
     return typeof window !== 'undefined' && 'showDirectoryPicker' in window;
   }
 
-  async selectDirectory(): Promise<DirectoryRef | null> {
+  /**
+   * 弹出目录选择对话框（支持通过 startIn 定位至已选择目录）
+   * @param defaultRef 上次选择的目录引用（可选）
+   */
+  async selectDirectory(defaultRef?: DirectoryRef | null): Promise<DirectoryRef | null> {
     if (!this.isSupported()) {
       throw new Error(
         'Your browser does not support local folder access. Please use Chrome or Edge.'
@@ -24,9 +28,14 @@ export class WebFileSystemAdapter implements IFileSystemAdapter {
     }
 
     try {
-      const handle = await window.showDirectoryPicker({
+      const options: Parameters<typeof window.showDirectoryPicker>[0] = {
         mode: 'readwrite',
-      });
+      };
+      if (defaultRef?.handle) {
+        options.startIn = defaultRef.handle;
+      }
+
+      const handle = await window.showDirectoryPicker(options);
       return {
         name: handle.name,
         handle,

@@ -59,15 +59,29 @@ export async function revealInFileManager(targetPath: string): Promise<boolean> 
 
 /**
  * 在操作系统中直接打开文件或目录
+ * @param targetPath 目标文件或目录绝对路径
  */
 export async function openPathInOs(targetPath: string): Promise<boolean> {
   if (!isTauri() || !targetPath) return false;
+  const isWindows = targetPath.includes('\\') || /^[a-zA-Z]:/.test(targetPath);
+  const normalizedPath = isWindows ? targetPath.replace(/\//g, '\\') : targetPath;
+
+  // 1. 优先调用 Tauri 原生 open_folder 命令（直接启动系统 Explorer/Finder 进入对应目录）
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('open_folder', { path: normalizedPath });
+    return true;
+  } catch (invokeErr) {
+    console.warn('Native open_folder command failed, trying plugin-opener:', invokeErr);
+  }
+
+  // 2. 备选使用 @tauri-apps/plugin-opener 的 openPath
   try {
     const { openPath } = await import('@tauri-apps/plugin-opener');
-    await openPath(targetPath);
+    await openPath(normalizedPath);
     return true;
   } catch (err) {
-    console.warn('Failed to open path in OS:', err);
+    console.error('Failed to open path in OS:', err);
     return false;
   }
 }
@@ -76,8 +90,14 @@ export function isFileSystemAccessSupported(): boolean {
   return fileSystemAdapter.isSupported();
 }
 
-export async function promptDirectoryPicker(): Promise<DirectoryRef | null> {
-  return fileSystemAdapter.selectDirectory();
+/**
+ * 弹出目录选择对话框
+ * @param defaultRef 上次选择的目录引用（可选）
+ */
+export async function promptDirectoryPicker(
+  defaultRef?: DirectoryRef | null
+): Promise<DirectoryRef | null> {
+  return fileSystemAdapter.selectDirectory(defaultRef);
 }
 
 function toDirectoryRef(target: DirectoryRef | FileSystemDirectoryHandle): DirectoryRef {

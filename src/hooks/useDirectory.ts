@@ -48,7 +48,8 @@ export function useDirectory() {
   const selectDirectory = useCallback(async () => {
     try {
       setErrorMessage(null);
-      const ref = await promptDirectoryPicker();
+      const currentRef = directoryRef || (await getStoredDirectoryRef());
+      const ref = await promptDirectoryPicker(currentRef);
       if (!ref) return false;
 
       // 切换文件夹时完全重置 clips 全局状态
@@ -64,7 +65,7 @@ export function useDirectory() {
       setErrorMessage(err instanceof Error ? err.message : 'Failed to select directory');
       return false;
     }
-  }, [setDirectoryRef, setHasDirectoryPermission, performScan, setErrorMessage]);
+  }, [directoryRef, setDirectoryRef, setHasDirectoryPermission, performScan, setErrorMessage]);
 
   // 重新授权已保存的目录（由用户交互点击触发，唤起浏览器权限弹窗）
   const reauthorizeDirectory = useCallback(async () => {

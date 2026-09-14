@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "identifier": "com.alwaysub.tikclip",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "npm run dev -- --no-open",
     "devUrl": "http://localhost:30001",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"

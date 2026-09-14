@@ -10,7 +10,7 @@ import {
   getVideoMediaSource,
   syncVideoClipsToDataJson,
   isTauri,
-  revealInFileManager,
+  openPathInOs,
 } from '@/services/fileSystem/index';
 import { generateClipId } from '@/utils/id';
 import { useDirectory } from '@/hooks/useDirectory';
@@ -254,9 +254,11 @@ export const VideoDetailPage: React.FC = () => {
             onRevealInExplorer={
               isTauri() && activeDirectory?.path
                 ? () => {
-                    const sep = activeDirectory.path?.includes('\\') ? '\\' : '/';
-                    const fullPath = `${activeDirectory.path}${sep}${video.folderName}`;
-                    revealInFileManager(fullPath);
+                    const dirPath = activeDirectory.path;
+                    if (!dirPath) return;
+                    const sep = dirPath.includes('\\') ? '\\' : '/';
+                    const fullPath = `${dirPath.replace(/[\\/]+$/, '')}${sep}${video.folderName}`;
+                    openPathInOs(fullPath);
                   }
                 : undefined
             }

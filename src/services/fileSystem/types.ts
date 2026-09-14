@@ -29,8 +29,9 @@ export interface IFileSystemAdapter {
 
   /**
    * 弹出目录选择对话框
+   * @param defaultRef 上次选择的目录引用（可选）
    */
-  selectDirectory(): Promise<DirectoryRef | null>;
+  selectDirectory(defaultRef?: DirectoryRef | null): Promise<DirectoryRef | null>;
 
   /**
    * 静默查询目录读写权限（无需用户手势，适合应用启动检查）

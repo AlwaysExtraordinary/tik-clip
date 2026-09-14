@@ -95,6 +95,32 @@ fn stop_watching_directory(state: State<'_, WatcherState>) -> Result<(), String>
 
 mod stream;
 
+#[tauri::command]
+fn open_folder(path: String) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
@@ -130,7 +156,8 @@ pub fn run() {
         .manage(WatcherState::default())
         .invoke_handler(tauri::generate_handler![
             start_watching_directory,
-            stop_watching_directory
+            stop_watching_directory,
+            open_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running tik-clip application");
