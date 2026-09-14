@@ -9,11 +9,7 @@ import { useDirectory } from '@/hooks/useDirectory';
 import { Icon } from '@iconify/react';
 import { Dropdown, Modal, useOverlayState } from '@heroui/react';
 import { FilterSelect } from '@/components/general/FilterSelect';
-import {
-  hideVideoInDataJson,
-  isTauri,
-  openPathInOs,
-} from '@/services/fileSystem/index';
+import { hideVideoInDataJson, isTauri, openPathInOs } from '@/services/fileSystem/index';
 import { ConfirmModal } from '@/components/general/ConfirmModal';
 import { VideoDetailsModal } from '@/components/video/VideoDetailsModal';
 import { cn } from '@/utils/cn';
@@ -47,6 +43,9 @@ export const VideosPage: React.FC = () => {
   // 页面独立筛选状态（不与 Clips 页面同步）
   const [selectedCategory, setSelectedCategoryState] = useState<string | null>(null);
   const [selectedActor, setSelectedActorState] = useState<string | null>(null);
+
+  // 排序方式状态：默认为按名称排序 ('name')
+  const [sortBy, setSortBy] = useState<'name' | 'clipsCount'>('name');
 
   // 统一归一化为 null（当选择 'all' 或空时）
   const setSelectedCategory = useCallback((cat: string | null) => {
@@ -132,9 +131,9 @@ export const VideosPage: React.FC = () => {
     }
   }, [availableActors, selectedActor, setSelectedActor]);
 
-  // 依据筛选器计算当前显示的视频列表
+  // 依据筛选器与排序方式计算当前显示的视频列表
   const filteredVideos = useMemo(() => {
-    return videos.filter((v) => {
+    const list = videos.filter((v) => {
       const matchCategory =
         !selectedCategory || selectedCategory === 'all'
           ? true
@@ -147,7 +146,15 @@ export const VideosPage: React.FC = () => {
 
       return matchCategory && matchActor;
     });
-  }, [videos, selectedCategory, selectedActor]);
+
+    return list.sort((a, b) => {
+      if (sortBy === 'clipsCount') {
+        const countDiff = b.clipsCount - a.clipsCount;
+        if (countDiff !== 0) return countDiff;
+      }
+      return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+    });
+  }, [videos, selectedCategory, selectedActor, sortBy]);
 
   // 卡片操作列表
   const videoActionList = [
@@ -218,8 +225,6 @@ export const VideosPage: React.FC = () => {
     },
   });
 
-
-
   // 隐藏视频
   const handleDeleteVideo = async (video: Video) => {
     // 从列表中隐藏/删除
@@ -274,36 +279,45 @@ export const VideosPage: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {/* 顶部筛选工具栏 */}
-      {(hasAnyCategory || hasAnyActor) && (
-        <div className="flex items-center gap-3 px-4 md:px-6 lg:px-8 pt-4 pb-1 shrink-0 flex-wrap">
-          {/* 种类筛选 */}
-          {hasAnyCategory && (
-            <FilterSelect
-              value={selectedCategory}
-              onChange={setSelectedCategory}
-              icon="lucide:folder"
-              defaultLabel={t('videos.allCategories')}
-              options={availableCategories}
-              placeholder={t('videos.filterByCategory')}
-              ariaLabel={t('videos.filterByCategory')}
-            />
-          )}
+      {/* 顶部筛选与排序工具栏 */}
+      <div className="flex items-center gap-3 px-4 md:px-6 lg:px-8 pt-4 pb-1 shrink-0 flex-wrap">
+        {/* 种类筛选 */}
+        {hasAnyCategory && (
+          <FilterSelect
+            value={selectedCategory}
+            onChange={setSelectedCategory}
+            icon="lucide:folder"
+            defaultLabel={t('videos.allCategories')}
+            options={availableCategories}
+            placeholder={t('videos.filterByCategory')}
+            ariaLabel={t('videos.filterByCategory')}
+          />
+        )}
 
-          {/* 演员筛选 */}
-          {hasAnyActor && (
-            <FilterSelect
-              value={selectedActor}
-              onChange={setSelectedActor}
-              icon="lucide:user"
-              defaultLabel={t('videos.allActors')}
-              options={availableActors}
-              placeholder={t('videos.filterByActor')}
-              ariaLabel={t('videos.filterByActor')}
-            />
-          )}
-        </div>
-      )}
+        {/* 演员筛选 */}
+        {hasAnyActor && (
+          <FilterSelect
+            value={selectedActor}
+            onChange={setSelectedActor}
+            icon="lucide:user"
+            defaultLabel={t('videos.allActors')}
+            options={availableActors}
+            placeholder={t('videos.filterByActor')}
+            ariaLabel={t('videos.filterByActor')}
+          />
+        )}
+
+        {/* 排序选择器 */}
+        <FilterSelect
+          value={sortBy === 'clipsCount' ? t('videos.sortByClipCount') : null}
+          onChange={(val) => setSortBy(val === t('videos.sortByClipCount') ? 'clipsCount' : 'name')}
+          icon="lucide:arrow-up-down"
+          defaultLabel={t('videos.defaultSort')}
+          options={[t('videos.sortByClipCount')]}
+          placeholder={t('videos.sortBy')}
+          ariaLabel={t('videos.sortBy')}
+        />
+      </div>
 
       {/* 可滚动网格容器 */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6 md:pt-4 lg:p-8 lg:pt-4">
@@ -394,9 +408,7 @@ export const VideosPage: React.FC = () => {
                                   <div
                                     className={cn(
                                       'flex items-center gap-2 w-full text-xs font-medium rounded-xl',
-                                      item.textColorClass
-                                        ? item.textColorClass
-                                        : 'text-foreground'
+                                      item.textColorClass ? item.textColorClass : 'text-foreground'
                                     )}
                                   >
                                     <Icon icon={item.iconName} className="size-3.5" />

@@ -55,6 +55,7 @@ import arrowLeft from '@iconify-icons/lucide/arrow-left';
 import unlock from '@iconify-icons/lucide/unlock';
 import info from '@iconify-icons/lucide/info';
 import user from '@iconify-icons/lucide/user';
+import arrowUpDown from '@iconify-icons/lucide/arrow-up-down';
 
 // 状态与设置
 import loader2 from '@iconify-icons/lucide/loader-2';
@@ -134,6 +135,7 @@ export function setupIcons(): void {
     'lucide:unlock': unlock,
     'lucide:info': info,
     'lucide:user': user,
+    'lucide:arrow-up-down': arrowUpDown,
 
     'lucide:loader-2': loader2,
     'lucide:alert-circle': alertCircle,

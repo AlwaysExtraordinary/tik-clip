@@ -51,6 +51,10 @@
     "allActors": "全部演员",
     "filterByCategory": "按类别筛选",
     "filterByActor": "按演员筛选",
+    "sortBy": "排序方式",
+    "defaultSort": "默认排序",
+    "sortByName": "默认排序",
+    "sortByClipCount": "片段数量排序",
     "noFilteredVideos": "未找到符合筛选条件的视频"
   },
   "videoDetail": {

@@ -51,6 +51,10 @@
     "allActors": "すべての出演者",
     "filterByCategory": "カテゴリーで絞り込み",
     "filterByActor": "出演者で絞り込み",
+    "sortBy": "並び替え",
+    "defaultSort": "デフォルト順",
+    "sortByName": "デフォルト順",
+    "sortByClipCount": "クリップ数順",
     "noFilteredVideos": "条件に一致する動画がありません"
   },
   "videoDetail": {
