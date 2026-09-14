@@ -460,6 +460,8 @@ export class CoverflowScene {
         const reflectionMesh = new THREE.Mesh(this.reflectionGeometry, reflectionMaterials);
         reflectionMesh.position.set(0, -this.cardHeight - this.reflectionGap, 0);
         reflectionMesh.userData = { index: i, movie, isReflection: true };
+        // 倒影仅作为视觉特效展示，禁用射线拾取，不支持鼠标悬停与点击交互
+        reflectionMesh.raycast = () => {};
         mesh.add(reflectionMesh);
 
         mesh.reflectionMesh = reflectionMesh;
@@ -696,8 +698,9 @@ export class CoverflowScene {
       this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       this.raycaster.setFromCamera(this.mouse, this.camera);
 
+      // 光标悬停交互：仅检测卡片主体实体，倒影区域保持默认光标
       const visibleMeshes = this.cardMeshes.filter((m) => m.visible);
-      const intersects = this.raycaster.intersectObjects(visibleMeshes, true);
+      const intersects = this.raycaster.intersectObjects(visibleMeshes, false);
 
       this.canvas.style.cursor = intersects.length > 0 ? 'pointer' : 'default';
     }
@@ -743,8 +746,9 @@ export class CoverflowScene {
     this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
     this.raycaster.setFromCamera(this.mouse, this.camera);
 
+    // 仅检测卡片主体实体，倒影区域不支持点击放大封面
     const visibleMeshes = this.cardMeshes.filter((m) => m.visible);
-    const intersects = this.raycaster.intersectObjects(visibleMeshes, true);
+    const intersects = this.raycaster.intersectObjects(visibleMeshes, false);
 
     if (intersects.length > 0) {
       const hitObj = intersects[0].object;
