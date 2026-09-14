@@ -26,6 +26,7 @@ export class CoverflowScene {
   private canvas: HTMLCanvasElement;
   private onMovieChange?: (movie: CoverflowMovie | null, index: number, total: number) => void;
   private onStateChange?: (state: ViewState) => void;
+  private currentLoadSession = 0;
 
   // Three.js 核心对象
   private scene!: THREE.Scene;
@@ -361,139 +362,236 @@ export class CoverflowScene {
   }
 
   /**
-   * 载入电影列表，为每个包含有效封面的视频生成 3D 实体模型
-   * @param movieList 视频封面数据数组
+   * 为单个电影构建 3D 卡片实体模型与倒影模型
+   * @param movie 电影数据
+   * @param index 卡片在列表中的索引
    */
-  public async setMovies(movieList: CoverflowMovie[]): Promise<void> {
+  private async createCardMesh(movie: CoverflowMovie, index: number): Promise<CardMesh | null> {
+    try {
+      // 裁切与生成 front, spine, back 3 张纹理
+      const { frontCanvas, spineCanvas, backCanvas } = await processCoverSpreadTexture(
+        movie.textureUrl,
+        movie.title
+      );
+
+      const frontTex = new THREE.CanvasTexture(frontCanvas);
+      const spineTex = new THREE.CanvasTexture(spineCanvas);
+      const backTex = new THREE.CanvasTexture(backCanvas);
+
+      [frontTex, spineTex, backTex].forEach((t) => {
+        t.colorSpace = THREE.SRGBColorSpace;
+        t.generateMipmaps = true;
+        t.minFilter = THREE.LinearMipmapLinearFilter;
+        t.magFilter = THREE.LinearFilter;
+      });
+
+      // 立方体 6 面材质映射
+      const materials: THREE.Material[] = [
+        this.plasticEdgeMat,
+        new THREE.MeshBasicMaterial({ map: spineTex }),
+        this.plasticEdgeMat,
+        this.plasticEdgeMat,
+        new THREE.MeshBasicMaterial({ map: frontTex }),
+        new THREE.MeshBasicMaterial({ map: backTex }),
+      ];
+
+      const mesh = new THREE.Mesh(this.boxGeometry, materials) as unknown as CardMesh;
+      mesh.userData = { index, movie };
+
+      // 为倒影生成带有微磨砂高斯模糊的材质纹理（降采样 + 模糊，消除生硬镜面感）
+      const spineBlurRadius = Math.max(1, Math.round(this.reflectionBlurRadius * 0.5));
+      const refFrontCanvas = this.createBlurredCanvas(frontCanvas, this.reflectionBlurRadius);
+      const refSpineCanvas = this.createBlurredCanvas(spineCanvas, spineBlurRadius);
+      const refBackCanvas = this.createBlurredCanvas(backCanvas, this.reflectionBlurRadius);
+
+      const refFrontTex = new THREE.CanvasTexture(refFrontCanvas);
+      const refSpineTex = new THREE.CanvasTexture(refSpineCanvas);
+      const refBackTex = new THREE.CanvasTexture(refBackCanvas);
+
+      [refFrontTex, refSpineTex, refBackTex].forEach((t) => {
+        t.colorSpace = THREE.SRGBColorSpace;
+        t.generateMipmaps = true;
+        t.minFilter = THREE.LinearMipmapLinearFilter;
+        t.magFilter = THREE.LinearFilter;
+      });
+
+      // 倒影 6 面材质映射（使用共享 Alpha 渐隐贴图与磨砂模糊贴图，启用深度写入与裁剪消除重叠）
+      const reflectionMaterials: THREE.MeshBasicMaterial[] = [
+        this.reflectionPlasticEdgeMat,
+        new THREE.MeshBasicMaterial({
+          map: refSpineTex,
+          alphaMap: this.reflectionAlphaMap,
+          transparent: true,
+          opacity: this.reflectionBaseOpacity,
+          depthWrite: true,
+          alphaTest: 0.001,
+        }),
+        this.reflectionPlasticEdgeMat,
+        this.reflectionPlasticEdgeMat,
+        new THREE.MeshBasicMaterial({
+          map: refFrontTex,
+          alphaMap: this.reflectionAlphaMap,
+          transparent: true,
+          opacity: this.reflectionBaseOpacity,
+          depthWrite: true,
+          alphaTest: 0.001,
+        }),
+        new THREE.MeshBasicMaterial({
+          map: refBackTex,
+          alphaMap: this.reflectionAlphaMap,
+          transparent: true,
+          opacity: this.reflectionBaseOpacity,
+          depthWrite: true,
+          alphaTest: 0.001,
+        }),
+      ];
+
+      const reflectionMesh = new THREE.Mesh(this.reflectionGeometry, reflectionMaterials);
+      reflectionMesh.position.set(0, -this.cardHeight - this.reflectionGap, 0);
+      reflectionMesh.userData = { index, movie, isReflection: true };
+      // 倒影仅作为视觉特效展示，禁用射线拾取，不支持鼠标悬停与点击交互
+      reflectionMesh.raycast = () => {};
+      mesh.add(reflectionMesh);
+
+      mesh.reflectionMesh = reflectionMesh;
+      mesh.reflectionMaterials = reflectionMaterials;
+
+      // 初始化平滑插值目标变换
+      mesh.targetPosition = new THREE.Vector3();
+      mesh.targetRotationY = 0;
+      mesh.targetRotationX = 0;
+      mesh.targetScale = 1.0;
+
+      return mesh;
+    } catch (err) {
+      console.warn(`Failed to process cover texture for movie "${movie.title}":`, err);
+      return null;
+    }
+  }
+
+  /**
+   * 载入电影列表，为每个包含有效封面的视频生成 3D 实体模型
+   * 采用后台异步批处理与无闪烁原子置换机制，结合加载状态通知实现优雅过渡
+   * @param movieList 视频封面数据数组
+   * @param targetIndex 可选的指定目标索引（例如切换回默认状态时恢复至首项 0）
+   */
+  public async setMovies(movieList: CoverflowMovie[], targetIndex?: number): Promise<void> {
+    // 校验数据是否与当前场景完全一致，若完全一致则直接复用避免重复生成
+    const isSame =
+      this.movies.length === movieList.length &&
+      this.movies.every(
+        (m, idx) =>
+          m.id === movieList[idx].id &&
+          m.textureUrl === movieList[idx].textureUrl &&
+          m.title === movieList[idx].title
+      );
+
+    if (isSame) {
+      // 仅同步可能变动的元数据属性并通知
+      this.movies = movieList;
+      this.cardMeshes.forEach((mesh, idx) => {
+        if (mesh && movieList[idx]) {
+          mesh.userData.movie = movieList[idx];
+        }
+      });
+      if (targetIndex !== undefined) {
+        const safeIdx = Math.max(0, Math.min(movieList.length - 1, targetIndex));
+        this.selectedIndex = safeIdx;
+        this.scrollIndex = safeIdx;
+        this.targetScrollIndex = safeIdx;
+        this.scrollVelocity = 0;
+        this.updateCardPositions(true);
+        this.renderer.render(this.scene, this.camera);
+      }
+      this.emitCurrentMovieChange();
+      return;
+    }
+
+    const sessionId = ++this.currentLoadSession;
+
     // 记录之前选中的卡片 ID，便于在重载后恢复聚焦状态
     const prevSelectedId = this.movies[this.selectedIndex]?.id;
 
-    // 销毁并移除旧网格模型
+    if (movieList.length === 0) {
+      this.disposeCards();
+      this.movies = [];
+      this.selectedIndex = 0;
+      this.scrollIndex = 0;
+      this.targetScrollIndex = 0;
+      this.emitCurrentMovieChange();
+      return;
+    }
+
+    const newMeshes: CardMesh[] = [];
+    const newMovies: CoverflowMovie[] = [];
+
+    // 并发批处理生成卡片模型与纹理，每批 6 张，兼顾处理性能与内存占用
+    const BATCH_SIZE = 6;
+    for (let i = 0; i < movieList.length; i += BATCH_SIZE) {
+      if (this.isDestroyed || this.currentLoadSession !== sessionId) {
+        this.disposeMeshList(newMeshes);
+        return;
+      }
+
+      const batch = movieList.slice(i, i + BATCH_SIZE);
+      const batchMeshes = await Promise.all(
+        batch.map((movie, batchIdx) => this.createCardMesh(movie, i + batchIdx))
+      );
+
+      if (this.isDestroyed || this.currentLoadSession !== sessionId) {
+        this.disposeMeshList(newMeshes);
+        this.disposeMeshList(batchMeshes.filter(Boolean) as CardMesh[]);
+        return;
+      }
+
+      batchMeshes.forEach((mesh, batchIdx) => {
+        if (mesh) {
+          newMeshes.push(mesh);
+          newMovies.push(batch[batchIdx]);
+        }
+      });
+    }
+
+    if (this.isDestroyed || this.currentLoadSession !== sessionId) {
+      this.disposeMeshList(newMeshes);
+      return;
+    }
+
+    // 原子置换：安全释放旧卡片模型，挂载全新卡片列表
     this.disposeCards();
-    this.movies = movieList;
+    this.movies = newMovies;
+    this.cardMeshes = newMeshes;
 
-    for (let i = 0; i < movieList.length; i++) {
-      if (this.isDestroyed) return;
-      const movie = movieList[i];
-
-      try {
-        // 裁切与生成 front, spine, back 3 张纹理
-        const { frontCanvas, spineCanvas, backCanvas } = await processCoverSpreadTexture(
-          movie.textureUrl,
-          movie.title
-        );
-
-        if (this.isDestroyed) return;
-
-        const frontTex = new THREE.CanvasTexture(frontCanvas);
-        const spineTex = new THREE.CanvasTexture(spineCanvas);
-        const backTex = new THREE.CanvasTexture(backCanvas);
-
-        [frontTex, spineTex, backTex].forEach((t) => {
-          t.colorSpace = THREE.SRGBColorSpace;
-          t.generateMipmaps = true;
-          t.minFilter = THREE.LinearMipmapLinearFilter;
-          t.magFilter = THREE.LinearFilter;
-        });
-
-        // 立方体 6 面材质映射
-        const materials: THREE.Material[] = [
-          this.plasticEdgeMat,
-          new THREE.MeshBasicMaterial({ map: spineTex }),
-          this.plasticEdgeMat,
-          this.plasticEdgeMat,
-          new THREE.MeshBasicMaterial({ map: frontTex }),
-          new THREE.MeshBasicMaterial({ map: backTex }),
-        ];
-
-        const mesh = new THREE.Mesh(this.boxGeometry, materials) as unknown as CardMesh;
-        mesh.userData = { index: i, movie };
-
-        // 为倒影生成带有微磨砂高斯模糊的材质纹理（降采样 + 模糊，消除生硬镜面感）
-        const spineBlurRadius = Math.max(1, Math.round(this.reflectionBlurRadius * 0.5));
-        const refFrontCanvas = this.createBlurredCanvas(frontCanvas, this.reflectionBlurRadius);
-        const refSpineCanvas = this.createBlurredCanvas(spineCanvas, spineBlurRadius);
-        const refBackCanvas = this.createBlurredCanvas(backCanvas, this.reflectionBlurRadius);
-
-        const refFrontTex = new THREE.CanvasTexture(refFrontCanvas);
-        const refSpineTex = new THREE.CanvasTexture(refSpineCanvas);
-        const refBackTex = new THREE.CanvasTexture(refBackCanvas);
-
-        [refFrontTex, refSpineTex, refBackTex].forEach((t) => {
-          t.colorSpace = THREE.SRGBColorSpace;
-          t.generateMipmaps = true;
-          t.minFilter = THREE.LinearMipmapLinearFilter;
-          t.magFilter = THREE.LinearFilter;
-        });
-
-        // 倒影 6 面材质映射（使用共享 Alpha 渐隐贴图与磨砂模糊贴图，启用深度写入与裁剪消除重叠）
-        const reflectionMaterials: THREE.MeshBasicMaterial[] = [
-          this.reflectionPlasticEdgeMat,
-          new THREE.MeshBasicMaterial({
-            map: refSpineTex,
-            alphaMap: this.reflectionAlphaMap,
-            transparent: true,
-            opacity: this.reflectionBaseOpacity,
-            depthWrite: true,
-            alphaTest: 0.001,
-          }),
-          this.reflectionPlasticEdgeMat,
-          this.reflectionPlasticEdgeMat,
-          new THREE.MeshBasicMaterial({
-            map: refFrontTex,
-            alphaMap: this.reflectionAlphaMap,
-            transparent: true,
-            opacity: this.reflectionBaseOpacity,
-            depthWrite: true,
-            alphaTest: 0.001,
-          }),
-          new THREE.MeshBasicMaterial({
-            map: refBackTex,
-            alphaMap: this.reflectionAlphaMap,
-            transparent: true,
-            opacity: this.reflectionBaseOpacity,
-            depthWrite: true,
-            alphaTest: 0.001,
-          }),
-        ];
-
-        const reflectionMesh = new THREE.Mesh(this.reflectionGeometry, reflectionMaterials);
-        reflectionMesh.position.set(0, -this.cardHeight - this.reflectionGap, 0);
-        reflectionMesh.userData = { index: i, movie, isReflection: true };
-        // 倒影仅作为视觉特效展示，禁用射线拾取，不支持鼠标悬停与点击交互
-        reflectionMesh.raycast = () => {};
-        mesh.add(reflectionMesh);
-
-        mesh.reflectionMesh = reflectionMesh;
-        mesh.reflectionMaterials = reflectionMaterials;
-
-        // 初始化平滑插值目标变换
-        mesh.targetPosition = new THREE.Vector3();
-        mesh.targetRotationY = 0;
-        mesh.targetRotationX = 0;
-        mesh.targetScale = 1.0;
-
-        this.scene.add(mesh);
-        this.cardMeshes.push(mesh);
-      } catch (err) {
-        console.warn(`Failed to process cover texture for movie "${movie.title}":`, err);
+    // 重新校正索引并添加到场景
+    newMeshes.forEach((mesh, idx) => {
+      mesh.userData.index = idx;
+      if (mesh.reflectionMesh) {
+        mesh.reflectionMesh.userData.index = idx;
       }
-    }
+      this.scene.add(mesh);
+    });
 
-    // 尽量保持当前选中的卡片位置，如果不存在则回退至首项
-    let targetIndex = 0;
-    if (prevSelectedId) {
-      const foundIdx = movieList.findIndex((m) => m.id === prevSelectedId);
+    // 计算目标卡片位置：若指定了 targetIndex（如恢复至首项 0）则优先使用，否则尽量保留原选中项
+    let finalTargetIndex = 0;
+    if (targetIndex !== undefined) {
+      finalTargetIndex = Math.max(0, Math.min(newMovies.length - 1, targetIndex));
+    } else if (prevSelectedId) {
+      const foundIdx = newMovies.findIndex((m) => m.id === prevSelectedId);
       if (foundIdx !== -1) {
-        targetIndex = foundIdx;
+        finalTargetIndex = foundIdx;
       }
     }
 
-    this.selectedIndex = targetIndex;
-    this.scrollIndex = targetIndex;
-    this.targetScrollIndex = targetIndex;
+    this.selectedIndex = finalTargetIndex;
+    this.scrollIndex = finalTargetIndex;
+    this.targetScrollIndex = finalTargetIndex;
     this.scrollVelocity = 0;
+
+    // 立即就地计算所有卡片的三维空间位置与姿态，消除初始帧 (0,0,0) 重叠闪烁
     this.updateCardPositions(true);
+
+    // 强制同步补绘一帧，确保 WebGL 缓冲立即呈现完整的 3D 封面列表
+    this.renderer.render(this.scene, this.camera);
 
     this.emitCurrentMovieChange();
   }
@@ -869,6 +967,28 @@ export class CoverflowScene {
   }
 
   /**
+   * 滚动并聚焦到指定索引的卡片
+   * @param index 目标卡片索引
+   * @param immediate 是否立即跳转无过渡
+   */
+  public scrollToIndex(index: number, immediate = false): void {
+    if (this.movies.length === 0) return;
+    const safeIndex = Math.max(0, Math.min(this.movies.length - 1, index));
+    this.resetCardRotations();
+    this.selectedIndex = safeIndex;
+    this.targetScrollIndex = safeIndex;
+    this.scrollVelocity = 0;
+    if (immediate) {
+      this.scrollIndex = safeIndex;
+      this.updateCardPositions(true);
+      this.renderer.render(this.scene, this.camera);
+    } else {
+      this.updateCardPositions();
+    }
+    this.emitCurrentMovieChange();
+  }
+
+  /**
    * 计算卡片目标位置、旋转角与缩放比例
    * @param immediate 是否立即应用无过渡
    */
@@ -1197,9 +1317,9 @@ export class CoverflowScene {
     }
   }
 
-  // 释放所有卡片的网格、材质与纹理
-  private disposeCards(): void {
-    this.cardMeshes.forEach((mesh) => {
+  // 释放指定网格模型数组及其绑定的倒影、材质与纹理
+  private disposeMeshList(meshes: CardMesh[]): void {
+    meshes.forEach((mesh) => {
       if (mesh.reflectionMesh) {
         mesh.remove(mesh.reflectionMesh);
         if (Array.isArray(mesh.reflectionMesh.material)) {
@@ -1213,7 +1333,11 @@ export class CoverflowScene {
           });
         }
       }
-      this.scene.remove(mesh);
+      if (mesh.parent) {
+        mesh.parent.remove(mesh);
+      } else {
+        this.scene.remove(mesh);
+      }
       if (Array.isArray(mesh.material)) {
         mesh.material.forEach((mat) => {
           if (mat !== this.plasticEdgeMat) {
@@ -1225,6 +1349,11 @@ export class CoverflowScene {
         });
       }
     });
+  }
+
+  // 释放所有卡片的网格、材质与纹理
+  private disposeCards(): void {
+    this.disposeMeshList(this.cardMeshes);
     this.cardMeshes = [];
   }
 
@@ -1233,6 +1362,7 @@ export class CoverflowScene {
    */
   public destroy(): void {
     this.isDestroyed = true;
+    this.currentLoadSession++;
 
     if (this.animId !== null) {
       cancelAnimationFrame(this.animId);

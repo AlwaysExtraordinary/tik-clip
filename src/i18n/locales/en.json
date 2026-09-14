@@ -176,7 +176,9 @@
     "statusExpanded": "Selected Cover",
     "statusDetail": "Details",
     "noCoversTitle": "No Cover Videos Detected",
-    "noCoversDesc": "3D Coverflow only renders videos with folder cover images (e.g. cover.jpg). Please add cover images inside video folders and rescan."
+    "noCoversDesc": "3D Coverflow only renders videos with folder cover images (e.g. cover.jpg). Please add cover images inside video folders and rescan.",
+    "noMatchingCovers": "No covers found for this actor",
+    "tryOtherActor": "Try selecting another actor or choose All"
   },
   "common": {
     "cancel": "Cancel",

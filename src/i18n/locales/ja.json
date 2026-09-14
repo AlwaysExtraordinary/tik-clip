@@ -176,7 +176,9 @@
     "statusExpanded": "選択中",
     "statusDetail": "詳細情報",
     "noCoversTitle": "カバー画像付きの動画が見つかりません",
-    "noCoversDesc": "3Dカバーフローは動画フォルダ内にカバー画像（cover.jpgなど）が必要です。動画フォルダに画像を追加して再スキャンしてください。"
+    "noCoversDesc": "3Dカバーフローは動画フォルダ内にカバー画像（cover.jpgなど）が必要です。動画フォルダに画像を追加して再スキャンしてください。",
+    "noMatchingCovers": "該当する俳優のカバーが見つかりません",
+    "tryOtherActor": "他の俳優を選択するか「すべて」を選択してください"
   },
   "common": {
     "cancel": "キャンセル",

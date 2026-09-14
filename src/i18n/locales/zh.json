@@ -176,7 +176,9 @@
     "statusExpanded": "选中封面",
     "statusDetail": "详细信息",
     "noCoversTitle": "未检测到带封面的视频",
-    "noCoversDesc": "3D 封面流需要视频文件夹内包含封面图片（如 cover.jpg）。请在视频子目录下添加封面后重新扫描。"
+    "noCoversDesc": "3D 封面流需要视频文件夹内包含封面图片（如 cover.jpg）。请在视频子目录下添加封面后重新扫描。",
+    "noMatchingCovers": "未找到匹配该演员的封面",
+    "tryOtherActor": "请尝试切换其他演员或选择全部"
   },
   "common": {
     "cancel": "取消",

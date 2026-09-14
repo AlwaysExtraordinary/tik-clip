@@ -5,6 +5,7 @@ import { getAllVideos } from '@/db/videos';
 import { Video } from '@/types/video';
 import { useDirectory } from '@/hooks/useDirectory';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { Icon } from '@iconify/react';
 import { EmptyState } from '@/components/video/EmptyState';
 import { CoverflowCanvas } from '@/components/coverflow/CoverflowCanvas';
 import { CoverflowNavbar } from '@/components/coverflow/CoverflowNavbar';
@@ -219,12 +220,23 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
     };
   }, []);
 
+  // 记录前次选中的演员，用于检测是否从筛选状态切换回默认状态（全部）
+  const prevSelectedActorRef = useRef<string | null>(null);
+
   // 3. 当数据和 Scene 准备就绪时载入模型（支持按演员筛选后的列表）
   useEffect(() => {
     if (scene && (filteredMovies.length > 0 || movies.length > 0)) {
-      scene.setMovies(filteredMovies);
+      const wasFiltered = Boolean(
+        prevSelectedActorRef.current && prevSelectedActorRef.current !== 'all'
+      );
+      const isDefault = !selectedActor || selectedActor === 'all';
+      // 从筛选状态切换回默认状态时，恢复列表到首个封面位置 (0)
+      const targetIdx = wasFiltered && isDefault ? 0 : undefined;
+
+      scene.setMovies(filteredMovies, targetIdx);
     }
-  }, [scene, filteredMovies, movies.length]);
+    prevSelectedActorRef.current = selectedActor;
+  }, [scene, filteredMovies, selectedActor, movies.length]);
 
   // 4. 演员筛选切换
   const handleActorChange = useCallback(
@@ -331,11 +343,7 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
     return <EmptyState type="scanning" className="h-full" />;
   }
 
-  if (isLoading) {
-    return <EmptyState type="loading" className="h-full" />;
-  }
-
-  if (movies.length === 0) {
+  if (!isLoading && movies.length === 0) {
     return (
       <EmptyState
         type="no-videos"
@@ -361,6 +369,21 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
         }}
         onStateChange={(st) => setViewState(st)}
       />
+
+      {/* 筛选无匹配结果时的温和提示 */}
+      {filteredMovies.length === 0 && movies.length > 0 && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none">
+          <div className="p-6 rounded-2xl bg-surface/80 dark:bg-zinc-900/80 border border-border backdrop-blur-md text-center max-w-xs shadow-floating">
+            <Icon icon="lucide:film" className="size-8 mx-auto text-foreground-muted/60 mb-2" />
+            <p className="text-sm font-medium text-foreground">
+              {t('coverflow.noMatchingCovers', '未找到匹配该演员的封面')}
+            </p>
+            <p className="text-xs text-foreground-muted mt-1">
+              {t('coverflow.tryOtherActor', '请尝试切换其他演员或选择全部')}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* 顶部极简导航栏 (视图切换与演员筛选，详情模式自动隐藏) */}
       <CoverflowNavbar
