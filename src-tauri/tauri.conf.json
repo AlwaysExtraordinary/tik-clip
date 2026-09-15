@@ -16,7 +16,7 @@
         "title": "TikClip",
         "width": 1280,
         "height": 820,
-        "minWidth": 615,
+        "minWidth": 375,
         "minHeight": 600,
         "resizable": true,
         "fullscreen": false,

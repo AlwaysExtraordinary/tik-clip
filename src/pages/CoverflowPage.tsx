@@ -10,7 +10,7 @@ import { EmptyState } from '@/components/video/EmptyState';
 import { CoverflowCanvas } from '@/components/coverflow/CoverflowCanvas';
 import { CoverflowNavbar } from '@/components/coverflow/CoverflowNavbar';
 import { MovieInfoPanel } from '@/components/coverflow/MovieInfoPanel';
-import { ZoomControls } from '@/components/coverflow/ZoomControls';
+import { ControlButtons } from '@/components/coverflow/ControlButtons';
 import { CoverflowScene } from '@/components/coverflow/three/CoverflowScene';
 import { CoverflowMovie, VIEW_STATES, ViewMode, ViewState } from '@/components/coverflow/types';
 
@@ -411,8 +411,12 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
         isHidden={viewState === VIEW_STATES.DETAIL}
       />
 
-      {/* 放大聚焦模式浮层控制条 (翻转与退出) */}
-      <ZoomControls
+      {/* 放大聚焦模式浮层控制条 (翻页、翻转与退出) */}
+      <ControlButtons
+        currentIndex={currentIndex}
+        totalMovies={totalMovies}
+        onPrev={() => scene?.prevCard()}
+        onNext={() => scene?.nextCard()}
         onFlip={() => scene?.toggleFlipCard()}
         onExit={() => scene?.setState(VIEW_STATES.LIST)}
         isHidden={viewState !== VIEW_STATES.DETAIL}
@@ -421,10 +425,6 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
       {/* 视频详细信息面板 (仅在详情聚焦模式展示) */}
       <MovieInfoPanel
         movie={currentMovie}
-        currentIndex={currentIndex}
-        totalMovies={totalMovies}
-        onPrev={() => scene?.prevCard()}
-        onNext={() => scene?.nextCard()}
         onPlay={handlePlayVideo}
         onMovieUpdated={handleMovieUpdated}
         isHidden={viewState !== VIEW_STATES.DETAIL}

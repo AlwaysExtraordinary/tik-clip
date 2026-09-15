@@ -11,10 +11,6 @@ import { VideoDetailsModal } from '@/components/video/VideoDetailsModal';
 
 interface MovieInfoPanelProps {
   movie: CoverflowMovie | null;
-  currentIndex: number;
-  totalMovies: number;
-  onPrev: () => void;
-  onNext: () => void;
   onPlay: (videoId: string) => void;
   onOpenFolder?: (movie: CoverflowMovie) => void;
   onMovieUpdated?: (updatedVideo: Video) => void;
@@ -27,10 +23,6 @@ interface MovieInfoPanelProps {
  */
 export const MovieInfoPanel: React.FC<MovieInfoPanelProps> = ({
   movie,
-  currentIndex,
-  totalMovies,
-  onPrev,
-  onNext,
   onPlay,
   onOpenFolder,
   onMovieUpdated,
@@ -80,150 +72,121 @@ export const MovieInfoPanel: React.FC<MovieInfoPanelProps> = ({
 
   return (
     <div
-      onKeyDown={(e) => {
-        // 阻止视频信息面板内部键盘事件向外冒泡
-        e.stopPropagation();
-      }}
-      className={cn(
-        'absolute z-20 transition-all duration-300 ease-in-out select-text',
-        'bg-surface/90 backdrop-blur-xl border border-border rounded-2xl shadow-floating',
-        // 移动端 / 窄容器 (< 768px: 3xl)：居中位于封面正下方抽屉式面板
-        'left-1/2 -translate-x-1/2 bottom-4 w-[min(calc(100%-32px),28rem)] max-w-md max-h-[42vh] p-4 flex flex-col justify-between gap-2.5',
-        // 宽屏容器 (>= 768px: 3xl)：左侧垂直居中悬浮卡片
-        '@3xl:left-8 @3xl:top-1/2 @3xl:-translate-y-1/2 @3xl:bottom-auto @3xl:translate-x-0 @3xl:w-80 @3xl:max-h-[calc(100%-48px)] @3xl:p-6 @3xl:gap-4',
-        // 更宽容器
-        '@6xl:w-100',
-        // 隐藏状态平滑过渡
-        isHidden && 'pointer-events-none opacity-0 translate-y-8 @3xl:translate-y-0'
-      )}
-    >
-      <div className="flex flex-col gap-2 overflow-y-auto pr-1">
-        {/* 视频名称与在文件夹中显示按钮 */}
-        <div>
-          <div className="flex items-start justify-between gap-2">
-            <h2 className="text-base @3xl:text-lg font-bold text-foreground leading-snug wrap-break-word flex-1">
-              {movie.title}
-            </h2>
+        onKeyDown={(e) => {
+          // 阻止视频信息面板内部键盘事件向外冒泡
+          e.stopPropagation();
+        }}
+        className={cn(
+          'absolute z-20 transition-all duration-300 ease-in-out select-text',
+          'bg-surface/90 backdrop-blur-xl border border-border rounded-2xl shadow-floating',
+          // 移动端 / 窄容器 (< 768px: 3xl)：居中位于封面正下方抽屉式面板
+          'left-1/2 -translate-x-1/2 bottom-4 w-[min(calc(100%-32px),28rem)] max-w-md max-h-[38vh] p-4 flex flex-col justify-between gap-2.5',
+          // 宽屏容器 (>= 768px: 3xl)：左侧垂直居中悬浮卡片
+          '@3xl:left-8 @3xl:top-1/2 @3xl:-translate-y-1/2 @3xl:bottom-auto @3xl:translate-x-0 @3xl:w-80 @3xl:max-h-6/10 @3xl:p-6 @3xl:gap-4',
+          // 更宽容器
+          '@6xl:w-100',
+          // 隐藏状态平滑过渡
+          isHidden && 'pointer-events-none opacity-0 translate-y-8 @3xl:translate-y-0'
+        )}
+      >
+        <div className="flex-1 min-h-0 flex flex-col gap-2">
+          {/* 视频名称与在文件夹中显示按钮 */}
+          <div className="shrink-0">
+            <div className="flex items-start justify-between gap-2">
+              <h2 className="text-base @3xl:text-lg font-bold text-foreground leading-snug wrap-break-word flex-1">
+                {movie.title}
+              </h2>
 
-            <div className="flex items-center gap-1.5 shrink-0">
-              {/* 编辑详细信息按钮 */}
-              <Button
-                size="sm"
-                variant="ghost"
-                isIconOnly
-                aria-label={t('videos.details', '详细信息')}
-                className="size-7 @3xl:size-8 bg-surface-hover hover:bg-surface-active text-foreground-muted hover:text-foreground cursor-pointer"
-                onPress={() => setIsDetailsOpen(true)}
-              >
-                <Icon icon="lucide:pencil-line" className="size-4" />
-              </Button>
-
-              {/* 在文件夹中显示按钮 */}
-              {canOpenFolder && (
+              <div className="flex items-center gap-1.5 shrink-0">
+                {/* 编辑详细信息按钮 */}
                 <Button
                   size="sm"
                   variant="ghost"
                   isIconOnly
-                  aria-label={t('videos.revealInExplorer', '在文件夹中显示')}
+                  aria-label={t('videos.details', '详细信息')}
                   className="size-7 @3xl:size-8 bg-surface-hover hover:bg-surface-active text-foreground-muted hover:text-foreground cursor-pointer"
-                  onPress={handleOpenFolder}
+                  onPress={() => setIsDetailsOpen(true)}
                 >
-                  <Icon icon="lucide:folder-symlink" className="size-4" />
+                  <Icon icon="lucide:pencil-line" className="size-4" />
                 </Button>
-              )}
+
+                {/* 在文件夹中显示按钮 */}
+                {canOpenFolder && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    isIconOnly
+                    aria-label={t('videos.revealInExplorer', '在文件夹中显示')}
+                    className="size-7 @3xl:size-8 bg-surface-hover hover:bg-surface-active text-foreground-muted hover:text-foreground cursor-pointer"
+                    onPress={handleOpenFolder}
+                  >
+                    <Icon icon="lucide:folder-symlink" className="size-4" />
+                  </Button>
+                )}
+              </div>
             </div>
+
+            {/* 类别标签 */}
+            {movie.category && (
+              <div className="mt-2 flex items-center gap-2">
+                <Chip color="accent" variant="soft" size="sm">
+                  {movie.category}
+                </Chip>
+              </div>
+            )}
           </div>
 
-          {/* 类别标签 */}
-          {movie.category && (
-            <div className="mt-2 flex items-center gap-2">
-              <Chip color="accent" variant="soft" size="sm">
-                {movie.category}
-              </Chip>
+          {/* 演员阵容 */}
+          {actorsList.length > 0 && (
+            <div className="flex flex-col gap-1.5 mt-1 shrink-0">
+              <span className="text-xs font-medium text-foreground-muted flex items-center gap-1">
+                <Icon icon="lucide:user" className="size-3.5" />
+                {t('coverflow.actors', '演员')}
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {actorsList.map((actor, idx) => (
+                  <Chip key={idx} size="sm" variant="secondary" className="text-xs">
+                    {actor}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 描述信息 */}
+          {movie.description && (
+            <div className="flex-1 min-h-0 flex flex-col gap-1 mt-1 overflow-y-auto pr-1">
+              <p className="text-xs text-foreground-muted leading-relaxed whitespace-pre-wrap wrap-break-word">
+                {movie.description}
+              </p>
             </div>
           )}
         </div>
 
-        {/* 演员阵容 */}
-        {actorsList.length > 0 && (
-          <div className="flex flex-col gap-1.5 mt-1">
-            <span className="text-xs font-medium text-foreground-muted flex items-center gap-1">
-              <Icon icon="lucide:user" className="size-3.5" />
-              {t('coverflow.actors', '演员')}
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {actorsList.map((actor, idx) => (
-                <Chip key={idx} size="sm" variant="secondary" className="text-xs">
-                  {actor}
-                </Chip>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 描述信息 */}
-        {movie.description && (
-          <div className="flex flex-col gap-1 mt-1">
-            <p className="text-xs text-foreground-muted leading-relaxed whitespace-pre-wrap wrap-break-word line-clamp-3 @3xl:line-clamp-7">
-              {movie.description}
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* 底部控制区：播放跳转 + 上/下一项切换 */}
-      <div className="flex flex-col gap-2.5 pt-3 border-t border-border/70">
-        {/* 播放视频按钮 */}
-        <Button
-          size="sm"
-          variant="primary"
-          className="w-full flex items-center justify-center gap-1.5 font-medium cursor-pointer @6xl:h-10"
-          onPress={() => onPlay(movie.video.id)}
-        >
-          <Icon icon="lucide:play" className="size-4" />
-          <span>{t('coverflow.playVideo', '播放视频')}</span>
-        </Button>
-
-        {/* 翻页指示器 */}
-        <div className="flex items-center justify-between px-1">
+        {/* 底部控制区：播放跳转 */}
+        <div className="pt-3 border-t border-border/70 shrink-0">
+          {/* 播放视频按钮 */}
           <Button
-            variant="ghost"
             size="sm"
-            isIconOnly
-            onPress={onPrev}
-            aria-label={t('coverflow.prev', '上一个')}
-            className="size-8 rounded-full cursor-pointer hover:bg-surface-hover"
+            variant="primary"
+            className="w-full flex items-center justify-center gap-1.5 font-medium cursor-pointer @6xl:h-10"
+            onPress={() => onPlay(movie.video.id)}
           >
-            <Icon icon="lucide:chevron-left" className="size-4" />
-          </Button>
-
-          <span className="text-xs font-medium text-foreground-muted">
-            {currentIndex + 1} / {totalMovies}
-          </span>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            isIconOnly
-            onPress={onNext}
-            aria-label={t('coverflow.next', '下一个')}
-            className="size-8 rounded-full cursor-pointer hover:bg-surface-hover"
-          >
-            <Icon icon="lucide:chevron-right" className="size-4" />
+            <Icon icon="lucide:play" className="size-4" />
+            <span>{t('coverflow.playVideo', '播放视频')}</span>
           </Button>
         </div>
-      </div>
 
-      {/* 视频详细信息编辑弹窗 */}
-      <VideoDetailsModal
-        isOpen={isDetailsOpen}
-        video={movie.video}
-        activeDirectory={activeDirectory}
-        onClose={() => setIsDetailsOpen(false)}
-        onSaved={(updatedVideo) => {
-          onMovieUpdated?.(updatedVideo);
-        }}
-      />
-    </div>
+        {/* 视频详细信息编辑弹窗 */}
+        <VideoDetailsModal
+          isOpen={isDetailsOpen}
+          video={movie.video}
+          activeDirectory={activeDirectory}
+          onClose={() => setIsDetailsOpen(false)}
+          onSaved={(updatedVideo) => {
+            onMovieUpdated?.(updatedVideo);
+          }}
+        />
+      </div>
   );
 };
