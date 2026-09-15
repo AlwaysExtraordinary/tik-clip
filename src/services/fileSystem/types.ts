@@ -1,4 +1,4 @@
-import { Video } from '@/types/video';
+import { Video, VideoLink } from '@/types/video';
 import { Clip } from '@/types/clip';
 
 export interface DirectoryRef {
@@ -100,7 +100,7 @@ export interface IFileSystemAdapter {
   updateVideoNameInDataJson(target: DirectoryRef, folderName: string, name: string): Promise<void>;
 
   /**
-   * 更新视频元数据（名称、类别、演员、描述）至 data.json
+   * 更新视频元数据（名称、类别、演员、描述、链接）至 data.json
    */
   updateVideoMetadataInDataJson(
     target: DirectoryRef,
@@ -110,6 +110,7 @@ export interface IFileSystemAdapter {
       category?: string;
       actor?: string;
       description?: string;
+      links?: VideoLink[];
     }
   ): Promise<void>;
 

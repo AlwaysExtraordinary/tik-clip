@@ -392,6 +392,7 @@ export class CoverflowScene {
       movie.category = updatedVideo.category;
       movie.actor = updatedVideo.actor;
       movie.description = updatedVideo.description;
+      movie.links = updatedVideo.links;
       movie.video = updatedVideo;
     }
     for (const mesh of this.cardMeshes) {

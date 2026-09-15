@@ -1,15 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Modal,
-  Input,
-  TextArea,
-  Button,
-  useOverlayState,
-  ComboBox,
-  ListBox,
-} from '@heroui/react';
-import { Video } from '@/types/video';
+import { Modal, Input, TextArea, Button, useOverlayState, ComboBox, ListBox } from '@heroui/react';
+import { Icon } from '@iconify/react';
+import { Video, VideoLink } from '@/types/video';
 import { db } from '@/db/database';
 import { updateVideoMetadataInDataJson } from '@/services/fileSystem/index';
 import { DirectoryRef } from '@/services/fileSystem/types';
@@ -39,7 +32,9 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
   const [category, setCategory] = useState('');
   const [actor, setActor] = useState('');
   const [actorOptions, setActorOptions] = useState<string[]>([]);
+  const [linkTitleOptions, setLinkTitleOptions] = useState<string[]>([]);
   const [description, setDescription] = useState('');
+  const [links, setLinks] = useState<VideoLink[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -50,25 +45,40 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
       setCategory(video.category || '');
       setActor(video.actor || '');
       setDescription(video.description || '');
+      setLinks(
+        Array.isArray(video.links)
+          ? video.links.map((l) => ({ title: l.title || '', url: l.url || '' }))
+          : []
+      );
       setErrorMessage(null);
     }
   }, [video, isOpen]);
 
-  // 当弹窗打开时，从 IndexedDB 异步提取所有视频的已有演员列表并初始化选项
+  // 当弹窗打开时，从 IndexedDB 异步提取所有视频的已有演员与链接名称列表并初始化选项
   useEffect(() => {
     if (!isOpen) return;
 
-    const loadActors = async () => {
+    const loadOptions = async () => {
       try {
         const allVideos = await db.videos.toArray();
-        const set = new Set<string>();
+        const actorSet = new Set<string>();
+        const linkTitleSet = new Set<string>();
+
         for (const v of allVideos) {
           if (v.actor && v.actor.trim()) {
             const parts = v.actor.split(/[,，/、;\s]+/);
             for (const p of parts) {
               const trimmed = p.trim();
               if (trimmed) {
-                set.add(trimmed);
+                actorSet.add(trimmed);
+              }
+            }
+          }
+          if (Array.isArray(v.links)) {
+            for (const l of v.links) {
+              const trimmed = l?.title?.trim();
+              if (trimmed) {
+                linkTitleSet.add(trimmed);
               }
             }
           }
@@ -78,21 +88,34 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
           for (const p of parts) {
             const trimmed = p.trim();
             if (trimmed) {
-              set.add(trimmed);
+              actorSet.add(trimmed);
+            }
+          }
+        }
+        if (Array.isArray(video?.links)) {
+          for (const l of video.links) {
+            const trimmed = l?.title?.trim();
+            if (trimmed) {
+              linkTitleSet.add(trimmed);
             }
           }
         }
         setActorOptions(
-          Array.from(set).sort((a, b) =>
+          Array.from(actorSet).sort((a, b) =>
+            a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+          )
+        );
+        setLinkTitleOptions(
+          Array.from(linkTitleSet).sort((a, b) =>
             a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
           )
         );
       } catch (err) {
-        console.error('Failed to load actors for ComboBox:', err);
+        console.error('Failed to load options for ComboBox:', err);
       }
     };
 
-    loadActors();
+    loadOptions();
   }, [isOpen, video]);
 
   /**
@@ -118,6 +141,52 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
         a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
       );
     });
+  };
+
+  /**
+   * 向候选链接名称列表中追加新链接名称（若列表中不存在则更新到选项中）
+   * @param newTitle 待添加的新链接名称
+   */
+  const addLinkTitleOption = (newTitle: string) => {
+    const trimmed = newTitle.trim();
+    if (!trimmed) return;
+    setLinkTitleOptions((prev) => {
+      const nextSet = new Set(prev);
+      if (Array.from(nextSet).some((item) => item.toLowerCase() === trimmed.toLowerCase())) {
+        return prev;
+      }
+      nextSet.add(trimmed);
+      return Array.from(nextSet).sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+      );
+    });
+  };
+
+  // 添加新链接项输入行
+  const handleAddLink = () => {
+    setLinks((prev) => [...prev, { title: '', url: '' }]);
+  };
+
+  /**
+   * 更新指定索引位置链接的字段值
+   * @param index 待更新的链接项索引
+   * @param field 待更新的字段（title 或 url）
+   * @param value 输入的文本内容
+   */
+  const handleLinkChange = (index: number, field: 'title' | 'url', value: string) => {
+    setLinks((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  };
+
+  /**
+   * 移除指定索引位置的链接项
+   * @param index 待删除的链接项索引
+   */
+  const handleRemoveLink = (index: number) => {
+    setLinks((prev) => prev.filter((_, i) => i !== index));
   };
 
   const modalState = useOverlayState({
@@ -148,6 +217,12 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
     const trimmedCategory = category.trim();
     const trimmedActor = actor.trim();
     const trimmedDescription = description.trim();
+    const validLinks: VideoLink[] = links
+      .map((l) => ({
+        title: l.title.trim() || l.url.trim(),
+        url: l.url.trim(),
+      }))
+      .filter((l) => l.url.length > 0);
 
     setIsSaving(true);
     setErrorMessage(null);
@@ -159,6 +234,7 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
       category: trimmedCategory || undefined,
       actor: trimmedActor || undefined,
       description: trimmedDescription || undefined,
+      links: validLinks.length > 0 ? validLinks : undefined,
       updatedAt: now,
     };
 
@@ -171,6 +247,7 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
             category: trimmedCategory,
             actor: trimmedActor,
             description: trimmedDescription,
+            links: validLinks,
           });
         } catch (err) {
           console.warn('Failed to update data.json on metadata edit:', err);
@@ -183,13 +260,19 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
         category: trimmedCategory || undefined,
         actor: trimmedActor || undefined,
         description: trimmedDescription || undefined,
+        links: validLinks.length > 0 ? validLinks : undefined,
         updatedAt: now,
       });
 
-      // 3. 点击保存成功后，将新演员追加至候选列表中
+      // 3. 点击保存成功后，将新演员与新链接名称追加至候选列表中
       if (trimmedActor) {
         addActorOption(trimmedActor);
       }
+      validLinks.forEach((l) => {
+        if (l.title) {
+          addLinkTitleOption(l.title);
+        }
+      });
 
       // 4. 通知父组件刷新列表状态
       onSaved(updatedVideo);
@@ -205,8 +288,8 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
   return (
     <Modal state={modalState}>
       <Modal.Backdrop variant="blur">
-        <Modal.Container placement="center" size="md">
-          <Modal.Dialog className="w-full bg-surface border border-border rounded-3xl p-6 sm:p-7 shadow-floating text-foreground relative max-h-[90vh] flex flex-col">
+        <Modal.Container placement="center" size="lg">
+          <Modal.Dialog className="bg-surface rounded-3xl text-foreground max-h-[90vh] pr-3">
             <div
               className="contents"
               onKeyDown={(e: React.KeyboardEvent) => {
@@ -219,11 +302,11 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
             >
               <Modal.CloseTrigger className="absolute top-5 right-5" />
 
-              <Modal.Header className="pb-4 border-b border-border">
+              <Modal.Header className="pb-4 border-b border-border mr-3">
                 <Modal.Heading className="text-md">{t('videos.detailsTitle')}</Modal.Heading>
               </Modal.Header>
 
-              <Modal.Body className="py-5 overflow-y-auto">
+              <Modal.Body className="py-5 overflow-y-auto pr-3">
                 <form
                   id="video-details-form"
                   onSubmit={handleSave}
@@ -309,16 +392,98 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       placeholder={t('videos.description')}
-                      rows={3}
+                      rows={4}
                       className="w-full no-scrollbar"
                     />
                   </div>
 
-                  {errorMessage && <p className="text-xs text-danger font-medium">{errorMessage}</p>}
+                  {/* 5. 相关链接 */}
+                  <div className="space-y-2">
+                    <div className="text-sm text-foreground">{t('videos.links')}</div>
+
+                    {links.length > 0 && (
+                      <div className="space-y-2">
+                        {links.map((linkItem, idx) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            <div className="w-1/3 shrink-0">
+                              <ComboBox
+                                fullWidth
+                                allowsCustomValue
+                                inputValue={linkItem.title}
+                                onInputChange={(val) => {
+                                  handleLinkChange(idx, 'title', val);
+                                }}
+                                onChange={(key) => {
+                                  if (key !== null) {
+                                    handleLinkChange(idx, 'title', String(key));
+                                  }
+                                }}
+                              >
+                                <ComboBox.InputGroup>
+                                  <Input placeholder={t('videos.linkName')} />
+                                  <ComboBox.Trigger />
+                                </ComboBox.InputGroup>
+                                <ComboBox.Popover>
+                                  <div
+                                    onKeyDown={(e: React.KeyboardEvent) => {
+                                      // 阻止候选列表内按键事件冒泡
+                                      e.stopPropagation();
+                                    }}
+                                  >
+                                    <ListBox>
+                                      {linkTitleOptions.map((opt) => (
+                                        <ListBox.Item key={opt} id={opt} textValue={opt}>
+                                          {opt}
+                                          <ListBox.ItemIndicator />
+                                        </ListBox.Item>
+                                      ))}
+                                    </ListBox>
+                                  </div>
+                                </ComboBox.Popover>
+                              </ComboBox>
+                            </div>
+                            <Input
+                              value={linkItem.url}
+                              onChange={(e) => handleLinkChange(idx, 'url', e.target.value)}
+                              placeholder={t('videos.linkUrl')}
+                              className="flex-1 min-w-0"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              isIconOnly
+                              size="sm"
+                              aria-label={t('common.delete')}
+                              className="size-8 text-foreground-muted hover:text-danger hover:bg-danger/10 shrink-0 cursor-pointer"
+                              onClick={() => handleRemoveLink(idx)}
+                            >
+                              <Icon icon="lucide:trash-2" className="size-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="w-full h-9 border border-dashed border-border hover:border-foreground/40 text-foreground-muted
+                       hover:text-foreground rounded-xl text-xs gap-1.5 cursor-pointer"
+                      onClick={handleAddLink}
+                    >
+                      <Icon icon="lucide:plus" className="size-3.5" />
+                      <span>{t('videos.addLink')}</span>
+                    </Button>
+                  </div>
+
+                  {errorMessage && (
+                    <p className="text-xs text-danger font-medium">{errorMessage}</p>
+                  )}
                 </form>
               </Modal.Body>
 
-              <Modal.Footer className="pt-4 border-t border-border flex justify-end gap-2">
+              <Modal.Footer className="pt-4 border-t border-border flex justify-end gap-2 mr-3">
                 <Button variant="secondary" size="sm" isDisabled={isSaving} onClick={onClose}>
                   {t('common.cancel')}
                 </Button>

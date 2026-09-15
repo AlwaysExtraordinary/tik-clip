@@ -6,7 +6,7 @@ import { CoverflowMovie } from './types';
 import { cn } from '@/utils/cn';
 import { parseTagList } from '@/utils/common';
 import { useAppStore } from '@/stores/appStore';
-import { isTauri, openPathInOs } from '@/services/fileSystem/index';
+import { isTauri, openPathInOs, openExternalUrl } from '@/services/fileSystem/index';
 import { Video } from '@/types/video';
 import { VideoDetailsModal } from '@/components/video/VideoDetailsModal';
 
@@ -60,6 +60,13 @@ export const MovieInfoPanel: React.FC<MovieInfoPanelProps> = ({
 
   const movieCategory = movie?.category ?? movie?.video?.category;
   const categoriesList = useMemo(() => parseTagList(movieCategory), [movieCategory]);
+
+  // 格式化相关链接列表
+  const linksList = useMemo(() => {
+    const rawLinks = movie?.links ?? movie?.video?.links;
+    if (!Array.isArray(rawLinks)) return [];
+    return rawLinks.filter((l) => Boolean(l && l.url && l.url.trim()));
+  }, [movie]);
 
   if (!movie) return null;
 
@@ -122,43 +129,74 @@ export const MovieInfoPanel: React.FC<MovieInfoPanelProps> = ({
 
         {/* 信息区域 */}
         <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar pr-1">
-          {/* 类别标签 */}
-          {categoriesList.length > 0 && (
-            <div className="flex items-start gap-1.5 mt-1 shrink-0">
-              <span className="text-xs font-medium text-foreground-muted flex items-center gap-1 shrink-0 h-5">
-                <Icon icon="lucide:chart-column-stacked" className="size-3.5" />
-                {t('coverflow.category')}
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {categoriesList.map((category, idx) => (
-                  <Chip key={idx} color="accent" variant="soft" size="sm">
-                    {category}
-                  </Chip>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* 元数据标签网格（自适应最长标签宽度，保证右侧 Chips 完美对齐） */}
+          {(categoriesList.length > 0 || actorsList.length > 0 || linksList.length > 0) && (
+            <div className="grid grid-cols-[auto_1fr] items-start gap-x-2 gap-y-2 mt-1 shrink-0">
+              {/* 类别标签 */}
+              {categoriesList.length > 0 && (
+                <>
+                  <span className="text-xs font-medium text-foreground-muted flex items-center gap-1 shrink-0 h-5 whitespace-nowrap justify-end">
+                    <Icon icon="lucide:chart-column-stacked" className="size-3.5" />
+                    {t('coverflow.category')}
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 min-w-0">
+                    {categoriesList.map((category, idx) => (
+                      <Chip key={idx} color="accent" variant="soft" size="sm">
+                        {category}
+                      </Chip>
+                    ))}
+                  </div>
+                </>
+              )}
 
-          {/* 演员阵容 */}
-          {actorsList.length > 0 && (
-            <div className="flex items-start gap-1.5 mt-1 shrink-0">
-              <span className="text-xs font-medium text-foreground-muted flex items-center gap-1 shrink-0 h-5">
-                <Icon icon="lucide:user" className="size-3.5" />
-                {t('coverflow.actors')}
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {actorsList.map((actor, idx) => (
-                  <Chip key={idx} size="sm" variant="secondary" className="text-xs">
-                    {actor}
-                  </Chip>
-                ))}
-              </div>
+              {/* 演员阵容 */}
+              {actorsList.length > 0 && (
+                <>
+                  <span className="text-xs font-medium text-foreground-muted flex items-center gap-1 shrink-0 h-5 whitespace-nowrap justify-end">
+                    <Icon icon="lucide:user" className="size-3.5" />
+                    {t('coverflow.actors')}
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 min-w-0">
+                    {actorsList.map((actor, idx) => (
+                      <Chip key={idx} size="sm" variant="secondary" className="text-xs">
+                        {actor}
+                      </Chip>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* 相关链接 */}
+              {linksList.length > 0 && (
+                <>
+                  <span className="text-xs font-medium text-foreground-muted flex items-center gap-1 shrink-0 h-5 whitespace-nowrap justify-end">
+                    <Icon icon="lucide:link" className="size-3.5" />
+                    {t('videos.links')}
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 min-w-0">
+                    {linksList.map((link, idx) => (
+                      <Chip
+                        key={idx}
+                        size="sm"
+                        color="accent"
+                        variant="secondary"
+                        className="gap-1 px-1.5 cursor-pointer"
+                        onClick={() => openExternalUrl(link.url)}
+                        title={link.url}
+                      >
+                        <span>{link.title || link.url}</span>
+                        <Icon icon="lucide:external-link" className="size-3 shrink-0" />
+                      </Chip>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
 
           {/* 描述信息 */}
           {movie.description && (
-            <div className=" flex flex-col gap-1 mt-1 ">
+            <div className=" flex flex-col gap-1 mt-2 ">
               <p className="text-xs text-foreground-muted leading-relaxed whitespace-pre-wrap wrap-break-word">
                 {movie.description}
               </p>

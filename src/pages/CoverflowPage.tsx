@@ -158,6 +158,7 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
           category: video.category,
           actor: video.actor,
           description: video.description,
+          links: video.links,
           video,
         };
       });
@@ -189,7 +190,8 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
             cur.title !== (v.name || v.folderName) ||
             cur.category !== v.category ||
             cur.actor !== v.actor ||
-            cur.description !== v.description
+            cur.description !== v.description ||
+            JSON.stringify(cur.links || []) !== JSON.stringify(v.links || [])
           );
         });
 
@@ -283,6 +285,7 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
               category: updatedVideo.category,
               actor: updatedVideo.actor,
               description: updatedVideo.description,
+              links: updatedVideo.links,
               video: updatedVideo,
             };
           }
@@ -297,6 +300,7 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
           category: updatedVideo.category,
           actor: updatedVideo.actor,
           description: updatedVideo.description,
+          links: updatedVideo.links,
           video: updatedVideo,
         };
       });

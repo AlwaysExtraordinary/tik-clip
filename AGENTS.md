@@ -50,7 +50,7 @@ src-tauri/                # Tauri 桌面端后端 (Rust)
    - Zustand 负责运行时的播放状态、当前播放流、设置与界面交互状态。
    - 桌面端通过 `app://fs-changed` 事件实时通知前端目录变更并防抖刷新。
 4. **视频元数据与持久化**：
-   - 视频支持名称、类别（category）、演员（actor）与描述（description）的编辑。
+   - 视频支持名称、类别（category）、演员（actor）、描述（description）与相关链接（links）的编辑。
    - 元数据同步持久化至视频对应子文件夹下的 `data.json` 并保存在 Dexie 中，目录重新扫描时能自动读取并恢复。
 5. **多维度级联筛选与回退**：
    - 视频列表页（VideosPage）与片段流页（ClipsPage）各自独立维护筛选状态，互不干扰。

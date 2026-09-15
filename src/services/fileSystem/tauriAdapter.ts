@@ -1,4 +1,4 @@
-import { Video } from '@/types/video';
+import { Video, VideoLink } from '@/types/video';
 import { Clip } from '@/types/clip';
 import { DirectoryRef, IFileSystemAdapter, ScanProgress, VideoMediaSource } from './types';
 import { generateVideoId, generateClipId } from '@/utils/id';
@@ -222,6 +222,7 @@ export class TauriFileSystemAdapter implements IFileSystemAdapter {
       category?: string;
       actor?: string;
       description?: string;
+      links?: VideoLink[];
     }
   ): Promise<void> {
     const existingData = (await this.getDataJson(target, folderName)) || {};
@@ -231,6 +232,7 @@ export class TauriFileSystemAdapter implements IFileSystemAdapter {
       category: metadata.category ?? '',
       actor: metadata.actor ?? '',
       description: metadata.description ?? '',
+      links: metadata.links ?? (existingData.links as unknown[]) ?? [],
     };
     await this.saveDataJson(target, folderName, updatedData);
   }
@@ -322,6 +324,7 @@ export class TauriFileSystemAdapter implements IFileSystemAdapter {
         let category: string | undefined = undefined;
         let actor: string | undefined = undefined;
         let description: string | undefined = undefined;
+        let links: VideoLink[] | undefined = undefined;
         let clipsFromDataJson: Clip[] | null = null;
 
         if (dataJsonFileName) {
@@ -371,6 +374,24 @@ export class TauriFileSystemAdapter implements IFileSystemAdapter {
             }
             if (parsed.description && typeof parsed.description === 'string') {
               description = parsed.description.trim();
+            }
+            if (Array.isArray(parsed.links)) {
+              links = parsed.links
+                .filter(
+                  (l: unknown) =>
+                    typeof l === 'object' &&
+                    l !== null &&
+                    ((typeof (l as { title?: unknown }).title === 'string' &&
+                      (l as { title: string }).title.trim()) ||
+                      (typeof (l as { name?: unknown }).name === 'string' &&
+                        (l as { name: string }).name.trim())) &&
+                    typeof (l as { url?: unknown }).url === 'string' &&
+                    (l as { url: string }).url.trim()
+                )
+                .map((l: Record<string, unknown>) => ({
+                  title: String(l.title || l.name || '').trim(),
+                  url: String(l.url || '').trim(),
+                }));
             }
             if (Array.isArray(parsed.clips)) {
               clipsFromDataJson = parsed.clips
@@ -513,6 +534,7 @@ export class TauriFileSystemAdapter implements IFileSystemAdapter {
           category: category || existingVideo?.category,
           actor: actor || existingVideo?.actor,
           description: description || existingVideo?.description,
+          links: links || existingVideo?.links,
           clipsCount,
           createdAt: existingVideo?.createdAt || now,
           updatedAt: now,

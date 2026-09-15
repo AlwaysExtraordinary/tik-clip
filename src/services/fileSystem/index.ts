@@ -2,7 +2,7 @@ import { isTauri as checkTauri } from '@tauri-apps/api/core';
 import { IFileSystemAdapter, DirectoryRef, VideoMediaSource, ScanProgress } from './types';
 import { WebFileSystemAdapter } from './webAdapter';
 import { TauriFileSystemAdapter } from './tauriAdapter';
-import { Video } from '@/types/video';
+import { Video, VideoLink } from '@/types/video';
 import { Clip } from '@/types/clip';
 
 export * from './types';
@@ -84,6 +84,29 @@ export async function openPathInOs(targetPath: string): Promise<boolean> {
     console.error('Failed to open path in OS:', err);
     return false;
   }
+}
+
+/**
+ * 在操作系统默认浏览器中打开外部网页链接
+ * @param url 外部网页链接地址
+ */
+export async function openExternalUrl(url: string): Promise<boolean> {
+  if (!url) return false;
+  let targetUrl = url.trim();
+  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//i.test(targetUrl)) {
+    targetUrl = `https://${targetUrl}`;
+  }
+  if (isTauri()) {
+    try {
+      const { openUrl } = await import('@tauri-apps/plugin-opener');
+      await openUrl(targetUrl);
+      return true;
+    } catch (err) {
+      console.warn('Failed to openUrl with plugin-opener, fallback to window.open:', err);
+    }
+  }
+  window.open(targetUrl, '_blank', 'noopener,noreferrer');
+  return true;
 }
 
 export function isFileSystemAccessSupported(): boolean {
@@ -255,7 +278,7 @@ export async function updateVideoNameInDataJson(
 }
 
 /**
- * 更新视频元数据（名称、类别、演员、描述）至 data.json
+ * 更新视频元数据（名称、类别、演员、描述、链接）至 data.json
  * @param target 目录引用或目录句柄
  * @param folderName 视频所属子文件夹名称
  * @param metadata 视频元数据
@@ -268,6 +291,7 @@ export async function updateVideoMetadataInDataJson(
     category?: string;
     actor?: string;
     description?: string;
+    links?: VideoLink[];
   }
 ): Promise<void> {
   const ref: DirectoryRef =

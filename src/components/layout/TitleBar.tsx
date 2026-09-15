@@ -51,6 +51,7 @@ export const TitleBar: React.FC = () => {
 
   // 鼠标按下：区分单击拖拽窗口与双击切换最大化
   const handleMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
     // 仅响应鼠标左键点击，且排除点击到按钮的情况
     if (e.button === 0 && (e.target as HTMLElement).closest('button') === null) {
       if (e.detail === 2) {
@@ -99,7 +100,10 @@ export const TitleBar: React.FC = () => {
 
   return (
     <header
+      data-react-aria-top-layer="true"
       onMouseDown={handleMouseDown}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
       onDoubleClick={(e) => handleToggleMaximize(e)}
       className="h-8 w-full select-none flex items-center justify-between bg-background text-foreground shrink-0 z-999 relative border-b border-border/20 cursor-default"
     >

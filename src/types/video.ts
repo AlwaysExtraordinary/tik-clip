@@ -1,3 +1,8 @@
+export interface VideoLink {
+  title: string;
+  url: string;
+}
+
 export interface Video {
   id: string;
   name: string;
@@ -8,6 +13,7 @@ export interface Video {
   category?: string;
   actor?: string;
   description?: string;
+  links?: VideoLink[];
   clipsCount: number;
   createdAt: number;
   updatedAt: number;
@@ -23,6 +29,7 @@ export interface VideoMetadata {
   category?: string;
   actor?: string;
   description?: string;
+  links?: VideoLink[];
   tags?: string[];
 }
 

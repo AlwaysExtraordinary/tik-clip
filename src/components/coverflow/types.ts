@@ -1,4 +1,4 @@
-import { Video } from '@/types/video';
+import { Video, VideoLink } from '@/types/video';
 
 /** 视图状态枚举：列表侧视 -> 正面展开 -> 放大聚焦 */
 export const VIEW_STATES = {
@@ -20,5 +20,6 @@ export interface CoverflowMovie {
   category?: string;
   actor?: string;
   description?: string;
+  links?: VideoLink[];
   video: Video;
 }
