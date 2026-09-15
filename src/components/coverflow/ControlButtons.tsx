@@ -1,6 +1,6 @@
 import React from 'react';
 import { Icon } from '@iconify/react';
-import { Button, Chip } from '@heroui/react';
+import { Button } from '@heroui/react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/utils/cn';
 
@@ -34,7 +34,7 @@ export const ControlButtons: React.FC<ControlButtonsProps> = ({
       {/* 右上角控制条：翻转与返回列表 */}
       <div
         className={cn(
-          'absolute top-3 right-3 gap-2 @3xl:top-5 @3xl:right-5 @3xl:gap-2.5 z-30 flex items-center transition-all duration-300 ease-in-out',
+          'absolute top-3 right-3 gap-2 @3xl:top-5 @3xl:right-5 @3xl:gap-2.5 z-30 flex items-center transition-all duration-500 ease-in-out',
           isHidden && 'opacity-0 -translate-y-4 pointer-events-none'
         )}
       >
@@ -68,7 +68,8 @@ export const ControlButtons: React.FC<ControlButtonsProps> = ({
           'absolute z-30 size-9 @3xl:size-8 transition-all duration-500 ease-in-out',
           'left-5 top-[34%] -translate-y-1/2',
           '@3xl:left-auto @3xl:right-57 @3xl:top-5 @3xl:translate-y-0',
-          isHidden && 'pointer-events-none opacity-0 -translate-x-4'
+          isHidden &&
+            'pointer-events-none opacity-0 -translate-x-4 @3xl:-translate-y-4 @3xl:translate-x-0'
         )}
       >
         <Button
@@ -90,7 +91,8 @@ export const ControlButtons: React.FC<ControlButtonsProps> = ({
           'absolute z-30 size-9 @3xl:size-8 transition-all duration-500 ease-in-out',
           'right-5 top-[34%] -translate-y-1/2',
           '@3xl:right-47 @3xl:top-5 @3xl:translate-y-0',
-          isHidden && 'pointer-events-none opacity-0 translate-x-4'
+          isHidden &&
+            'pointer-events-none opacity-0 translate-x-4 @3xl:-translate-y-4 @3xl:translate-x-0'
         )}
       >
         <Button
@@ -111,20 +113,12 @@ export const ControlButtons: React.FC<ControlButtonsProps> = ({
         className={cn(
           'absolute z-30 pointer-events-none transition-all duration-500 ease-in-out ',
           // 'top-2 left-1/2 -translate-x-1/2',
-          'top-3.5 left-5',
+          'top-4 left-6',
           // '@3xl:top-[calc(100%-3.25rem)] @3xl:left-8 @3xl:translate-x-0',
-          '@3xl:top-5 @3xl:left-1/2 @3xl:-translate-x-1/2',
+          '@3xl:top-7 @3xl:left-1/2 @3xl:-translate-x-1/2',
           isHidden && 'opacity-0 -translate-y-4'
         )}
       >
-        {/* <Chip
-          size="sm"
-          variant="soft"
-          className="backdrop-blur-md font-medium select-none bg-surface/85 dark:bg-zinc-900/85 border 
-           border-border/80 text-foreground-muted text-xs px-2 shadow-subtle"
-        >
-          {currentIndex + 1} / {totalMovies}
-        </Chip> */}
         <div className="font-medium select-none text-foreground-muted text-xs">
           {currentIndex + 1} / {totalMovies}
         </div>
