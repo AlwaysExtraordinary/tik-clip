@@ -137,6 +137,8 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
   // 3. 加载并过滤包含封面的视频数据（直接使用数据库中已有的视频元数据）
   const loadCoverflowMovies = useCallback(async () => {
     setIsLoading(true);
+    // 重新载入封面数据时，重置视图状态为列表模式，避免控制面板与场景数据脱节
+    setViewState(VIEW_STATES.LIST);
     try {
       const allVideos = await getAllVideos();
 
@@ -204,7 +206,14 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
     }
   }, [loadCoverflowMovies]);
 
-  // 5. 当页面可见且扫描结束时，检测并执行必要的数据刷新
+  // 5. 当目录重新扫描时，重置视图状态为列表模式
+  useEffect(() => {
+    if (isScanning) {
+      setViewState(VIEW_STATES.LIST);
+    }
+  }, [isScanning]);
+
+  // 6. 当页面可见且扫描结束时，检测并执行必要的数据刷新
   useEffect(() => {
     if (isVisible && !isScanning) {
       checkAndReloadMovies();

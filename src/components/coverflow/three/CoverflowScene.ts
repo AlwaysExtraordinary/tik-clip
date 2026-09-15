@@ -173,6 +173,9 @@ export class CoverflowScene {
     this.initThree();
     this.initEvents();
     this.animate();
+
+    // 初始状态通知外部，确保 React 状态与 Three.js 场景状态强一致
+    this.onStateChange?.(this.state);
   }
 
   // 初始化 Three.js 场景、相机、渲染器与材质
@@ -336,6 +339,11 @@ export class CoverflowScene {
       return this.movies[this.selectedIndex];
     }
     return null;
+  }
+
+  // 获取当前场景的视图状态
+  public getState(): ViewState {
+    return this.state;
   }
 
   /**
@@ -509,6 +517,19 @@ export class CoverflowScene {
    * @param targetIndex 可选的指定目标索引（例如切换回默认状态时恢复至首项 0）
    */
   public async setMovies(movieList: CoverflowMovie[], targetIndex?: number): Promise<void> {
+    // 载入或刷新封面流时，若当前处于聚焦或详情模式，强制重置为列表视图以保持场景与交互一致
+    const wasDetailOrExpanded = this.state !== VIEW_STATES.LIST;
+    if (wasDetailOrExpanded) {
+      this.state = VIEW_STATES.LIST;
+      this.resetCardRotations();
+      this.boundaryBounceOffset = 0;
+      this.boundaryBounceVelocity = 0;
+      this.updateCameraTargetZ(true);
+      if (this.onStateChange) {
+        this.onStateChange(VIEW_STATES.LIST);
+      }
+    }
+
     // 校验数据是否与当前场景完全一致，若完全一致则直接复用避免重复生成
     const isSame =
       this.movies.length === movieList.length &&
@@ -527,8 +548,11 @@ export class CoverflowScene {
           mesh.userData.movie = movieList[idx];
         }
       });
-      if (targetIndex !== undefined) {
-        const safeIdx = Math.max(0, Math.min(movieList.length - 1, targetIndex));
+      if (targetIndex !== undefined || wasDetailOrExpanded) {
+        const safeIdx =
+          targetIndex !== undefined
+            ? Math.max(0, Math.min(movieList.length - 1, targetIndex))
+            : this.selectedIndex;
         this.selectedIndex = safeIdx;
         this.scrollIndex = safeIdx;
         this.targetScrollIndex = safeIdx;

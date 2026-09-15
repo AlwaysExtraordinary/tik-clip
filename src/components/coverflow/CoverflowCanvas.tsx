@@ -49,6 +49,8 @@ export const CoverflowCanvas: React.FC<CoverflowCanvasProps> = ({
 
     sceneRef.current = scene;
     onSceneReadyRef.current?.(scene);
+    // 挂载时立即同步场景初始状态至外部
+    onStateChangeRef.current?.(scene.getState());
 
     // 监听父容器大小变动，通过 requestAnimationFrame 节流，自适应 Three.js 相机与视口
     let resizeRafId: number | null = null;
