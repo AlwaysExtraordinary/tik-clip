@@ -490,7 +490,7 @@ export const ClipsPage: React.FC = () => {
             <FilterSelect
               value={selectedCategory}
               onChange={handleCategoryChange}
-              icon="lucide:folder"
+              icon="lucide:chart-column-stacked"
               defaultLabel={t('videos.allCategories')}
               options={availableCategories}
               placeholder={t('clipsFeed.selectCategory')}

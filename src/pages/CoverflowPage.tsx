@@ -13,6 +13,7 @@ import { MovieInfoPanel } from '@/components/coverflow/MovieInfoPanel';
 import { ControlButtons } from '@/components/coverflow/ControlButtons';
 import { CoverflowScene } from '@/components/coverflow/three/CoverflowScene';
 import { CoverflowMovie, VIEW_STATES, ViewMode, ViewState } from '@/components/coverflow/types';
+import { parseTagList } from '@/utils/common';
 
 interface CoverflowPageProps {
   isVisible?: boolean;
@@ -62,14 +63,8 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
   const availableActors = useMemo(() => {
     const set = new Set<string>();
     for (const m of movies) {
-      if (m.actor && m.actor.trim()) {
-        const parts = m.actor.split(/[,，/、;\s]+/);
-        for (const p of parts) {
-          const trimmed = p.trim();
-          if (trimmed) {
-            set.add(trimmed);
-          }
-        }
+      for (const actor of parseTagList(m.actor)) {
+        set.add(actor);
       }
     }
     return Array.from(set).sort();
@@ -89,8 +84,8 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
     }
     return movies.filter((m) => {
       if (!m.actor) return false;
-      const parts = m.actor.split(/[,，/、;\s]+/);
-      return parts.some((p) => p.trim() === selectedActor) || m.actor.includes(selectedActor);
+      const parts = parseTagList(m.actor);
+      return parts.includes(selectedActor) || m.actor.includes(selectedActor);
     });
   }, [movies, selectedActor]);
 

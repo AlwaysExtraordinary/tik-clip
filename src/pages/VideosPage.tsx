@@ -286,7 +286,7 @@ export const VideosPage: React.FC = () => {
           <FilterSelect
             value={selectedCategory}
             onChange={setSelectedCategory}
-            icon="lucide:folder"
+            icon="lucide:chart-column-stacked"
             defaultLabel={t('videos.allCategories')}
             options={availableCategories}
             placeholder={t('videos.filterByCategory')}
