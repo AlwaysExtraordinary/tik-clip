@@ -4,9 +4,15 @@
  * 提供三次贝塞尔平滑缓动曲线（Ease-In-Out Cubic）与数值区间约束函数。
  */
 
-// 三次贝塞尔缓动函数 (Ease-In-Out Cubic)
-export function easeInOutCubic(t: number): number {
-  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+/**
+ * 平滑缓动函数 (Ease-In-Out，支持自定义曲线强度)
+ * @param t 当前归一化进度 [0, 1]
+ * @param intensity 缓动强度/幂次 (默认 3 为三次立方缓动，数值越大起止越平缓、中间加速越陡峭)
+ */
+export function easeInOutCubic(t: number, intensity = 3): number {
+  return t < 0.5
+    ? Math.pow(2, intensity - 1) * Math.pow(t, intensity)
+    : 1 - Math.pow(-2 * t + 2, intensity) / 2;
 }
 
 /**

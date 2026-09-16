@@ -268,7 +268,12 @@ export class BookTransitionManager {
 
     onHideOtherCards();
 
-    this.bookAssembly = this.createBookAssembly(options.movie, selectedMesh, plasticEdgeMat, themeMode);
+    this.bookAssembly = this.createBookAssembly(
+      options.movie,
+      selectedMesh,
+      plasticEdgeMat,
+      themeMode
+    );
     this.bookAssembly.position.copy(selectedMesh.position);
     this.bookAssembly.rotation.set(0, 0, 0);
     this.bookAssembly.scale.copy(selectedMesh.scale);
@@ -318,7 +323,14 @@ export class BookTransitionManager {
       return;
     }
 
-    this.startBookOpenAssembly(options, selectedMesh, plasticEdgeMat, themeMode, scene, onHideOtherCards);
+    this.startBookOpenAssembly(
+      options,
+      selectedMesh,
+      plasticEdgeMat,
+      themeMode,
+      scene,
+      onHideOtherCards
+    );
   }
 
   /**
@@ -504,7 +516,14 @@ export class BookTransitionManager {
       const opts = this.preFlipOptions;
       this.preFlipOptions = null;
       if (opts) {
-        this.startBookOpenAssembly(opts, selectedMesh!, plasticEdgeMat, themeMode, scene, onHideOtherCards);
+        this.startBookOpenAssembly(
+          opts,
+          selectedMesh!,
+          plasticEdgeMat,
+          themeMode,
+          scene,
+          onHideOtherCards
+        );
       }
       return;
     }
@@ -534,7 +553,14 @@ export class BookTransitionManager {
       this.preFlipOptions = null;
       this.preFlipSelectedMesh = null;
       if (opts) {
-        this.startBookOpenAssembly(opts, selectedMesh, plasticEdgeMat, themeMode, scene, onHideOtherCards);
+        this.startBookOpenAssembly(
+          opts,
+          selectedMesh,
+          plasticEdgeMat,
+          themeMode,
+          scene,
+          onHideOtherCards
+        );
       }
     }
   }
