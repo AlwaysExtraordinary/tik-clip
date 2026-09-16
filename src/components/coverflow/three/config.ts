@@ -71,12 +71,12 @@ export const BOOK_ANIM_CONFIG = {
 
   // 宽屏模式参数 (Wide Mode, >= @3xl: 768px, 左右布局)
   wide: {
-    duration: 2200, // 翻开与光盘飞行动画总时长 (毫秒)
+    duration: 2500, // 翻开与光盘飞行动画总时长 (毫秒)
     coverOpenMaxAngle: -Math.PI, // 封面翻转展开弧度 -180° (-π)，双页完全对折展平
     coverOpenRatio: 0.4, // 阶段 1 封面展开就位时间占比 (0.0 ~ 1.0)
     discDetachRightOffset: 0.38, // 阶段 2 光盘向右脱离托盘的位移距离 (世界单位)
     discDetachLiftZ: 0.18, // 阶段 2 光盘脱离托盘拔起高度 (世界单位)
-    discFlyoutScale: 1.75, // 光盘飞至视野中心时的放大倍率
+    discFlyoutScale: 1.55, // 光盘飞至视野中心时的放大倍率
     discFlyoutZOffset: 2.0, // 光盘飞向相机的 Z 轴推进位移 (世界单位)
     discSpinAngle: Math.PI * 2, // 旋转总弧度 (360 度一整圈)
     flightTiltX: 0.08, // 飞行中段 X 轴立体微俯仰倾角系数
@@ -108,7 +108,7 @@ export const BOOK_ANIM_CONFIG = {
   // 实体光盘几何与视觉效果参数 (双端通用)
   disc: {
     centerY: 330, // 光盘垂直中心 Y 坐标 (px)
-    outerRadius: 170, // 光盘外边缘半径 (px)
+    outerRadius: 200, // 光盘外边缘半径 (px)
     recessOffset: 8, // 托盘塑料凹槽相较光盘外径的扩张边距 (px)
     holeRadius: 24, // 光盘中心透空圆孔半径 (px)
     hubRadius: 50, // 光盘透明亚克力夹持环外径 (px)
@@ -118,11 +118,11 @@ export const BOOK_ANIM_CONFIG = {
 
   // 内页影片典藏排版文字位置与尺寸
   typography: {
-    titleY: 565, // 影片标题中心 Y 坐标 (px)
+    titleY: 600, // 影片标题中心 Y 坐标 (px)
     titleFontSize: 22, // 影片标题字号 (px)
-    subtitleY: 605, // 副标题中心 Y 坐标 (px)
+    subtitleY: 635, // 副标题中心 Y 坐标 (px)
     subtitleFontSize: 12, // 副标题字号 (px)
-    actorY: 635, // 演员信息中心 Y 坐标 (px)
+    actorY: 665, // 演员信息中心 Y 坐标 (px)
     actorFontSize: 13, // 演员信息字号 (px)
   },
 
