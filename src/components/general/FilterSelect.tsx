@@ -18,6 +18,8 @@ export interface FilterSelectProps {
   placeholder?: string;
   /** 无障碍标签文本（可选） */
   ariaLabel?: string;
+  /** 是否展示默认值文本 (可选) */
+  isShowDefautText?: boolean;
   /** 自定义外层触发器容器样式（可选） */
   className?: string;
 }
@@ -36,6 +38,7 @@ export const FilterSelect: React.FC<FilterSelectProps> = ({
   placeholder,
   ariaLabel,
   className,
+  isShowDefautText = true,
 }) => {
   const isDefault = !value || value === 'all';
 
@@ -60,8 +63,10 @@ export const FilterSelect: React.FC<FilterSelectProps> = ({
           />
           <Select.Value
             className={cn(
-              'text-[11px] sm:text-[12px]',
-              isDefault ? 'text-foreground-muted' : 'text-foreground font-medium'
+              'max-[500px]:hidden max-w-12 truncate text-[11px] sm:text-[12px] sm:max-w-20 lg:max-w-30',
+              isDefault
+                ? `text-foreground-muted ${isShowDefautText ? '' : 'hidden'}`
+                : 'text-foreground font-medium'
             )}
           />
         </div>
@@ -72,22 +77,35 @@ export const FilterSelect: React.FC<FilterSelectProps> = ({
           <ListBox.Item
             id="all"
             textValue={defaultLabel}
-            className="text-foreground-muted text-[11px] sm:text-[12px] min-h-0 py-1 rounded-md"
+            className={cn(
+              'text-[11px] sm:text-[12px] min-h-0 py-1 rounded-md transition-colors cursor-pointer',
+              'data-[selected=true]:bg-accent/15 data-[selected=true]:text-accent data-[selected=true]:font-medium',
+              isDefault
+                ? 'bg-accent/15 text-accent font-medium hover:bg-accent/20'
+                : 'text-foreground-muted hover:text-foreground'
+            )}
           >
             <span>{defaultLabel}</span>
-            <ListBox.ItemIndicator className="text-accent" />
           </ListBox.Item>
-          {options.map((option) => (
-            <ListBox.Item
-              key={option}
-              id={option}
-              textValue={option}
-              className="text-[11px] sm:text-[12px] min-h-0 py-1 rounded-md"
-            >
-              <span>{option}</span>
-              <ListBox.ItemIndicator className="text-accent" />
-            </ListBox.Item>
-          ))}
+          {options.map((option) => {
+            const isSelected = value === option;
+            return (
+              <ListBox.Item
+                key={option}
+                id={option}
+                textValue={option}
+                className={cn(
+                  'text-[11px] sm:text-[12px] min-h-0 py-1 rounded-md transition-colors cursor-pointer',
+                  'data-[selected=true]:bg-accent/15 data-[selected=true]:text-accent data-[selected=true]:font-medium',
+                  isSelected
+                    ? 'bg-accent/15 text-accent font-medium hover:bg-accent/20'
+                    : 'text-foreground hover:text-foreground'
+                )}
+              >
+                <span>{option}</span>
+              </ListBox.Item>
+            );
+          })}
         </ListBox>
       </Select.Popover>
     </Select>

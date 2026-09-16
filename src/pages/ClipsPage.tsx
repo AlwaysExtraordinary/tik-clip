@@ -476,7 +476,7 @@ export const ClipsPage: React.FC = () => {
       <div className="flex items-center justify-between pb-3 select-none gap-3">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <span
-            className="text-md font-semibold text-foreground truncate shrink-0"
+            className="text-md font-semibold text-foreground truncate min-w-0"
             title={currentShuffleItem?.video.name || t('clipsFeed.title')}
           >
             {currentShuffleItem?.video.name || t('clipsFeed.title')}
@@ -495,6 +495,7 @@ export const ClipsPage: React.FC = () => {
               options={availableCategories}
               placeholder={t('clipsFeed.selectCategory')}
               ariaLabel={t('clipsFeed.filterByCategory')}
+              isShowDefautText={false}
             />
           )}
 
@@ -508,6 +509,7 @@ export const ClipsPage: React.FC = () => {
               options={availableActors}
               placeholder={t('clipsFeed.selectActor')}
               ariaLabel={t('clipsFeed.filterByActor')}
+              isShowDefautText={false}
             />
           )}
 
@@ -521,6 +523,7 @@ export const ClipsPage: React.FC = () => {
               options={availableTags}
               placeholder={t('clipsFeed.selectTag')}
               ariaLabel={t('clipsFeed.filterByTag')}
+              isShowDefautText={false}
             />
           )}
         </div>

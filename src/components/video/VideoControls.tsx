@@ -147,7 +147,7 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
       </div>
 
       {/* 时间显示 */}
-      <div className="text-foreground shrink-0 text-xs font-semibold whitespace-nowrap">
+      <div className="text-foreground shrink-0 text-xs font-semibold whitespace-nowrap @max-md:hidden">
         {formatTime(displayCurrentTime)} / {formatTime(displayTotalDuration)}
       </div>
 

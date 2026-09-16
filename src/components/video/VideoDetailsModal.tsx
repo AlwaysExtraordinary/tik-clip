@@ -468,7 +468,7 @@ export const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="w-full h-9 border border-dashed border-border hover:border-foreground/40 text-foreground-muted
+                      className="w-full h-9 border-[1.5px] border-dashed border-border hover:border-foreground/40 text-foreground-muted
                        hover:text-foreground rounded-xl text-xs gap-1.5 cursor-pointer"
                       onClick={handleAddLink}
                     >
