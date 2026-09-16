@@ -1,4 +1,10 @@
 /**
+ * @file textureProcessor.ts
+ * @description 封面三折图切片与单张封面展开图处理服务
+ * 负责将封面图像解析并裁剪/合成生成封面正面 (front)、书脊 (spine) 与封底背面 (back) 3 张标准 2D 纹理贴图。
+ */
+
+/**
  * 封面展开图材质处理结果接口
  */
 export interface ProcessedCoverTextures {

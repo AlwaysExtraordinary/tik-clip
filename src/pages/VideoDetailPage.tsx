@@ -26,7 +26,18 @@ export const VideoDetailPage: React.FC = () => {
   const { videoId } = useParams<{ videoId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const initialTime = (location.state as { initialTime?: number } | undefined)?.initialTime;
+  const locationState = location.state as
+    | {
+        initialTime?: number;
+        preloadedVideo?: Video;
+        preloadedSrc?: string;
+        preloadedFile?: File;
+      }
+    | undefined;
+  const initialTime = locationState?.initialTime;
+  const preloadedVideo = locationState?.preloadedVideo;
+  const preloadedSrc = locationState?.preloadedSrc;
+  const preloadedFile = locationState?.preloadedFile;
 
   const { directoryRef, directoryHandle, isHandleRestoring, hasDirectoryPermission } =
     useDirectory();
@@ -66,32 +77,36 @@ export const VideoDetailPage: React.FC = () => {
     }
   }, [isClipPanelOpen]);
 
-  const [video, setVideo] = useState<Video | null>(null);
-  const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [videoSrc, setVideoSrc] = useState<string | null>(null);
+  const [video, setVideo] = useState<Video | null>(() => preloadedVideo || null);
+  const [videoFile, setVideoFile] = useState<File | null>(() => preloadedFile || null);
+  const [videoSrc, setVideoSrc] = useState<string | null>(() => preloadedSrc || null);
   const [clips, setClips] = useState<Clip[]>([]);
   const [currentVideoTime, setCurrentVideoTime] = useState(initialTime ?? 0);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState<boolean>(() => !preloadedVideo);
   const [error, setError] = useState<string | null>(null);
 
-  // 加载视频元数据与文件
+  // 加载视频元数据与文件（若已存在预加载数据，则后台静默补全片段，不展示全局 Loading）
   const loadVideoData = useCallback(async () => {
     if (!videoId) return;
-    setIsLoading(true);
+    if (!preloadedVideo) {
+      setIsLoading(true);
+    }
     setError(null);
 
     try {
-      const v = await getVideoById(videoId);
+      const v = preloadedVideo || (await getVideoById(videoId));
       if (!v) {
         setError(t('videoDetail.videoNotFound'));
         return;
       }
-      setVideo(v);
+      if (!preloadedVideo) {
+        setVideo(v);
+      }
 
       const clipList = await getClipsByVideoId(videoId);
       setClips(clipList);
 
-      if (activeDirectory && hasDirectoryPermission) {
+      if (!preloadedSrc && !preloadedFile && activeDirectory && hasDirectoryPermission) {
         try {
           const mediaSource = await getVideoMediaSource(activeDirectory, v.folderName, v.fileName);
           setVideoFile(mediaSource.file || null);
@@ -107,7 +122,7 @@ export const VideoDetailPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [videoId, activeDirectory, hasDirectoryPermission, t]);
+  }, [videoId, preloadedVideo, preloadedSrc, preloadedFile, activeDirectory, hasDirectoryPermission, t]);
 
   useEffect(() => {
     loadVideoData();

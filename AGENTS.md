@@ -22,6 +22,7 @@ src/
 │   ├── video/            # 视频播放器 (VideoPlayer)、控制器、进度条及悬停缩略图预览
 │   ├── clip/             # 片段 Feed 流容器 (ClipFeedContainer)、表单、列表与标签面板
 │   ├── coverflow/        # 3D 封面流组件 (CoverflowCanvas, CoverflowNavbar, MovieInfoPanel, ControlButtons)
+│   │   └── three/        # 3D 引擎内核 (CoverflowScene 调度器, cardManager 卡片池, bookTransitionManager 动画过渡, bookCanvasGenerators 贴图生成)
 │   ├── layout/           # 布局框架 (MainLayout, Sidebar)
 │   └── settings/         # 设置弹窗
 ├── services/             # 核心服务层
@@ -61,6 +62,7 @@ src-tauri/                # Tauri 桌面端后端 (Rust)
    - 提供「正面」（0°）、「斜角」（56°）与「侧面」（90°）三重视图模式平滑切换；处于选中封面状态下切换视图模式时，自动平滑返回影片列表并呈现对应视图。
    - 选中封面及详情聚焦模式下，支持鼠标滚轮步进切换上一个或下一个封面，详情视图切卡具备定向飞入与滑出离场动画且始终稳定触发。
    - 详情聚焦模式下具备屏幕可用空间自适应居中与体量补偿算法，窗口缩放时封面始终精准对齐右侧可用区域正中且保持比例饱满。
+   - 详情聚焦（Detail）模式下点击播放视频时具备响应式过渡。
 
 # 注意事项
 

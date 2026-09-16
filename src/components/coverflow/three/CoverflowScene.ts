@@ -1,25 +1,31 @@
-import * as THREE from 'three';
-import { processCoverSpreadTexture } from './textureProcessor';
-import { CoverflowMovie, VIEW_STATES, ViewMode, ViewState } from '../types';
-import { Video } from '@/types/video';
+/**
+ * @file CoverflowScene.ts
+ * @description 3D Coverflow 渲染引擎核心调度器
+ * 负责 WebGL 渲染管线生命周期、透视相机动态推拉与自适应、卡片三维流式布局算法（正面/斜角/侧面/单张聚焦）、
+ * 统一触控与鼠标拖拽/滚轮切卡事件分发、边界弹性回弹模拟及 60FPS 渲染循环总协调。
+ */
 
-/** 拓展带有平滑插值目标属性的 Mesh */
-interface CardMesh extends THREE.Mesh {
-  targetPosition: THREE.Vector3;
-  targetRotationY: number;
-  targetRotationX: number;
-  targetScale: number;
-  reflectionMesh?: THREE.Mesh;
-  reflectionMaterials?: THREE.MeshBasicMaterial[];
-  userData: {
-    index: number;
-    movie: CoverflowMovie;
-    isReflection?: boolean;
-  };
-}
+import * as THREE from 'three';
+import { Video } from '@/types/video';
+import { CoverflowMovie, VIEW_STATES, ViewMode, ViewState } from '../types';
+import { BookTransitionManager } from './bookTransitionManager';
+import { CardManager } from './cardManager';
+import {
+  BOUNCE_CONFIG,
+  CAMERA_CONFIG,
+  CARD_CONFIG,
+  LERP_CONFIG,
+  SCROLL_CONFIG,
+  THEME_CONFIG,
+  WHEEL_CONFIG,
+} from './config';
+import { BookOpenTransitionOptions, CardMesh, ThemeMode, TransitionDirection } from './types';
+
+// 导出供外部组件引用的选项接口与卡片类型
+export type { BookOpenTransitionOptions, CardMesh };
 
 /**
- * 3D Coverflow 渲染引擎核心类
+ * 3D Coverflow 渲染引擎核心调度器
  * 负责 Three.js 场景构建、相机视角、卡片流式布局、惯性滚动与状态流转
  */
 export class CoverflowScene {
@@ -34,91 +40,35 @@ export class CoverflowScene {
   private renderer!: THREE.WebGLRenderer;
   private raycaster!: THREE.Raycaster;
   private mouse!: THREE.Vector2;
-  private plasticEdgeMat!: THREE.MeshBasicMaterial;
-  private boxGeometry!: THREE.BoxGeometry;
 
-  // =================================================================
-  // 核心视觉、物理与交互调节参数 (在此处集中统一管理与微调)
-  // =================================================================
+  // 子系统管理器
+  private cardManager: CardManager;
+  private bookTransitionManager: BookTransitionManager;
 
-  // 1. 倒影与地面反光调节参数
-  private reflectionBaseOpacityDark = 0.22; // 暗色主题下倒影不透明度 (数值越小反光越微弱，建议 0.15 ~ 0.28)
-  private reflectionBaseOpacityLight = 0.15; // 亮色主题下倒影不透明度 (建议 0.10 ~ 0.20)
-  private reflectionBaseOpacity = 0.22; // 当前生效的倒影不透明度
-  private reflectionBlurRadius = 2; // 倒影磨砂模糊半径 (单位 px，0 为完全镜面，3~8 为柔和磨砂感)
-  private reflectionGap = 0.015; // 封面底边与倒影之间的微小空隙 (避免贴合重叠与 Z-fighting)
+  // 主题与场景背景色
+  private bgColorDark = new THREE.Color(THEME_CONFIG.bgColorDark);
+  private bgColorLight = new THREE.Color(THEME_CONFIG.bgColorLight);
+  private currentThemeMode: ThemeMode = 'dark';
 
-  // 2. 详情模式边界弹性回弹参数 (物理弹簧阻尼模型)
-  private bounceStiffness = 0.05; // 弹簧劲度系数 (数值越大拉回越快)
-  private bounceDamping = 0.85; // 阻尼衰减系数 (数值越大摆动持续越久，建议 0.75 ~ 0.88)
-  private bounceImpulse = 0.13; // 单次触碰边界施加的物理冲量大小
-  private bounceMaxVelocity = 0.22; // 冲量最大速度上限 (防多次快速点击突兀)
-  private bounceMaxOffset = 0.4; // 封面最大回弹位移限制幅度 (世界坐标)
-  private bounceTiltRatio = 0.2; // 回弹时 Y 轴侧向微倾联动比例 (增强 3D 物理质感)
-
-  // 3. 动画过渡与平滑插值速度 (Lerp Speed)
-  private cardLerpSpeed = 0.12; // 卡片位置、旋转与缩放插值速度 (建议 0.08 ~ 0.18)
-  private cameraLerpSpeed = 0.1; // 相机推拉镜头平滑插值速度 (建议 0.06 ~ 0.15)
-
-  // 4. 列表模式滚动与惯性物理参数
-  private listScrollSensitivity = 0.0012; // 滚轮连续滚动灵敏度
-  private listDragFactor = 350; // 鼠标/触摸拖拽滚动阻尼系数 (数值越大拖拽位移越平缓)
-  private listScrollFriction = 0.88; // 列表惯性滚动摩擦阻力 (数值越接近 1 滑行越远)
-  private listScrollFollowSpeed = 0.1; // 列表目标滚动位置的平滑追随速度
-
-  // 5. 聚焦与详情模式滚轮切卡阈值
-  private wheelStepThreshold = 50; // 滚轮累积滑动触发单张切卡的阻尼阈值
-  private wheelStepCooldown = 180; // 滚轮切卡最小冷却时间 (毫秒，过滤惯性连跳)
-  private wheelAccumulatorResetTime = 300; // 滚轮静止重置累加器时间 (毫秒)
-
-  // 6. 卡片模型基础尺寸与间距
-  private cardHeight = 4.2;
-  private cardWidth = 4.2 * (379.5 / 537); // 约 2.97
-  private cardDepth = 4.2 * (41 / 537); // 约 0.32
-  private spacing = 2; // 列表卡片默认间距
-
-  // 7. 相机与场景基础参数
-  private cameraFov = 45; // 相机垂直视场角 (度)
-  private cameraBaseZ = 9.5; // 相机基准 Z 轴距离
-
-  // 倒影相关资源与参数
-  private reflectionGeometry!: THREE.BoxGeometry;
-  private reflectionAlphaMap!: THREE.CanvasTexture;
-  private reflectionPlasticEdgeMat!: THREE.MeshBasicMaterial;
-
-  // 主题配色
-  private bgColorDark = new THREE.Color('#121214');
-  private bgColorLight = new THREE.Color('#f3f4f6');
-
-  // 数据与状态
-  private movies: CoverflowMovie[] = [];
-  private cardMeshes: CardMesh[] = [];
+  // 状态与布局
   private state: ViewState = VIEW_STATES.LIST;
   private selectedIndex = 0;
   private scrollIndex = 0;
   private targetScrollIndex = 0;
   private scrollVelocity = 0;
   private isFlipped = false;
-  private listViewMode: ViewMode = 'front'; // 'front' (正面 0°), 'angled' (斜角 56°), 'vertical' (侧面 90°)
+  private listViewMode: ViewMode = 'front';
+  private transitionDirection: TransitionDirection = null;
 
-  // 滚轮步进防抖与累加器 (在 EXPANDED 和 DETAIL 状态生效)
-  private wheelAccumulator = 0;
-  private lastWheelTime = 0;
-  private lastWheelStepTime = 0;
-
-  // 详情模式切卡过渡方向 (用于驱动进入与退出切入动画)
-  private transitionDirection: 'next' | 'prev' | null = null;
-
-  // 详情模式到达边界时的弹性回弹状态 (物理弹簧阻尼模型)
+  // 边界弹性回弹状态 (物理弹簧阻尼模型)
   private boundaryBounceOffset = 0;
   private boundaryBounceVelocity = 0;
 
-  // 交互标志量
+  // 交互控制量
   private isDragging = false;
   private startX = 0;
   private dragStartScroll = 0;
 
-  // 3D 旋转交互标志量 (在 EXPANDED 和 DETAIL 状态生效)
   private isZoomDragging = false;
   private zoomDragStartX = 0;
   private zoomDragStartY = 0;
@@ -126,12 +76,16 @@ export class CoverflowScene {
   private zoomDragStartRotX = 0;
   private zoomDragDistance = 0;
 
+  private wheelAccumulator = 0;
+  private lastWheelTime = 0;
+  private lastWheelStepTime = 0;
+
   // 动画与生命周期
   private animId: number | null = null;
   private isDestroyed = false;
   private isPaused = false;
   private isMobile = false;
-  private cameraTargetZ = 9.5;
+  private cameraTargetZ: number = CAMERA_CONFIG.baseZ;
   private currentDetailTargetX = 0.9;
 
   // 事件解绑句柄
@@ -146,7 +100,7 @@ export class CoverflowScene {
   private boundOnClick: (e: MouseEvent) => void;
 
   /**
-   * 构造函数：初始化场景、材质与事件监听
+   * 构造函数：初始化场景、相机、子系统与事件监听
    * @param canvasElement WebGL Canvas 元素
    * @param onMovieChange 选中视频变更回调
    * @param onStateChange 视图状态变更回调
@@ -159,6 +113,9 @@ export class CoverflowScene {
     this.canvas = canvasElement;
     this.onMovieChange = onMovieChange;
     this.onStateChange = onStateChange;
+
+    this.cardManager = new CardManager();
+    this.bookTransitionManager = new BookTransitionManager();
 
     this.boundOnResize = this.onResize.bind(this);
     this.boundOnWheel = this.onWheel.bind(this);
@@ -174,11 +131,10 @@ export class CoverflowScene {
     this.initEvents();
     this.animate();
 
-    // 初始状态通知外部，确保 React 状态与 Three.js 场景状态强一致
     this.onStateChange?.(this.state);
   }
 
-  // 初始化 Three.js 场景、相机、渲染器与材质
+  // 初始化 Three.js 场景、相机与渲染器
   private initThree(): void {
     this.scene = new THREE.Scene();
     this.scene.background = this.bgColorDark.clone();
@@ -187,9 +143,9 @@ export class CoverflowScene {
     const width = rect.width || window.innerWidth;
     const height = rect.height || window.innerHeight;
 
-    this.camera = new THREE.PerspectiveCamera(this.cameraFov, width / height, 0.1, 100);
-    this.camera.position.set(0, 0.2, this.cameraBaseZ);
-    this.cameraTargetZ = this.cameraBaseZ;
+    this.camera = new THREE.PerspectiveCamera(CAMERA_CONFIG.fov, width / height, 0.1, 100);
+    this.camera.position.set(0, 0.2, CAMERA_CONFIG.baseZ);
+    this.cameraTargetZ = CAMERA_CONFIG.baseZ;
 
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
@@ -203,123 +159,25 @@ export class CoverflowScene {
 
     this.raycaster = new THREE.Raycaster();
     this.mouse = new THREE.Vector2();
-
-    this.plasticEdgeMat = new THREE.MeshBasicMaterial({
-      color: '#1e293b',
-    });
-
-    this.boxGeometry = new THREE.BoxGeometry(this.cardWidth, this.cardHeight, this.cardDepth);
-    this.initReflectionAssets();
-  }
-
-  // 初始化倒影几何体、Alpha渐变贴图与边框材质
-  private initReflectionAssets(): void {
-    // 1. 创建镜像反转的 BoxGeometry，顶点 Y 坐标取负
-    this.reflectionGeometry = this.boxGeometry.clone();
-    const pos = this.reflectionGeometry.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-      pos.setY(i, -pos.getY(i));
-    }
-    pos.needsUpdate = true;
-
-    // 翻转三角形索引环绕方向，确保法线指向模型外部，适配标准 FrontSide 面剔除
-    const index = this.reflectionGeometry.index;
-    if (index) {
-      for (let i = 0; i < index.count; i += 3) {
-        const b = index.getX(i + 1);
-        const c = index.getX(i + 2);
-        index.setX(i + 1, c);
-        index.setX(i + 2, b);
-      }
-      index.needsUpdate = true;
-    }
-    this.reflectionGeometry.computeVertexNormals();
-
-    // 2. 构造轻微倒影渐隐 Alpha 渐变贴图
-    // Canvas 坐标 y=0 对应 WebGL UV v=1.0（远端地下），y=256 对应 UV v=0.0（地面接触端）
-    const canvas = document.createElement('canvas');
-    canvas.width = 1;
-    canvas.height = 256;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      const grad = ctx.createLinearGradient(0, 0, 0, 256);
-      grad.addColorStop(0.0, 'rgb(0, 0, 0)'); // 远端深处完全透明 (v=1.0)
-      grad.addColorStop(0.45, 'rgb(0, 0, 0)'); // 倒影下半截完全透明 (v=0.55)
-      grad.addColorStop(0.7, 'rgb(35, 35, 35)'); // 柔和渐变过渡区 (v=0.30)
-      grad.addColorStop(0.88, 'rgb(120, 120, 120)'); // 靠近地面处柔和漫反射 (v=0.12)
-      grad.addColorStop(1.0, 'rgb(200, 200, 200)'); // 接触地面处柔化高光 (v=0.0，避免生硬镜面感)
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, 1, 256);
-    }
-
-    this.reflectionAlphaMap = new THREE.CanvasTexture(canvas);
-    this.reflectionAlphaMap.wrapS = THREE.ClampToEdgeWrapping;
-    this.reflectionAlphaMap.wrapT = THREE.ClampToEdgeWrapping;
-    this.reflectionAlphaMap.minFilter = THREE.LinearFilter;
-    this.reflectionAlphaMap.magFilter = THREE.LinearFilter;
-
-    // 3. 倒影塑料边框材质（同样应用渐变透明，开启深度写入与透明裁剪消除重叠）
-    this.reflectionPlasticEdgeMat = new THREE.MeshBasicMaterial({
-      color: '#1e293b',
-      alphaMap: this.reflectionAlphaMap,
-      transparent: true,
-      opacity: this.reflectionBaseOpacity,
-      depthWrite: true,
-      alphaTest: 0.001,
-    });
   }
 
   /**
-   * 切换亮色/暗色主题，同步背景色与塑料边框材质
+   * 切换亮色/暗色主题，同步背景色与材质
    * @param themeMode 主题模式
    */
-  public setTheme(themeMode: 'dark' | 'light'): void {
+  public setTheme(themeMode: ThemeMode): void {
+    this.currentThemeMode = themeMode;
     const isDark = themeMode === 'dark';
     const targetBg = isDark ? this.bgColorDark : this.bgColorLight;
 
     if (this.scene) {
       this.scene.background = targetBg.clone();
     }
-    if (this.plasticEdgeMat) {
-      this.plasticEdgeMat.color.set(isDark ? '#1e293b' : '#e2e8f0');
-    }
-
-    // 同步倒影透明度与边框色
-    this.reflectionBaseOpacity = isDark
-      ? this.reflectionBaseOpacityDark
-      : this.reflectionBaseOpacityLight;
-    if (this.reflectionPlasticEdgeMat) {
-      this.reflectionPlasticEdgeMat.color.set(isDark ? '#1e293b' : '#e2e8f0');
-      this.reflectionPlasticEdgeMat.opacity = this.reflectionBaseOpacity;
-    }
-    this.cardMeshes.forEach((mesh) => {
-      if (mesh.reflectionMaterials) {
-        mesh.reflectionMaterials.forEach((mat) => {
-          mat.opacity = this.reflectionBaseOpacity;
-        });
-      }
-    });
-  }
-
-  // 为倒影生成带有微磨砂高斯模糊的降采样纹理 Canvas
-  private createBlurredCanvas(source: HTMLCanvasElement, blurRadius: number): HTMLCanvasElement {
-    const canvas = document.createElement('canvas');
-    // 降采样到 50% 尺寸：节约显存的同时自然产生柔和低通漫反射滤波
-    canvas.width = Math.max(32, Math.round(source.width * 0.5));
-    canvas.height = Math.max(32, Math.round(source.height * 0.5));
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      if (blurRadius > 0) {
-        ctx.filter = `blur(${blurRadius}px)`;
-      }
-      ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
-    }
-    return canvas;
+    this.cardManager.setTheme(themeMode);
   }
 
   /**
    * 设置列表视图模式：front（0° 正面）、angled（56° 斜角）或 vertical（90° 侧面）
-   * 若当前处于选中封面或详情聚焦状态，则自动平滑返回影片列表并切换到对应视图
    * @param mode 视图模式
    */
   public setListViewMode(mode: ViewMode): void {
@@ -331,12 +189,11 @@ export class CoverflowScene {
     }
   }
 
-  /**
-   * 获取当前选中的卡片索引与电影对象
-   */
+  // 获取当前选中的电影数据
   public getSelectedMovie(): CoverflowMovie | null {
-    if (this.selectedIndex >= 0 && this.selectedIndex < this.movies.length) {
-      return this.movies[this.selectedIndex];
+    const movies = this.cardManager.getMovies();
+    if (this.selectedIndex >= 0 && this.selectedIndex < movies.length) {
+      return movies[this.selectedIndex];
     }
     return null;
   }
@@ -346,9 +203,7 @@ export class CoverflowScene {
     return this.state;
   }
 
-  /**
-   * 暂停动画渲染循环（离开页面时降低 CPU/GPU 占用）
-   */
+  // 暂停动画渲染循环
   public pause(): void {
     this.isPaused = true;
     if (this.animId !== null) {
@@ -357,9 +212,7 @@ export class CoverflowScene {
     }
   }
 
-  /**
-   * 恢复动画渲染循环并自适应当前尺寸
-   */
+  // 恢复动画渲染循环
   public resume(): void {
     if (!this.isPaused && this.animId !== null) return;
     this.isPaused = false;
@@ -370,15 +223,14 @@ export class CoverflowScene {
   // 通知外部选中电影变更
   private emitCurrentMovieChange(): void {
     if (!this.onMovieChange) return;
-
-    if (!this.movies.length || this.selectedIndex < 0) {
+    const movies = this.cardManager.getMovies();
+    if (!movies.length || this.selectedIndex < 0) {
       this.onMovieChange(null, 0, 0);
       return;
     }
-
-    const safeIndex = Math.max(0, Math.min(this.movies.length - 1, this.selectedIndex));
+    const safeIndex = Math.max(0, Math.min(movies.length - 1, this.selectedIndex));
     this.selectedIndex = safeIndex;
-    this.onMovieChange(this.movies[safeIndex], safeIndex, this.movies.length);
+    this.onMovieChange(movies[safeIndex], safeIndex, movies.length);
   }
 
   /**
@@ -386,139 +238,17 @@ export class CoverflowScene {
    * @param updatedVideo 更新后的视频对象
    */
   public updateMovie(updatedVideo: Video): void {
-    const movie = this.movies.find((m) => m.id === updatedVideo.id);
-    if (movie) {
-      movie.title = updatedVideo.name || updatedVideo.folderName;
-      movie.category = updatedVideo.category;
-      movie.actor = updatedVideo.actor;
-      movie.description = updatedVideo.description;
-      movie.links = updatedVideo.links;
-      movie.video = updatedVideo;
-    }
-    for (const mesh of this.cardMeshes) {
-      if (mesh.userData?.movie?.id === updatedVideo.id) {
-        mesh.userData.movie = movie ? { ...movie } : mesh.userData.movie;
-      }
-    }
+    this.cardManager.updateMovie(updatedVideo);
     this.emitCurrentMovieChange();
   }
 
   /**
-   * 为单个电影构建 3D 卡片实体模型与倒影模型
-   * @param movie 电影数据
-   * @param index 卡片在列表中的索引
-   */
-  private async createCardMesh(movie: CoverflowMovie, index: number): Promise<CardMesh | null> {
-    try {
-      // 裁切与生成 front, spine, back 3 张纹理
-      const { frontCanvas, spineCanvas, backCanvas } = await processCoverSpreadTexture(
-        movie.textureUrl,
-        movie.title
-      );
-
-      const frontTex = new THREE.CanvasTexture(frontCanvas);
-      const spineTex = new THREE.CanvasTexture(spineCanvas);
-      const backTex = new THREE.CanvasTexture(backCanvas);
-
-      [frontTex, spineTex, backTex].forEach((t) => {
-        t.colorSpace = THREE.SRGBColorSpace;
-        t.generateMipmaps = true;
-        t.minFilter = THREE.LinearMipmapLinearFilter;
-        t.magFilter = THREE.LinearFilter;
-      });
-
-      // 立方体 6 面材质映射
-      const materials: THREE.Material[] = [
-        this.plasticEdgeMat,
-        new THREE.MeshBasicMaterial({ map: spineTex }),
-        this.plasticEdgeMat,
-        this.plasticEdgeMat,
-        new THREE.MeshBasicMaterial({ map: frontTex }),
-        new THREE.MeshBasicMaterial({ map: backTex }),
-      ];
-
-      const mesh = new THREE.Mesh(this.boxGeometry, materials) as unknown as CardMesh;
-      mesh.userData = { index, movie };
-
-      // 为倒影生成带有微磨砂高斯模糊的材质纹理（降采样 + 模糊，消除生硬镜面感）
-      const spineBlurRadius = Math.max(1, Math.round(this.reflectionBlurRadius * 0.5));
-      const refFrontCanvas = this.createBlurredCanvas(frontCanvas, this.reflectionBlurRadius);
-      const refSpineCanvas = this.createBlurredCanvas(spineCanvas, spineBlurRadius);
-      const refBackCanvas = this.createBlurredCanvas(backCanvas, this.reflectionBlurRadius);
-
-      const refFrontTex = new THREE.CanvasTexture(refFrontCanvas);
-      const refSpineTex = new THREE.CanvasTexture(refSpineCanvas);
-      const refBackTex = new THREE.CanvasTexture(refBackCanvas);
-
-      [refFrontTex, refSpineTex, refBackTex].forEach((t) => {
-        t.colorSpace = THREE.SRGBColorSpace;
-        t.generateMipmaps = true;
-        t.minFilter = THREE.LinearMipmapLinearFilter;
-        t.magFilter = THREE.LinearFilter;
-      });
-
-      // 倒影 6 面材质映射（使用共享 Alpha 渐隐贴图与磨砂模糊贴图，启用深度写入与裁剪消除重叠）
-      const reflectionMaterials: THREE.MeshBasicMaterial[] = [
-        this.reflectionPlasticEdgeMat,
-        new THREE.MeshBasicMaterial({
-          map: refSpineTex,
-          alphaMap: this.reflectionAlphaMap,
-          transparent: true,
-          opacity: this.reflectionBaseOpacity,
-          depthWrite: true,
-          alphaTest: 0.001,
-        }),
-        this.reflectionPlasticEdgeMat,
-        this.reflectionPlasticEdgeMat,
-        new THREE.MeshBasicMaterial({
-          map: refFrontTex,
-          alphaMap: this.reflectionAlphaMap,
-          transparent: true,
-          opacity: this.reflectionBaseOpacity,
-          depthWrite: true,
-          alphaTest: 0.001,
-        }),
-        new THREE.MeshBasicMaterial({
-          map: refBackTex,
-          alphaMap: this.reflectionAlphaMap,
-          transparent: true,
-          opacity: this.reflectionBaseOpacity,
-          depthWrite: true,
-          alphaTest: 0.001,
-        }),
-      ];
-
-      const reflectionMesh = new THREE.Mesh(this.reflectionGeometry, reflectionMaterials);
-      reflectionMesh.position.set(0, -this.cardHeight - this.reflectionGap, 0);
-      reflectionMesh.userData = { index, movie, isReflection: true };
-      // 倒影仅作为视觉特效展示，禁用射线拾取，不支持鼠标悬停与点击交互
-      reflectionMesh.raycast = () => {};
-      mesh.add(reflectionMesh);
-
-      mesh.reflectionMesh = reflectionMesh;
-      mesh.reflectionMaterials = reflectionMaterials;
-
-      // 初始化平滑插值目标变换
-      mesh.targetPosition = new THREE.Vector3();
-      mesh.targetRotationY = 0;
-      mesh.targetRotationX = 0;
-      mesh.targetScale = 1.0;
-
-      return mesh;
-    } catch (err) {
-      console.warn(`Failed to process cover texture for movie "${movie.title}":`, err);
-      return null;
-    }
-  }
-
-  /**
-   * 载入电影列表，为每个包含有效封面的视频生成 3D 实体模型
-   * 采用后台异步批处理与无闪烁原子置换机制，结合加载状态通知实现优雅过渡
+   * 载入电影列表并生成 3D 实体模型与倒影
+   * 采用后台异步并发批处理与无闪烁原子置换机制
    * @param movieList 视频封面数据数组
-   * @param targetIndex 可选的指定目标索引（例如切换回默认状态时恢复至首项 0）
+   * @param targetIndex 可选的指定目标索引
    */
   public async setMovies(movieList: CoverflowMovie[], targetIndex?: number): Promise<void> {
-    // 载入或刷新封面流时，若当前处于聚焦或详情模式，强制重置为列表视图以保持场景与交互一致
     const wasDetailOrExpanded = this.state !== VIEW_STATES.LIST;
     if (wasDetailOrExpanded) {
       this.state = VIEW_STATES.LIST;
@@ -526,15 +256,13 @@ export class CoverflowScene {
       this.boundaryBounceOffset = 0;
       this.boundaryBounceVelocity = 0;
       this.updateCameraTargetZ(true);
-      if (this.onStateChange) {
-        this.onStateChange(VIEW_STATES.LIST);
-      }
+      this.onStateChange?.(VIEW_STATES.LIST);
     }
 
-    // 校验数据是否与当前场景完全一致，若完全一致则直接复用避免重复生成
+    const currentMovies = this.cardManager.getMovies();
     const isSame =
-      this.movies.length === movieList.length &&
-      this.movies.every(
+      currentMovies.length === movieList.length &&
+      currentMovies.every(
         (m, idx) =>
           m.id === movieList[idx].id &&
           m.textureUrl === movieList[idx].textureUrl &&
@@ -542,9 +270,8 @@ export class CoverflowScene {
       );
 
     if (isSame) {
-      // 仅同步可能变动的元数据属性并通知
-      this.movies = movieList;
-      this.cardMeshes.forEach((mesh, idx) => {
+      this.cardManager.setMoviesList(movieList);
+      this.cardManager.getCardMeshes().forEach((mesh, idx) => {
         if (mesh && movieList[idx]) {
           mesh.userData.movie = movieList[idx];
         }
@@ -566,13 +293,10 @@ export class CoverflowScene {
     }
 
     const sessionId = ++this.currentLoadSession;
-
-    // 记录之前选中的卡片 ID，便于在重载后恢复聚焦状态
-    const prevSelectedId = this.movies[this.selectedIndex]?.id;
+    const prevSelectedId = currentMovies[this.selectedIndex]?.id;
 
     if (movieList.length === 0) {
-      this.disposeCards();
-      this.movies = [];
+      this.cardManager.disposeCards();
       this.selectedIndex = 0;
       this.scrollIndex = 0;
       this.targetScrollIndex = 0;
@@ -582,23 +306,22 @@ export class CoverflowScene {
 
     const newMeshes: CardMesh[] = [];
     const newMovies: CoverflowMovie[] = [];
-
-    // 并发批处理生成卡片模型与纹理，每批 6 张，兼顾处理性能与内存占用
     const BATCH_SIZE = 6;
+
     for (let i = 0; i < movieList.length; i += BATCH_SIZE) {
       if (this.isDestroyed || this.currentLoadSession !== sessionId) {
-        this.disposeMeshList(newMeshes);
+        this.cardManager.disposeMeshList(newMeshes);
         return;
       }
 
       const batch = movieList.slice(i, i + BATCH_SIZE);
       const batchMeshes = await Promise.all(
-        batch.map((movie, batchIdx) => this.createCardMesh(movie, i + batchIdx))
+        batch.map((movie, batchIdx) => this.cardManager.createCardMesh(movie, i + batchIdx))
       );
 
       if (this.isDestroyed || this.currentLoadSession !== sessionId) {
-        this.disposeMeshList(newMeshes);
-        this.disposeMeshList(batchMeshes.filter(Boolean) as CardMesh[]);
+        this.cardManager.disposeMeshList(newMeshes);
+        this.cardManager.disposeMeshList(batchMeshes.filter(Boolean) as CardMesh[]);
         return;
       }
 
@@ -611,25 +334,13 @@ export class CoverflowScene {
     }
 
     if (this.isDestroyed || this.currentLoadSession !== sessionId) {
-      this.disposeMeshList(newMeshes);
+      this.cardManager.disposeMeshList(newMeshes);
       return;
     }
 
-    // 原子置换：安全释放旧卡片模型，挂载全新卡片列表
-    this.disposeCards();
-    this.movies = newMovies;
-    this.cardMeshes = newMeshes;
+    // 原子挂载新卡片列表
+    this.cardManager.mountCards(newMovies, newMeshes, this.scene);
 
-    // 重新校正索引并添加到场景
-    newMeshes.forEach((mesh, idx) => {
-      mesh.userData.index = idx;
-      if (mesh.reflectionMesh) {
-        mesh.reflectionMesh.userData.index = idx;
-      }
-      this.scene.add(mesh);
-    });
-
-    // 计算目标卡片位置：若指定了 targetIndex（如恢复至首项 0）则优先使用，否则尽量保留原选中项
     let finalTargetIndex = 0;
     if (targetIndex !== undefined) {
       finalTargetIndex = Math.max(0, Math.min(newMovies.length - 1, targetIndex));
@@ -645,19 +356,14 @@ export class CoverflowScene {
     this.targetScrollIndex = finalTargetIndex;
     this.scrollVelocity = 0;
 
-    // 立即就地计算所有卡片的三维空间位置与姿态，消除初始帧 (0,0,0) 重叠闪烁
     this.updateCardPositions(true);
-
-    // 强制同步补绘一帧，确保 WebGL 缓冲立即呈现完整的 3D 封面列表
     this.renderer.render(this.scene, this.camera);
-
     this.emitCurrentMovieChange();
   }
 
   // 绑定交互与窗口监听
   private initEvents(): void {
     window.addEventListener('resize', this.boundOnResize);
-
     this.canvas.addEventListener('wheel', this.boundOnWheel, { passive: false });
     this.canvas.addEventListener('touchstart', this.boundOnTouchStart, { passive: true });
     window.addEventListener('touchmove', this.boundOnTouchMove, { passive: true });
@@ -669,134 +375,18 @@ export class CoverflowScene {
     this.canvas.addEventListener('click', this.boundOnClick);
   }
 
-  // 滚轮滑动事件处理
-  private onWheel(e: WheelEvent): void {
-    e.preventDefault();
-
-    // 列表视图：平滑惯性连续滚动
-    if (this.state === VIEW_STATES.LIST) {
-      const delta =
-        Math.abs(e.deltaX) > Math.abs(e.deltaY)
-          ? e.deltaX * this.listScrollSensitivity
-          : e.deltaY * this.listScrollSensitivity;
-      this.scrollVelocity += delta;
-      return;
-    }
-
-    // 选中封面 (EXPANDED) 或 详情模式 (DETAIL)：滚轮滑动切换上一个/下一个封面
-    if (this.state === VIEW_STATES.EXPANDED || this.state === VIEW_STATES.DETAIL) {
-      const now = performance.now();
-      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-
-      // 超过阈值时间无滚轮事件则重置累加器
-      if (now - this.lastWheelTime > this.wheelAccumulatorResetTime) {
-        this.wheelAccumulator = 0;
-      }
-      this.lastWheelTime = now;
-
-      // 滚动方向反转时立即重置累加器，确保反向切换灵敏无阻滞
-      if ((delta > 0 && this.wheelAccumulator < 0) || (delta < 0 && this.wheelAccumulator > 0)) {
-        this.wheelAccumulator = 0;
-      }
-
-      this.wheelAccumulator += delta;
-
-      // 切换阈值与冷却时间（有效过滤触控板惯性拖尾，防止快速跳页）
-      if (now - this.lastWheelStepTime >= this.wheelStepCooldown) {
-        if (this.wheelAccumulator >= this.wheelStepThreshold) {
-          this.nextCard();
-          this.wheelAccumulator = 0;
-          this.lastWheelStepTime = now;
-        } else if (this.wheelAccumulator <= -this.wheelStepThreshold) {
-          this.prevCard();
-          this.wheelAccumulator = 0;
-          this.lastWheelStepTime = now;
-        }
-      }
-    }
-  }
-
-  // 触摸开始
-  private onTouchStart(e: TouchEvent): void {
-    if (e.touches.length === 1) {
-      const touch = e.touches[0];
-      this.startX = touch.clientX;
-
-      if (this.state === VIEW_STATES.LIST) {
-        this.isDragging = true;
-        this.dragStartScroll = this.targetScrollIndex;
-      } else if (this.state === VIEW_STATES.EXPANDED || this.state === VIEW_STATES.DETAIL) {
-        const selectedMesh = this.cardMeshes[this.selectedIndex];
-        if (selectedMesh) {
-          this.isZoomDragging = true;
-          this.zoomDragStartX = touch.clientX;
-          this.zoomDragStartY = touch.clientY;
-          this.zoomDragStartRotY = selectedMesh.targetRotationY;
-          this.zoomDragStartRotX = selectedMesh.rotation.x;
-          this.zoomDragDistance = 0;
-        }
-      }
-    }
-  }
-
-  // 触摸移动
-  private onTouchMove(e: TouchEvent): void {
-    if (e.touches.length === 1) {
-      const touch = e.touches[0];
-      if (this.state === VIEW_STATES.LIST && this.isDragging) {
-        if (!this.movies.length) return;
-        const dx = touch.clientX - this.startX;
-        const scrollDiff = -dx / this.listDragFactor;
-        this.targetScrollIndex = Math.max(
-          0,
-          Math.min(this.movies.length - 1, this.dragStartScroll + scrollDiff)
-        );
-        this.selectedIndex = Math.round(this.targetScrollIndex);
-        this.emitCurrentMovieChange();
-      } else if (
-        (this.state === VIEW_STATES.EXPANDED || this.state === VIEW_STATES.DETAIL) &&
-        this.isZoomDragging
-      ) {
-        const dx = touch.clientX - this.zoomDragStartX;
-        const dy = touch.clientY - this.zoomDragStartY;
-        this.zoomDragDistance = Math.hypot(dx, dy);
-
-        const selectedMesh = this.cardMeshes[this.selectedIndex];
-        if (selectedMesh) {
-          const rect = this.canvas.getBoundingClientRect();
-          const canvasWidth = rect.width || window.innerWidth;
-          const canvasHeight = rect.height || window.innerHeight;
-
-          const rotDeltaY = (dx / canvasWidth) * Math.PI * 2.0;
-          const rawRotY = this.zoomDragStartRotY + rotDeltaY;
-          const maxRotY = 1.5 * Math.PI;
-          selectedMesh.targetRotationY = THREE.MathUtils.clamp(rawRotY, -maxRotY, maxRotY);
-
-          const rotDeltaX = (dy / canvasHeight) * Math.PI * 1.2;
-          const rawRotX = this.zoomDragStartRotX + rotDeltaX;
-          selectedMesh.targetRotationX = THREE.MathUtils.clamp(
-            rawRotX,
-            -Math.PI / 2.5,
-            Math.PI / 2.5
-          );
-        }
-      }
-    }
-  }
-
-  // 指针按下
-  private onPointerDown(e: PointerEvent): void {
-    this.startX = e.clientX;
-
+  // 统一拖拽交互起始处理
+  private handleDragStart(clientX: number, clientY: number): void {
+    this.startX = clientX;
     if (this.state === VIEW_STATES.LIST) {
       this.isDragging = true;
       this.dragStartScroll = this.targetScrollIndex;
     } else if (this.state === VIEW_STATES.EXPANDED || this.state === VIEW_STATES.DETAIL) {
-      const selectedMesh = this.cardMeshes[this.selectedIndex];
+      const selectedMesh = this.cardManager.getCardMeshes()[this.selectedIndex];
       if (selectedMesh) {
         this.isZoomDragging = true;
-        this.zoomDragStartX = e.clientX;
-        this.zoomDragStartY = e.clientY;
+        this.zoomDragStartX = clientX;
+        this.zoomDragStartY = clientY;
         this.zoomDragStartRotY = selectedMesh.targetRotationY;
         this.zoomDragStartRotX = selectedMesh.rotation.x;
         this.zoomDragDistance = 0;
@@ -804,15 +394,16 @@ export class CoverflowScene {
     }
   }
 
-  // 指针移动
-  private onPointerMove(e: PointerEvent): void {
+  // 统一拖拽交互移动处理
+  private handleDragMove(clientX: number, clientY: number): void {
+    const movies = this.cardManager.getMovies();
     if (this.state === VIEW_STATES.LIST && this.isDragging) {
-      if (!this.movies.length) return;
-      const dx = e.clientX - this.startX;
-      const scrollDiff = -dx / this.listDragFactor;
+      if (!movies.length) return;
+      const dx = clientX - this.startX;
+      const scrollDiff = -dx / SCROLL_CONFIG.dragFactor;
       this.targetScrollIndex = Math.max(
         0,
-        Math.min(this.movies.length - 1, this.dragStartScroll + scrollDiff)
+        Math.min(movies.length - 1, this.dragStartScroll + scrollDiff)
       );
       this.selectedIndex = Math.round(this.targetScrollIndex);
       this.emitCurrentMovieChange();
@@ -820,11 +411,11 @@ export class CoverflowScene {
       (this.state === VIEW_STATES.EXPANDED || this.state === VIEW_STATES.DETAIL) &&
       this.isZoomDragging
     ) {
-      const dx = e.clientX - this.zoomDragStartX;
-      const dy = e.clientY - this.zoomDragStartY;
+      const dx = clientX - this.zoomDragStartX;
+      const dy = clientY - this.zoomDragStartY;
       this.zoomDragDistance = Math.hypot(dx, dy);
 
-      const selectedMesh = this.cardMeshes[this.selectedIndex];
+      const selectedMesh = this.cardManager.getCardMeshes()[this.selectedIndex];
       if (selectedMesh) {
         const rect = this.canvas.getBoundingClientRect();
         const canvasWidth = rect.width || window.innerWidth;
@@ -844,6 +435,75 @@ export class CoverflowScene {
         );
       }
     }
+  }
+
+  // 滚轮事件处理
+  private onWheel(e: WheelEvent): void {
+    if (this.bookTransitionManager.isTransitioning) return;
+    e.preventDefault();
+
+    if (this.state === VIEW_STATES.LIST) {
+      const delta =
+        Math.abs(e.deltaX) > Math.abs(e.deltaY)
+          ? e.deltaX * SCROLL_CONFIG.sensitivity
+          : e.deltaY * SCROLL_CONFIG.sensitivity;
+      this.scrollVelocity += delta;
+      return;
+    }
+
+    if (this.state === VIEW_STATES.EXPANDED || this.state === VIEW_STATES.DETAIL) {
+      const now = performance.now();
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+
+      if (now - this.lastWheelTime > WHEEL_CONFIG.accumulatorResetTime) {
+        this.wheelAccumulator = 0;
+      }
+      this.lastWheelTime = now;
+
+      if ((delta > 0 && this.wheelAccumulator < 0) || (delta < 0 && this.wheelAccumulator > 0)) {
+        this.wheelAccumulator = 0;
+      }
+
+      this.wheelAccumulator += delta;
+
+      if (now - this.lastWheelStepTime >= WHEEL_CONFIG.stepCooldown) {
+        if (this.wheelAccumulator >= WHEEL_CONFIG.stepThreshold) {
+          this.nextCard();
+          this.wheelAccumulator = 0;
+          this.lastWheelStepTime = now;
+        } else if (this.wheelAccumulator <= -WHEEL_CONFIG.stepThreshold) {
+          this.prevCard();
+          this.wheelAccumulator = 0;
+          this.lastWheelStepTime = now;
+        }
+      }
+    }
+  }
+
+  // 触摸开始监听
+  private onTouchStart(e: TouchEvent): void {
+    if (this.bookTransitionManager.isTransitioning) return;
+    if (e.touches.length === 1) {
+      this.handleDragStart(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  }
+
+  // 触摸移动监听
+  private onTouchMove(e: TouchEvent): void {
+    if (e.touches.length === 1) {
+      this.handleDragMove(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  }
+
+  // 指针按下监听
+  private onPointerDown(e: PointerEvent): void {
+    if (this.bookTransitionManager.isTransitioning) return;
+    this.handleDragStart(e.clientX, e.clientY);
+  }
+
+  // 指针移动监听
+  private onPointerMove(e: PointerEvent): void {
+    this.handleDragMove(e.clientX, e.clientY);
 
     // 光标悬停交互
     if (this.isDragging || this.isZoomDragging) {
@@ -854,15 +514,13 @@ export class CoverflowScene {
       this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       this.raycaster.setFromCamera(this.mouse, this.camera);
 
-      // 光标悬停交互：仅检测卡片主体实体，倒影区域保持默认光标
-      const visibleMeshes = this.cardMeshes.filter((m) => m.visible);
+      const visibleMeshes = this.cardManager.getCardMeshes().filter((m) => m.visible);
       const intersects = this.raycaster.intersectObjects(visibleMeshes, false);
-
       this.canvas.style.cursor = intersects.length > 0 ? 'pointer' : 'default';
     }
   }
 
-  // 指针释放
+  // 指针释放监听
   private onPointerRelease(): void {
     if (this.isDragging) {
       this.isDragging = false;
@@ -871,11 +529,9 @@ export class CoverflowScene {
 
     if (this.isZoomDragging) {
       this.isZoomDragging = false;
-      const selectedMesh = this.cardMeshes[this.selectedIndex];
-
+      const selectedMesh = this.cardManager.getCardMeshes()[this.selectedIndex];
       if (selectedMesh) {
         selectedMesh.targetRotationX = 0;
-
         if (this.zoomDragDistance > 6) {
           const rotY = selectedMesh.targetRotationY;
           if (Math.abs(rotY) > Math.PI / 2) {
@@ -890,8 +546,9 @@ export class CoverflowScene {
     }
   }
 
-  // 画布点击事件
+  // 点击事件监听
   private onClick(e: MouseEvent): void {
+    if (this.bookTransitionManager.isTransitioning) return;
     if (this.zoomDragDistance > 6) {
       this.zoomDragDistance = 0;
       return;
@@ -902,8 +559,7 @@ export class CoverflowScene {
     this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
     this.raycaster.setFromCamera(this.mouse, this.camera);
 
-    // 仅检测卡片主体实体，倒影区域不支持点击放大封面
-    const visibleMeshes = this.cardMeshes.filter((m) => m.visible);
+    const visibleMeshes = this.cardManager.getCardMeshes().filter((m) => m.visible);
     const intersects = this.raycaster.intersectObjects(visibleMeshes, false);
 
     if (intersects.length > 0) {
@@ -916,7 +572,6 @@ export class CoverflowScene {
         this.handleCardInteraction(clickedIndex);
       }
     } else {
-      // 点击空白背景退出聚焦
       if (this.state !== VIEW_STATES.LIST) {
         this.setState(VIEW_STATES.LIST);
       }
@@ -924,7 +579,7 @@ export class CoverflowScene {
   }
 
   /**
-   * 点击卡片流转处理：LIST -> EXPANDED -> DETAIL -> 翻牌
+   * 点击卡片交互流转：LIST -> EXPANDED -> DETAIL -> 翻转
    * @param index 卡片索引
    */
   public handleCardInteraction(index: number): void {
@@ -952,19 +607,17 @@ export class CoverflowScene {
   // 重置卡片旋转
   private resetCardRotations(): void {
     this.isFlipped = false;
-    this.cardMeshes.forEach((mesh) => {
+    this.cardManager.getCardMeshes().forEach((mesh) => {
       mesh.targetRotationX = 0;
     });
   }
 
-  /**
-   * 翻转选中的卡片 (DETAIL 模式下 180° 正反面切换)
-   */
+  // 翻转选中的卡片 (DETAIL 模式下 180° 正反面切换)
   public toggleFlipCard(): void {
-    if (this.state !== VIEW_STATES.DETAIL) return;
+    if (this.state !== VIEW_STATES.DETAIL || this.bookTransitionManager.isTransitioning) return;
     this.isFlipped = !this.isFlipped;
 
-    const selectedMesh = this.cardMeshes[this.selectedIndex];
+    const selectedMesh = this.cardManager.getCardMeshes()[this.selectedIndex];
     if (selectedMesh) {
       selectedMesh.targetRotationY = this.isFlipped ? Math.PI : 0;
     }
@@ -977,6 +630,7 @@ export class CoverflowScene {
    * @param newState 目标状态
    */
   public setState(newState: ViewState): void {
+    if (this.bookTransitionManager.isTransitioning) return;
     this.state = newState;
     this.boundaryBounceOffset = 0;
     this.boundaryBounceVelocity = 0;
@@ -989,18 +643,15 @@ export class CoverflowScene {
 
     this.updateCameraTargetZ();
     this.updateCardPositions();
-
-    if (this.onStateChange) {
-      this.onStateChange(newState);
-    }
+    this.onStateChange?.(newState);
     this.emitCurrentMovieChange();
   }
 
-  /**
-   * 切换下一张卡片
-   */
+  // 切换下一张卡片
   public nextCard(): void {
-    if (this.selectedIndex >= 0 && this.selectedIndex < this.movies.length - 1) {
+    if (this.bookTransitionManager.isTransitioning) return;
+    const count = this.cardManager.getMovies().length;
+    if (this.selectedIndex >= 0 && this.selectedIndex < count - 1) {
       this.resetCardRotations();
       this.selectedIndex += 1;
       this.targetScrollIndex = this.selectedIndex;
@@ -1008,15 +659,14 @@ export class CoverflowScene {
       this.transitionDirection = 'next';
       this.updateCardPositions();
       this.emitCurrentMovieChange();
-    } else if (this.state === VIEW_STATES.DETAIL && this.selectedIndex >= this.movies.length - 1) {
+    } else if (this.state === VIEW_STATES.DETAIL && this.selectedIndex >= count - 1) {
       this.triggerBoundaryBounce('next');
     }
   }
 
-  /**
-   * 切换上一张卡片
-   */
+  // 切换上一张卡片
   public prevCard(): void {
+    if (this.bookTransitionManager.isTransitioning) return;
     if (this.selectedIndex > 0) {
       this.resetCardRotations();
       this.selectedIndex -= 1;
@@ -1030,19 +680,14 @@ export class CoverflowScene {
     }
   }
 
-  /**
-   * 触发详情聚焦模式下的起点/终点边界回弹效果
-   * @param direction 切换方向 ('prev' 向右回弹, 'next' 向左回弹)
-   */
+  // 触发详情聚焦模式下的边界弹性回弹
   private triggerBoundaryBounce(direction: 'prev' | 'next'): void {
-    if (this.state !== VIEW_STATES.DETAIL || this.cardMeshes.length === 0) return;
-
-    // 给回弹弹簧系统施加物理冲量 (prev 向右回弹冲量 > 0, next 向左回弹冲量 < 0)
-    const impulse = direction === 'prev' ? this.bounceImpulse : -this.bounceImpulse;
+    if (this.state !== VIEW_STATES.DETAIL || this.cardManager.getCardMeshes().length === 0) return;
+    const impulse = direction === 'prev' ? BOUNCE_CONFIG.impulse : -BOUNCE_CONFIG.impulse;
     this.boundaryBounceVelocity = THREE.MathUtils.clamp(
       this.boundaryBounceVelocity + impulse,
-      -this.bounceMaxVelocity,
-      this.bounceMaxVelocity
+      -BOUNCE_CONFIG.maxVelocity,
+      BOUNCE_CONFIG.maxVelocity
     );
   }
 
@@ -1052,8 +697,9 @@ export class CoverflowScene {
    * @param immediate 是否立即跳转无过渡
    */
   public scrollToIndex(index: number, immediate = false): void {
-    if (this.movies.length === 0) return;
-    const safeIndex = Math.max(0, Math.min(this.movies.length - 1, index));
+    const movies = this.cardManager.getMovies();
+    if (movies.length === 0) return;
+    const safeIndex = Math.max(0, Math.min(movies.length - 1, index));
     this.resetCardRotations();
     this.selectedIndex = safeIndex;
     this.targetScrollIndex = safeIndex;
@@ -1073,7 +719,8 @@ export class CoverflowScene {
    * @param immediate 是否立即应用无过渡
    */
   public updateCardPositions(immediate = false): void {
-    this.cardMeshes.forEach((mesh, i) => {
+    const meshes = this.cardManager.getCardMeshes();
+    meshes.forEach((mesh, i) => {
       const dx = i - this.scrollIndex;
 
       let targetX = 0;
@@ -1085,12 +732,11 @@ export class CoverflowScene {
 
       if (this.state === VIEW_STATES.LIST) {
         mesh.visible = true;
-
-        let currentSpacing = this.spacing;
+        let currentSpacing = CARD_CONFIG.spacing;
         if (this.listViewMode === 'front') {
-          currentSpacing = this.cardWidth + (this.isMobile ? 0.35 : 0.65);
+          currentSpacing = CARD_CONFIG.width + (this.isMobile ? 0.35 : 0.65);
         } else if (this.isMobile) {
-          currentSpacing = this.spacing * 0.85;
+          currentSpacing = CARD_CONFIG.spacing * 0.85;
         }
 
         targetX = dx * currentSpacing;
@@ -1098,11 +744,11 @@ export class CoverflowScene {
         targetZ = 0;
 
         if (this.listViewMode === 'vertical') {
-          targetRotY = Math.PI / 2; // 90° 侧面书脊视图
+          targetRotY = Math.PI / 2;
         } else if (this.listViewMode === 'front') {
-          targetRotY = 0; // 0° 正面视图
+          targetRotY = 0;
         } else {
-          targetRotY = Math.PI / 3.2; // 56° 斜角侧视图
+          targetRotY = Math.PI / 3.2;
         }
       } else if (this.state === VIEW_STATES.EXPANDED) {
         mesh.visible = true;
@@ -1115,13 +761,17 @@ export class CoverflowScene {
           targetRotY = !this.isZoomDragging ? (this.isFlipped ? Math.PI : 0) : mesh.targetRotationY;
         } else if (i < this.selectedIndex) {
           targetX =
-            (i - this.selectedIndex) * (this.isMobile ? this.spacing * 0.85 : this.spacing) - 2.8;
+            (i - this.selectedIndex) *
+              (this.isMobile ? CARD_CONFIG.spacing * 0.85 : CARD_CONFIG.spacing) -
+            2.8;
           targetZ = -1.2;
           targetRotY = Math.PI / 2.8;
           targetScale = 0.9;
         } else {
           targetX =
-            (i - this.selectedIndex) * (this.isMobile ? this.spacing * 0.85 : this.spacing) + 2.8;
+            (i - this.selectedIndex) *
+              (this.isMobile ? CARD_CONFIG.spacing * 0.85 : CARD_CONFIG.spacing) +
+            2.8;
           targetZ = -1.2;
           targetRotY = Math.PI / 3.5;
           targetScale = 0.9;
@@ -1139,28 +789,24 @@ export class CoverflowScene {
             ? parent.getBoundingClientRect()
             : this.canvas.getBoundingClientRect();
           const width = rect.width || window.innerWidth;
-          const panelWidth = 344; // 左侧信息面板占用宽度 (left-6: 24px + w-80: 320px)
+          const panelWidth = 344;
 
-          // 右侧剩余可用区域的屏幕中心偏移量 (相对画布正中)
-          const centerOffsetPx = panelWidth / 2; // +172px
-          const ndcX = centerOffsetPx / (width / 2); // 归一化屏幕坐标 [0, 1]
+          const centerOffsetPx = panelWidth / 2;
+          const ndcX = centerOffsetPx / (width / 2);
 
-          // 根据当前透视相机与目标 Z 轴，反算居中于右侧区域所需的 3D 世界坐标 X
           const camZ = this.cameraTargetZ || this.camera.position.z;
           const dist = Math.max(camZ - detailTargetZ, 1.0);
           const fovRad = (this.camera.fov * Math.PI) / 180;
           const visibleHalfWidth = dist * Math.tan(fovRad / 2) * this.camera.aspect;
           detailTargetX = Math.max(0.6, Math.min(ndcX * visibleHalfWidth, 2.6));
 
-          // 适度补偿相机拉远带来的体量收缩，保持封面饱满体量感
-          const baseDist = this.cameraBaseZ - 3.6; // 5.9 基准距离
+          const baseDist = CAMERA_CONFIG.baseZ - 3.6;
           const zoomRatio = dist / baseDist;
           const compensatedScale = 0.92 * Math.min(Math.sqrt(zoomRatio), 1.25);
 
-          // 校验右侧可用宽度是否能容纳补偿后的卡片，确保不与左侧面板或右侧边缘冲突
           const cardPixelWidth =
-            ((this.cardWidth * compensatedScale) / (2 * visibleHalfWidth)) * width;
-          const maxAllowedWidth = (width - panelWidth) * 0.75; // 最多占右侧可用空间的 75%
+            ((CARD_CONFIG.width * compensatedScale) / (2 * visibleHalfWidth)) * width;
+          const maxAllowedWidth = (width - panelWidth) * 0.75;
           if (cardPixelWidth > maxAllowedWidth && cardPixelWidth > 0) {
             detailTargetScale = compensatedScale * (maxAllowedWidth / cardPixelWidth);
           } else {
@@ -1178,7 +824,6 @@ export class CoverflowScene {
           targetScale = detailTargetScale;
           targetRotY = !this.isZoomDragging ? (this.isFlipped ? Math.PI : 0) : mesh.targetRotationY;
 
-          // 详情模式切卡动画：强制设置切入起点，确保入场滑入动画必定触发
           if (this.transitionDirection === 'next') {
             mesh.position.set(detailTargetX + 4.8, detailTargetY, detailTargetZ - 0.6);
             mesh.rotation.set(0, Math.PI / 10, 0);
@@ -1197,7 +842,6 @@ export class CoverflowScene {
             );
           }
         } else {
-          // 上一张卡片退出动画：顺滑滑出屏幕边缘
           const isPrevExiting = this.transitionDirection === 'next' && i === this.selectedIndex - 1;
           const isNextExiting = this.transitionDirection === 'prev' && i === this.selectedIndex + 1;
 
@@ -1216,7 +860,6 @@ export class CoverflowScene {
             targetRotY = Math.PI / 10;
             targetScale = detailTargetScale * 0.75;
           } else {
-            // 其他卡片退至远景隐藏
             mesh.visible = false;
             targetX = (i - this.selectedIndex) * 8.0;
             targetY = 0;
@@ -1242,33 +885,54 @@ export class CoverflowScene {
       }
     });
 
-    // 重置过渡方向，避免被后续被动刷新（如 resize）重复消费
     this.transitionDirection = null;
   }
 
-  // 60FPS 动画循环与惯性物理模拟
+  // 60FPS 动画主循环与惯性物理模拟
   private animate(): void {
     if (this.isDestroyed || this.isPaused) return;
     this.animId = requestAnimationFrame(this.animate.bind(this));
 
+    // 书本翻开与光盘飞行动画接管渲染
+    if (this.bookTransitionManager.isTransitioning) {
+      this.bookTransitionManager.update(
+        performance.now(),
+        this.camera,
+        this.isNarrowLayout(),
+        LERP_CONFIG.cardSpeed,
+        this.cardManager.getPlasticEdgeMat(),
+        this.currentThemeMode,
+        this.scene,
+        () => {
+          this.cardManager.getCardMeshes().forEach((mesh) => {
+            mesh.visible = false;
+            if (mesh.reflectionMesh) {
+              mesh.reflectionMesh.visible = false;
+            }
+          });
+        }
+      );
+      this.renderer.render(this.scene, this.camera);
+      return;
+    }
+
     // 1. 惯性物理模拟
     if (this.state === VIEW_STATES.LIST) {
-      const count = this.movies.length;
-
+      const count = this.cardManager.getMovies().length;
       if (Math.abs(this.scrollVelocity) > 0.0001) {
         this.targetScrollIndex += this.scrollVelocity;
         this.targetScrollIndex = Math.max(
           0,
           Math.min(Math.max(count - 1, 0), this.targetScrollIndex)
         );
-        this.scrollVelocity *= this.listScrollFriction;
+        this.scrollVelocity *= SCROLL_CONFIG.friction;
       } else {
         this.scrollVelocity = 0;
       }
 
       const diff = this.targetScrollIndex - this.scrollIndex;
       if (Math.abs(diff) > 0.0001) {
-        this.scrollIndex += diff * this.listScrollFollowSpeed;
+        this.scrollIndex += diff * SCROLL_CONFIG.followSpeed;
         this.updateCardPositions();
 
         const roundedIndex = Math.round(this.scrollIndex);
@@ -1280,65 +944,34 @@ export class CoverflowScene {
     }
 
     // 2. 顺滑 Lerp 运动插值
-    // 顺滑插值相机 Z 轴位置 (列表与详情模式切换时提供沉浸式镜头推拉)
     if (Math.abs(this.camera.position.z - this.cameraTargetZ) > 0.001) {
       this.camera.position.z +=
-        (this.cameraTargetZ - this.camera.position.z) * this.cameraLerpSpeed;
+        (this.cameraTargetZ - this.camera.position.z) * LERP_CONFIG.cameraSpeed;
       this.camera.updateProjectionMatrix();
     }
 
-    this.cardMeshes.forEach((mesh) => {
+    this.cardManager.getCardMeshes().forEach((mesh) => {
       if (!mesh.visible) return;
-      mesh.position.x += (mesh.targetPosition.x - mesh.position.x) * this.cardLerpSpeed;
-      mesh.position.y += (mesh.targetPosition.y - mesh.position.y) * this.cardLerpSpeed;
-      mesh.position.z += (mesh.targetPosition.z - mesh.position.z) * this.cardLerpSpeed;
+      mesh.position.x += (mesh.targetPosition.x - mesh.position.x) * LERP_CONFIG.cardSpeed;
+      mesh.position.y += (mesh.targetPosition.y - mesh.position.y) * LERP_CONFIG.cardSpeed;
+      mesh.position.z += (mesh.targetPosition.z - mesh.position.z) * LERP_CONFIG.cardSpeed;
 
-      mesh.rotation.y += (mesh.targetRotationY - mesh.rotation.y) * this.cardLerpSpeed;
-      mesh.rotation.x += (mesh.targetRotationX - mesh.rotation.x) * this.cardLerpSpeed;
+      mesh.rotation.y += (mesh.targetRotationY - mesh.rotation.y) * LERP_CONFIG.cardSpeed;
+      mesh.rotation.x += (mesh.targetRotationX - mesh.rotation.x) * LERP_CONFIG.cardSpeed;
 
       const currentScale = mesh.scale.x;
-      const nextScale = currentScale + (mesh.targetScale - currentScale) * this.cardLerpSpeed;
+      const nextScale = currentScale + (mesh.targetScale - currentScale) * LERP_CONFIG.cardSpeed;
       mesh.scale.set(nextScale, nextScale, nextScale);
 
-      // DETAIL 模式下：如果旧卡片已滑出视野（距离目标中心足够远），将其隐藏以节约渲染开销
       if (this.state === VIEW_STATES.DETAIL && mesh.userData.index !== this.selectedIndex) {
         if (Math.abs(mesh.position.x - this.currentDetailTargetX) > 4.2) {
           mesh.visible = false;
         }
       }
-
-      // 倒影倾斜与悬空动态淡出：当卡片在 3D 自由旋转或悬空时平滑衰减倒影
-      if (mesh.reflectionMesh && mesh.reflectionMaterials) {
-        const tiltFactor = Math.max(0, 1 - Math.abs(mesh.rotation.x) / 0.35);
-        const heightFactor = Math.max(0, 1 - Math.max(0, mesh.position.y - 0.25) / 0.8);
-        const factor = tiltFactor * heightFactor;
-        if (factor <= 0.01) {
-          mesh.reflectionMesh.visible = false;
-        } else {
-          mesh.reflectionMesh.visible = true;
-          const targetOpacity = this.reflectionBaseOpacity * factor;
-          mesh.reflectionMaterials.forEach((mat) => {
-            mat.opacity = targetOpacity;
-          });
-        }
-      }
-
-      // 倒影前后遮挡层级排序（Front-to-Back 逆序渲染，配合 depthWrite 深度测试消除斜角视图下的重叠鬼影）
-      if (mesh.reflectionMesh && mesh.reflectionMesh.visible) {
-        if (
-          (this.state === VIEW_STATES.EXPANDED || this.state === VIEW_STATES.DETAIL) &&
-          mesh.userData.index === this.selectedIndex
-        ) {
-          // 聚焦/详情模式下，选中的焦点封面倒影享有最高绘制优先级（最先渲染并写入深度）
-          mesh.reflectionMesh.renderOrder = 1;
-        } else {
-          // 根据世界坐标与 Y 轴旋转角计算卡片面向相机视锥的有效深度 (Z 轴越靠近相机越先绘制)
-          const effectiveZ = mesh.position.z + mesh.position.x * Math.sin(mesh.rotation.y);
-          // 越靠近相机（effectiveZ 越大），renderOrder 越小（越先绘制并写入深度缓冲）
-          mesh.reflectionMesh.renderOrder = Math.max(10, Math.round(1000 - effectiveZ * 50));
-        }
-      }
     });
+
+    // 倒影动态衰减与深度排序更新
+    this.cardManager.updateReflectionDynamics(this.selectedIndex, this.state);
 
     // 3. 详情模式 (DETAIL) 边界回弹阻尼物理模拟
     if (this.state === VIEW_STATES.DETAIL) {
@@ -1346,14 +979,14 @@ export class CoverflowScene {
         Math.abs(this.boundaryBounceOffset) > 0.0001 ||
         Math.abs(this.boundaryBounceVelocity) > 0.0001
       ) {
-        const springForce = -this.bounceStiffness * this.boundaryBounceOffset;
+        const springForce = -BOUNCE_CONFIG.stiffness * this.boundaryBounceOffset;
         this.boundaryBounceVelocity =
-          (this.boundaryBounceVelocity + springForce) * this.bounceDamping;
+          (this.boundaryBounceVelocity + springForce) * BOUNCE_CONFIG.damping;
         this.boundaryBounceOffset += this.boundaryBounceVelocity;
         this.boundaryBounceOffset = THREE.MathUtils.clamp(
           this.boundaryBounceOffset,
-          -this.bounceMaxOffset,
-          this.bounceMaxOffset
+          -BOUNCE_CONFIG.maxOffset,
+          BOUNCE_CONFIG.maxOffset
         );
 
         if (
@@ -1369,10 +1002,9 @@ export class CoverflowScene {
       this.boundaryBounceVelocity = 0;
     }
 
-    // 临时叠加详情模式边界回弹偏移量并渲染，渲染后立即还原以保持基础插值坐标干净稳定
     const hasBounce =
       this.state === VIEW_STATES.DETAIL && Math.abs(this.boundaryBounceOffset) > 0.0001;
-    const selectedMesh = hasBounce ? this.cardMeshes[this.selectedIndex] : null;
+    const selectedMesh = hasBounce ? this.cardManager.getCardMeshes()[this.selectedIndex] : null;
 
     let appliedBounceX = 0;
     let appliedBounceRotY = 0;
@@ -1383,7 +1015,7 @@ export class CoverflowScene {
 
       if (!this.isZoomDragging) {
         const tiltSign = this.isFlipped ? -1 : 1;
-        appliedBounceRotY = -this.boundaryBounceOffset * this.bounceTiltRatio * tiltSign;
+        appliedBounceRotY = -this.boundaryBounceOffset * BOUNCE_CONFIG.tiltRatio * tiltSign;
         selectedMesh.rotation.y += appliedBounceRotY;
       }
     }
@@ -1396,14 +1028,13 @@ export class CoverflowScene {
     }
   }
 
-  // 根据视口宽高比与当前视图模式更新相机目标 Z 轴距离
+  // 根据视口宽高比与当前模式更新相机目标 Z 轴距离
   private updateCameraTargetZ(immediate = false): void {
     if (!this.canvas) return;
     const aspect = this.camera.aspect;
-    const baseCamZ = this.cameraBaseZ;
+    const baseCamZ = CAMERA_CONFIG.baseZ;
     let targetCamZ = baseCamZ;
     if (aspect < 1.6) {
-      // 详情模式以单张聚焦封面为主，相机无需像列表模式那样大幅后退
       const maxZoomFactor = this.state === VIEW_STATES.DETAIL ? 1.3 : 1.55;
       const zoomFactor = Math.min(1.45 / Math.max(aspect, 0.45), maxZoomFactor);
       targetCamZ = baseCamZ * zoomFactor;
@@ -1415,9 +1046,18 @@ export class CoverflowScene {
     }
   }
 
+  // 判断当前容器是否处于窄屏上下堆叠布局 (< 768px)
+  private isNarrowLayout(): boolean {
+    if (!this.canvas) return this.isMobile;
+    const parent = this.canvas.parentElement;
+    const rect = parent ? parent.getBoundingClientRect() : this.canvas.getBoundingClientRect();
+    const width = rect.width || window.innerWidth;
+    return width < 768;
+  }
+
   /**
-   * 响应容器与视口尺寸变化，重新计算画布大小与相机视口
-   * @param immediate 是否立即重置相机与卡片位置（默认 false，保持平滑插值过渡）
+   * 响应容器尺寸变化
+   * @param immediate 是否立即重置相机与卡片位置
    */
   public onResize(immediate: boolean | unknown = false): void {
     if (this.isDestroyed || !this.canvas) return;
@@ -1434,7 +1074,6 @@ export class CoverflowScene {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
 
-    // 自适应相机距离与视场，确保不同窗口宽高比下 3D 封面均完整展示不被裁切
     this.updateCameraTargetZ(isImmediate);
     this.updateCardPositions(isImmediate);
 
@@ -1444,58 +1083,51 @@ export class CoverflowScene {
 
     if (this.canvas.width !== physicalWidth || this.canvas.height !== physicalHeight) {
       this.renderer.setSize(width, height);
-      // WebGL 在修改物理像素尺寸后会清空绘制缓冲，立即同步补绘一帧，消除黑白闪烁与空白帧
       this.renderer.render(this.scene, this.camera);
     }
   }
 
-  // 释放指定网格模型数组及其绑定的倒影、材质与纹理
-  private disposeMeshList(meshes: CardMesh[]): void {
-    meshes.forEach((mesh) => {
-      if (mesh.reflectionMesh) {
-        mesh.remove(mesh.reflectionMesh);
-        if (Array.isArray(mesh.reflectionMesh.material)) {
-          mesh.reflectionMesh.material.forEach((mat) => {
-            if (mat !== this.reflectionPlasticEdgeMat) {
-              if ('map' in mat && mat.map) {
-                (mat.map as THREE.Texture).dispose();
-              }
-              mat.dispose();
-            }
-          });
-        }
-      }
-      if (mesh.parent) {
-        mesh.parent.remove(mesh);
-      } else {
-        this.scene.remove(mesh);
-      }
-      if (Array.isArray(mesh.material)) {
-        mesh.material.forEach((mat) => {
-          if (mat !== this.plasticEdgeMat) {
-            if ('map' in mat && mat.map) {
-              (mat.map as THREE.Texture).dispose();
-            }
-            mat.dispose();
+  /**
+   * 执行书本翻开展开动画并平滑过渡到视频播放
+   * @param options 过渡参数与完成回调
+   */
+  public playBookOpenTransition(options: BookOpenTransitionOptions): void {
+    const selectedMesh = this.cardManager.getCardMeshes()[this.selectedIndex];
+    this.bookTransitionManager.play(
+      options,
+      selectedMesh,
+      this.cardManager.getPlasticEdgeMat(),
+      this.currentThemeMode,
+      this.scene,
+      () => {
+        this.cardManager.getCardMeshes().forEach((mesh) => {
+          mesh.visible = false;
+          if (mesh.reflectionMesh) {
+            mesh.reflectionMesh.visible = false;
           }
         });
       }
-    });
+    );
   }
 
-  // 释放所有卡片的网格、材质与纹理
-  private disposeCards(): void {
-    this.boundaryBounceOffset = 0;
-    this.boundaryBounceVelocity = 0;
-    this.disposeMeshList(this.cardMeshes);
-    this.cardMeshes = [];
+  // 重置书本翻开展开状态，安全卸载 3D 装配体
+  public resetBookOpenTransition(): void {
+    const selectedMesh = this.cardManager.getCardMeshes()[this.selectedIndex];
+    this.bookTransitionManager.reset(selectedMesh, this.scene);
+
+    this.camera.position.set(0, 0.2, this.cameraTargetZ);
+    this.camera.updateProjectionMatrix();
+
+    if (this.state === VIEW_STATES.DETAIL) {
+      this.updateCardPositions(true);
+    }
+    this.renderer.render(this.scene, this.camera);
   }
 
-  /**
-   * 完全销毁场景，释放 WebGL 上下文与所有监听，防止内存泄露
-   */
+  // 完全销毁场景并释放全部 WebGL 资源
   public destroy(): void {
     this.isDestroyed = true;
+    this.bookTransitionManager.destroy(this.scene);
     this.boundaryBounceOffset = 0;
     this.boundaryBounceVelocity = 0;
     this.currentLoadSession++;
@@ -1515,23 +1147,8 @@ export class CoverflowScene {
     window.removeEventListener('pointerup', this.boundOnPointerUp);
     this.canvas.removeEventListener('click', this.boundOnClick);
 
-    this.disposeCards();
+    this.cardManager.destroy();
 
-    if (this.boxGeometry) {
-      this.boxGeometry.dispose();
-    }
-    if (this.reflectionGeometry) {
-      this.reflectionGeometry.dispose();
-    }
-    if (this.reflectionAlphaMap) {
-      this.reflectionAlphaMap.dispose();
-    }
-    if (this.reflectionPlasticEdgeMat) {
-      this.reflectionPlasticEdgeMat.dispose();
-    }
-    if (this.plasticEdgeMat) {
-      this.plasticEdgeMat.dispose();
-    }
     if (this.renderer) {
       this.renderer.dispose();
     }

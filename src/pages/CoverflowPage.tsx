@@ -11,9 +11,10 @@ import { CoverflowCanvas } from '@/components/coverflow/CoverflowCanvas';
 import { CoverflowNavbar } from '@/components/coverflow/CoverflowNavbar';
 import { MovieInfoPanel } from '@/components/coverflow/MovieInfoPanel';
 import { ControlButtons } from '@/components/coverflow/ControlButtons';
-import { CoverflowScene } from '@/components/coverflow/three/CoverflowScene';
+import { CoverflowScene } from '@/components/coverflow/three/coverflowScene';
 import { CoverflowMovie, VIEW_STATES, ViewMode, ViewState } from '@/components/coverflow/types';
 import { parseTagList } from '@/utils/common';
+import { getVideoMediaSource } from '@/services/fileSystem/index';
 
 interface CoverflowPageProps {
   isVisible?: boolean;
@@ -50,6 +51,7 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
   const [viewState, setViewState] = useState<ViewState>(VIEW_STATES.LIST);
   const [viewMode, setViewMode] = useState<ViewMode>('front');
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isTransitioningToVideo, setIsTransitioningToVideo] = useState<boolean>(false);
 
   // 演员筛选状态
   const [selectedActor, setSelectedActorState] = useState<string | null>(null);
@@ -120,6 +122,8 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
   useEffect(() => {
     if (!scene) return;
     if (isVisible) {
+      setIsTransitioningToVideo(false);
+      scene.resetBookOpenTransition();
       scene.resume();
       requestAnimationFrame(() => {
         scene.onResize();
@@ -264,12 +268,62 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
     [scene]
   );
 
-  // 6. 播放视频跳转
+  // 6. 播放视频跳转（在详情模式下执行 3D 书本翻开展开动画并平滑过渡到播放）
   const handlePlayVideo = useCallback(
     (videoId: string) => {
+      if (isTransitioningToVideo) return;
+
+      if (
+        scene &&
+        currentMovie &&
+        viewState === VIEW_STATES.DETAIL &&
+        currentMovie.id === videoId
+      ) {
+        const targetMovie = currentMovie;
+        setIsTransitioningToVideo(true);
+
+        // 后台异步并发预加载视频媒体源（在 3D 动画执行期间并行拉取，零卡顿等待）
+        const mediaSourcePromise =
+          activeDirectory && hasDirectoryPermission
+            ? getVideoMediaSource(
+                activeDirectory,
+                targetMovie.video.folderName,
+                targetMovie.video.fileName
+              ).catch((err) => {
+                console.warn('Failed to preload video media source for Coverflow transition:', err);
+                return { src: null, file: null };
+              })
+            : Promise.resolve({ src: null, file: null });
+
+        // 立即触发 3D 书本翻开与镜头推入动画
+        scene.playBookOpenTransition({
+          movie: targetMovie,
+          onComplete: async () => {
+            const mediaSource = await mediaSourcePromise;
+            navigate(`/videos/${videoId}`, {
+              state: {
+                preloadedVideo: targetMovie.video,
+                preloadedSrc: mediaSource.src || null,
+                preloadedFile: mediaSource.file || null,
+              },
+            });
+          },
+        });
+        return;
+      }
+
+      // 降级直接跳转
       navigate(`/videos/${videoId}`);
     },
-    [navigate]
+    [
+      isTransitioningToVideo,
+      viewState,
+      scene,
+      currentMovie,
+      activeDirectory,
+      hasDirectoryPermission,
+      navigate,
+    ]
   );
 
   // 7. 更新影片元数据并同步当前视图
@@ -409,14 +463,14 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
         </div>
       )}
 
-      {/* 顶部极简导航栏 (视图切换与演员筛选，详情模式自动隐藏) */}
+      {/* 顶部极简导航栏 (视图切换与演员筛选，详情模式或过渡时自动隐藏) */}
       <CoverflowNavbar
         viewMode={viewMode}
         onViewModeChange={handleViewModeChange}
         selectedActor={selectedActor}
         onSelectActor={handleActorChange}
         actors={availableActors}
-        isHidden={viewState === VIEW_STATES.DETAIL}
+        isHidden={viewState === VIEW_STATES.DETAIL || isTransitioningToVideo}
       />
 
       {/* 放大聚焦模式浮层控制条 (翻页、翻转与退出) */}
@@ -427,7 +481,7 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
         onNext={() => scene?.nextCard()}
         onFlip={() => scene?.toggleFlipCard()}
         onExit={() => scene?.setState(VIEW_STATES.LIST)}
-        isHidden={viewState !== VIEW_STATES.DETAIL}
+        isHidden={viewState !== VIEW_STATES.DETAIL || isTransitioningToVideo}
       />
 
       {/* 视频详细信息面板 (仅在详情聚焦模式展示) */}
@@ -435,7 +489,7 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
         movie={currentMovie}
         onPlay={handlePlayVideo}
         onMovieUpdated={handleMovieUpdated}
-        isHidden={viewState !== VIEW_STATES.DETAIL}
+        isHidden={viewState !== VIEW_STATES.DETAIL || isTransitioningToVideo}
       />
     </div>
   );

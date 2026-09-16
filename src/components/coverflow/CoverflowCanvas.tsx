@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { CoverflowScene } from './three/CoverflowScene';
+import { CoverflowScene } from './three/coverflowScene';
 import { CoverflowMovie, ViewState } from './types';
 
 interface CoverflowCanvasProps {
