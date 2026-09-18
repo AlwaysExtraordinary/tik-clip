@@ -171,6 +171,7 @@
     "actors": "演员",
     "category": "类别",
     "description": "描述",
+    "synopsis": "简介",
     "playVideo": "播放视频",
     "flip": "翻转",
     "exit": "返回",

@@ -124,10 +124,14 @@ export class BookTransitionManager {
         ? (frontMat.map.image as HTMLCanvasElement | HTMLImageElement)
         : undefined;
 
-    // 右侧内页艺术衬纸与空置模具托盘
+    // 右侧内页艺术衬纸与空置模具托盘 (禁用 mipmaps 避免 WebGL 自动降采样导致文字发糊，保持清晰)
     const rightInsideCanvas = createRightInsideCanvas(movie, themeMode);
     const rightInsideTex = new THREE.CanvasTexture(rightInsideCanvas);
     rightInsideTex.colorSpace = THREE.SRGBColorSpace;
+    rightInsideTex.generateMipmaps = false;
+    rightInsideTex.minFilter = THREE.LinearFilter;
+    rightInsideTex.magFilter = THREE.LinearFilter;
+    rightInsideTex.needsUpdate = true;
     this.bookCreatedTextures.push(rightInsideTex);
 
     const rightInsideMat = new THREE.MeshBasicMaterial({
@@ -172,10 +176,14 @@ export class BookTransitionManager {
     const pivot = new THREE.Group();
     pivot.position.set(-W / 2, 0, D / 2 - coverThickness);
 
-    // 左侧内页衬纸 Canvas 贴图
-    const leftInsideCanvas = createLeftInsideCanvas(themeMode);
+    // 左侧内页衬纸 Canvas 贴图 (禁用 mipmaps 避免 WebGL 自动降采样导致文字发糊，保持清晰)
+    const leftInsideCanvas = createLeftInsideCanvas(movie, themeMode);
     const leftInsideTex = new THREE.CanvasTexture(leftInsideCanvas);
     leftInsideTex.colorSpace = THREE.SRGBColorSpace;
+    leftInsideTex.generateMipmaps = false;
+    leftInsideTex.minFilter = THREE.LinearFilter;
+    leftInsideTex.magFilter = THREE.LinearFilter;
+    leftInsideTex.needsUpdate = true;
     this.bookCreatedTextures.push(leftInsideTex);
 
     const insideLeftMat = new THREE.MeshBasicMaterial({
@@ -350,6 +358,8 @@ export class BookTransitionManager {
     const duration = isNarrow ? narrow.duration : wide.duration;
     const elapsed = now - this.bookOpenStartTime;
     const t = THREE.MathUtils.clamp(elapsed / duration, 0, 1);
+    // [调试模式] 封面完全展开后定格停住，便于调试光盘与内页布局（调试完成后恢复即可）
+    // const t = Math.min(THREE.MathUtils.clamp(elapsed / duration, 0, 1), wide.coverOpenRatio);
 
     const flyoutZOffset = isNarrow ? narrow.discFlyoutZOffset : wide.discFlyoutZOffset;
     const targetWorldZ = this.bookStartPos.z + flyoutZOffset;
@@ -418,7 +428,7 @@ export class BookTransitionManager {
 
       // 阶段 2：封面静止不动，实体光盘脱离向右滑出并以 Ease-in-out 旋转 360° 飞向视野中心放大
       if (this.bookDiscMesh) {
-        if (t < wide.coverOpenRatio) {
+        if (t <= wide.coverOpenRatio) {
           this.bookDiscMesh.position.copy(this.bookDiscRestPos);
           this.bookDiscMesh.rotation.set(0, 0, 0);
           this.bookDiscMesh.scale.set(1, 1, 1);

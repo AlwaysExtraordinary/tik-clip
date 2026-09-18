@@ -171,6 +171,7 @@
     "actors": "Actors",
     "category": "Category",
     "description": "Description",
+    "synopsis": "Synopsis",
     "playVideo": "Play Video",
     "flip": "Flip",
     "exit": "Exit",

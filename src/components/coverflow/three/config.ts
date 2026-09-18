@@ -71,7 +71,7 @@ export const BOOK_ANIM_CONFIG = {
 
   // 宽屏模式参数 (Wide Mode, >= @3xl: 768px, 左右布局)
   wide: {
-    duration: 2500, // 翻开与光盘飞行动画总时长 (毫秒)
+    duration: 2200, // 翻开与光盘飞行动画总时长 (毫秒)
     coverOpenMaxAngle: -Math.PI, // 封面翻转展开弧度 -180° (-π)，双页完全对折展平
     coverOpenRatio: 0.4, // 阶段 1 封面展开就位时间占比 (0.0 ~ 1.0)
     discDetachRightOffset: 0.38, // 阶段 2 光盘向右脱离托盘的位移距离 (世界单位)
@@ -98,8 +98,9 @@ export const BOOK_ANIM_CONFIG = {
 
   // 内页 Canvas 贴图尺寸与装饰边框参数 (双端通用)
   canvas: {
-    width: 600, // 内页高清晰度贴图画布宽度 (px)
-    height: 850, // 内页高清晰度贴图画布高度 (px)
+    width: 600, // 内页基础设计宽度 (px)
+    height: 850, // 内页基础设计高度 (px)
+    scale: 3, // 贴图高分辨率超采样倍率 (3x 超采样达到 1800x2550 超清分辨率，杜绝 3D 渲染模糊)
     borderOuterPadding: 30, // 双层装饰外边框边距 (px)
     borderInnerPadding: 38, // 双层装饰内边框边距 (px)
     borderLineWidth: 1.5, // 装饰边框线条粗细 (px)
@@ -120,10 +121,20 @@ export const BOOK_ANIM_CONFIG = {
   typography: {
     titleY: 600, // 影片标题中心 Y 坐标 (px)
     titleFontSize: 22, // 影片标题字号 (px)
-    subtitleY: 635, // 副标题中心 Y 坐标 (px)
-    subtitleFontSize: 12, // 副标题字号 (px)
-    actorY: 665, // 演员信息中心 Y 坐标 (px)
-    actorFontSize: 13, // 演员信息字号 (px)
+    actorY: 635, // 演员标签 Y 坐标 (px)
+    actorValueY: 656, // 演员正文 Y 坐标 (px)
+    categoryY: 692, // 类别标签 Y 坐标 (px)
+    categoryValueY: 713, // 类别正文 Y 坐标 (px)
+    singleMetaY: 650, // 仅单项元数据时的标签 Y 坐标 (px)
+    singleMetaValueY: 673, // 仅单项元数据时的正文 Y 坐标 (px)
+    metaLabelFontSize: 13, // 演员/类别标签字号 (px)
+    metaValueFontSize: 14, // 演员/类别正文字号 (px)
+    metaFontSize: 14, // 演员/类别元数据字号 (px)
+    descHeaderY: 600, // 左内页简介标题 Y 坐标 (px)
+    descHeaderFontSize: 15, // 左内页简介标题字号 (px)
+    descContentY: 638, // 左内页简介正文起始 Y 坐标 (px)
+    descContentFontSize: 13, // 左内页简介正文字号 (px)
+    descLineHeight: 23, // 左内页简介正文行高 (px)
   },
 
   // 封面后撤与渐隐参数 (在光盘飞出快结束时触发)
