@@ -612,22 +612,6 @@ export function createDiscCanvas(
     ctx.fill();
   }
 
-  // 真实光盘激光各向异性彩虹光泽 (Anisotropic Laser Specular Sheen)
-  if (typeof ctx.createConicGradient === 'function') {
-    const conic = ctx.createConicGradient(-Math.PI / 4, cx, cy);
-    const op = disc.sheenOpacity;
-    conic.addColorStop(0.0, 'rgba(255, 255, 255, 0)');
-    conic.addColorStop(0.07, `rgba(255, 220, 180, ${op * 0.85})`);
-    conic.addColorStop(0.12, `rgba(180, 240, 255, ${op})`);
-    conic.addColorStop(0.18, 'rgba(255, 255, 255, 0)');
-    conic.addColorStop(0.5, 'rgba(255, 255, 255, 0)');
-    conic.addColorStop(0.57, `rgba(255, 220, 180, ${op * 0.85})`);
-    conic.addColorStop(0.62, `rgba(180, 240, 255, ${op})`);
-    conic.addColorStop(0.68, 'rgba(255, 255, 255, 0)');
-    conic.addColorStop(1.0, 'rgba(255, 255, 255, 0)');
-    ctx.fillStyle = conic;
-    ctx.fill();
-  }
   ctx.restore();
 
   // 3. 单层塑料边框边缘轮廓（印刷交界线与最外沿边线）
@@ -677,6 +661,84 @@ export function createDiscCanvas(
   ctx.beginPath();
   ctx.arc(cx, cy, R_hole + 0.5, 0, Math.PI * 2);
   ctx.stroke();
+  ctx.restore();
+
+  return canvas;
+}
+
+// 创建光盘立体悬浮投影柔和阴影贴图 (Canvas 2D 径向渐变)
+export function createDiscShadowCanvas(): HTMLCanvasElement {
+  const size = 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return canvas;
+
+  const cx = size / 2;
+  const cy = size / 2;
+  const radius = size * 0.46;
+
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+  grad.addColorStop(0, 'rgba(0, 0, 0, 0.65)');
+  grad.addColorStop(0.45, 'rgba(0, 0, 0, 0.35)');
+  grad.addColorStop(0.75, 'rgba(0, 0, 0, 0.1)');
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  return canvas;
+}
+
+// 创建光盘各向异性激光彩虹反射光泽独立贴图 (Canvas 2D 锥形渐变)
+export function createDiscSheenCanvas(): HTMLCanvasElement {
+  const size = 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return canvas;
+
+  const cx = size / 2;
+  const cy = size / 2;
+  const { disc } = BOOK_ANIM_CONFIG;
+
+  const R_outer = size / 2 - 4;
+  const scaleRatio = R_outer / disc.outerRadius;
+  const R_hub = disc.hubRadius * scaleRatio;
+  const rimWidth = 10 * scaleRatio;
+  const R_artwork = R_outer - rimWidth;
+
+  // 仅在光盘轨道有效反射区（中心透明亚克力夹持圈以外、单层塑料外沿以内）呈现彩虹激光
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, R_artwork, 0, Math.PI * 2);
+  ctx.arc(cx, cy, R_hub, 0, Math.PI * 2, true);
+  ctx.closePath();
+  ctx.clip();
+
+  if (typeof ctx.createConicGradient === 'function') {
+    const conic = ctx.createConicGradient(-Math.PI / 4, cx, cy);
+    const op = disc.sheenOpacity;
+    const lobeStops: [number, string][] = [
+      [0.0, 'rgba(255, 255, 255, 0)'],
+      [0.06, `rgba(255, 215, 170, ${op * 0.7})`],
+      [0.1, `rgba(255, 235, 190, ${op * 0.9})`],
+      [0.13, `rgba(180, 240, 255, ${op})`],
+      [0.16, `rgba(190, 200, 255, ${op * 0.8})`],
+      [0.2, 'rgba(255, 255, 255, 0)'],
+    ];
+
+    [0, 0.5].forEach((baseOffset) => {
+      lobeStops.forEach(([offset, color]) => {
+        conic.addColorStop(baseOffset + offset, color);
+      });
+    });
+    conic.addColorStop(1.0, 'rgba(255, 255, 255, 0)');
+
+    ctx.fillStyle = conic;
+    ctx.fill();
+  }
   ctx.restore();
 
   return canvas;

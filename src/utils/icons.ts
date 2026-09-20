@@ -80,6 +80,7 @@ import chevronRight from '@iconify-icons/lucide/chevron-right';
 import rotateCw from '@iconify-icons/lucide/rotate-cw';
 import galleryHorizontalEnd from '@iconify-icons/lucide/gallery-horizontal-end';
 import chartColumnStacked from '@iconify-icons/lucide/chart-column-stacked';
+import bookOpen from '@iconify-icons/lucide/book-open';
 
 /**
  * 集中注册项目中所有使用的 Lucide 图标至 Iconify 本地离线缓存
@@ -161,6 +162,7 @@ export function setupIcons(): void {
     'lucide:rotate-cw': rotateCw,
     'lucide:gallery-horizontal-end': galleryHorizontalEnd,
     'lucide:chart-column-stacked': chartColumnStacked,
+    'lucide:book-open': bookOpen,
   };
 
   Object.entries(iconMap).forEach(([name, iconData]) => {

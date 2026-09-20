@@ -52,6 +52,7 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
   const [viewMode, setViewMode] = useState<ViewMode>('front');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isTransitioningToVideo, setIsTransitioningToVideo] = useState<boolean>(false);
+  const [isCoverOpen, setIsCoverOpen] = useState<boolean>(false);
 
   // 演员筛选状态
   const [selectedActor, setSelectedActorState] = useState<string | null>(null);
@@ -123,10 +124,11 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
     if (!scene) return;
     if (isVisible) {
       setIsTransitioningToVideo(false);
+      setIsCoverOpen(false);
       scene.resetBookOpenTransition();
       scene.resume();
       requestAnimationFrame(() => {
-        scene.onResize();
+        scene.onResize(true);
       });
     } else {
       scene.pause();
@@ -388,17 +390,34 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
         scene.prevCard();
       } else if (e.key === 'ArrowRight') {
         scene.nextCard();
-      } else if (e.key === 'Enter' || e.key === ' ') {
+      } else if (e.key === 'Enter') {
         e.preventDefault();
         if (viewState === VIEW_STATES.LIST) {
           scene.setState(VIEW_STATES.EXPANDED);
         } else if (viewState === VIEW_STATES.EXPANDED) {
           scene.setState(VIEW_STATES.DETAIL);
         } else if (viewState === VIEW_STATES.DETAIL) {
-          scene.toggleFlipCard();
+          if (isCoverOpen) {
+            scene.closeCover();
+          } else {
+            scene.openCover();
+          }
+        }
+      } else if (e.key === ' ') {
+        e.preventDefault();
+        if (viewState === VIEW_STATES.LIST) {
+          scene.setState(VIEW_STATES.EXPANDED);
+        } else if (viewState === VIEW_STATES.EXPANDED) {
+          scene.setState(VIEW_STATES.DETAIL);
+        } else if (viewState === VIEW_STATES.DETAIL) {
+          if (!isCoverOpen) {
+            scene.toggleFlipCard();
+          }
         }
       } else if (e.key === 'Escape') {
-        if (viewState !== VIEW_STATES.LIST) {
+        if (isCoverOpen) {
+          scene.closeCover();
+        } else if (viewState !== VIEW_STATES.LIST) {
           scene.setState(VIEW_STATES.LIST);
         }
       }
@@ -406,7 +425,7 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [scene, viewState, filteredMovies.length]);
+  }, [scene, viewState, isCoverOpen, filteredMovies.length]);
 
   // 空状态展示判定
   if (!hasDirectoryPermission) {
@@ -445,7 +464,14 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
           setCurrentIndex(index);
           setTotalMovies(total);
         }}
-        onStateChange={(st) => setViewState(st)}
+        onStateChange={(st) => {
+          setViewState(st);
+          if (st !== VIEW_STATES.DETAIL) {
+            setIsCoverOpen(false);
+          }
+        }}
+        onPlayVideo={handlePlayVideo}
+        onCoverOpenChange={(isOpen) => setIsCoverOpen(isOpen)}
       />
 
       {/* 筛选无匹配结果时的温和提示 */}
@@ -473,7 +499,7 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
         isHidden={viewState === VIEW_STATES.DETAIL || isTransitioningToVideo}
       />
 
-      {/* 放大聚焦模式浮层控制条 (翻页、翻转与退出) */}
+      {/* 放大聚焦模式浮层控制条 (翻页、打开、翻转与退出) */}
       <ControlButtons
         currentIndex={currentIndex}
         totalMovies={totalMovies}
@@ -481,7 +507,8 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
         onNext={() => scene?.nextCard()}
         onFlip={() => scene?.toggleFlipCard()}
         onExit={() => scene?.setState(VIEW_STATES.LIST)}
-        isHidden={viewState !== VIEW_STATES.DETAIL || isTransitioningToVideo}
+        onOpen={() => scene?.openCover()}
+        isHidden={viewState !== VIEW_STATES.DETAIL || isTransitioningToVideo || isCoverOpen}
       />
 
       {/* 视频详细信息面板 (仅在详情聚焦模式展示) */}
@@ -489,7 +516,7 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
         movie={currentMovie}
         onPlay={handlePlayVideo}
         onMovieUpdated={handleMovieUpdated}
-        isHidden={viewState !== VIEW_STATES.DETAIL || isTransitioningToVideo}
+        isHidden={viewState !== VIEW_STATES.DETAIL || isTransitioningToVideo || isCoverOpen}
       />
     </div>
   );

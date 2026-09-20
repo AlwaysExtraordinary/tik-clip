@@ -77,7 +77,7 @@ export const MovieInfoPanel: React.FC<MovieInfoPanelProps> = ({
         e.stopPropagation();
       }}
       className={cn(
-        'absolute z-20 transition-all duration-300 ease-in-out select-text',
+        'absolute z-20 transition-all duration-350 ease-in-out select-text',
         'bg-surface/90 backdrop-blur-xl border border-border rounded-2xl shadow-floating',
         // 移动端 / 窄容器 (< 768px: 3xl)：居中位于封面正下方抽屉式面板
         'left-1/2 -translate-x-1/2 bottom-4 w-[min(calc(100%-32px),28rem)] max-w-md max-h-[38vh] p-4 flex flex-col justify-between gap-2.5',
@@ -86,7 +86,7 @@ export const MovieInfoPanel: React.FC<MovieInfoPanelProps> = ({
         // 更宽容器
         '@6xl:w-100',
         // 隐藏状态平滑过渡
-        isHidden && 'pointer-events-none opacity-0 translate-y-8 @3xl:translate-y-0'
+        isHidden && 'pointer-events-none opacity-0 translate-y-full @3xl:translate-y-0'
       )}
     >
       <div className="flex-1 min-h-0 flex flex-col gap-2">

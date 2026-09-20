@@ -6,6 +6,8 @@ interface CoverflowCanvasProps {
   onSceneReady?: (scene: CoverflowScene) => void;
   onMovieChange?: (movie: CoverflowMovie | null, index: number, total: number) => void;
   onStateChange?: (state: ViewState) => void;
+  onPlayVideo?: (videoId: string) => void;
+  onCoverOpenChange?: (isOpen: boolean) => void;
   className?: string;
 }
 
@@ -17,6 +19,8 @@ export const CoverflowCanvas: React.FC<CoverflowCanvasProps> = ({
   onSceneReady,
   onMovieChange,
   onStateChange,
+  onPlayVideo,
+  onCoverOpenChange,
   className = '',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -26,11 +30,15 @@ export const CoverflowCanvas: React.FC<CoverflowCanvasProps> = ({
   const onMovieChangeRef = useRef(onMovieChange);
   const onStateChangeRef = useRef(onStateChange);
   const onSceneReadyRef = useRef(onSceneReady);
+  const onPlayVideoRef = useRef(onPlayVideo);
+  const onCoverOpenChangeRef = useRef(onCoverOpenChange);
 
   useEffect(() => {
     onMovieChangeRef.current = onMovieChange;
     onStateChangeRef.current = onStateChange;
     onSceneReadyRef.current = onSceneReady;
+    onPlayVideoRef.current = onPlayVideo;
+    onCoverOpenChangeRef.current = onCoverOpenChange;
   });
 
   useEffect(() => {
@@ -44,6 +52,12 @@ export const CoverflowCanvas: React.FC<CoverflowCanvasProps> = ({
       },
       (state) => {
         onStateChangeRef.current?.(state);
+      },
+      (videoId) => {
+        onPlayVideoRef.current?.(videoId);
+      },
+      (isOpen) => {
+        onCoverOpenChangeRef.current?.(isOpen);
       }
     );
 

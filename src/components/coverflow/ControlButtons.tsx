@@ -11,12 +11,13 @@ interface ControlButtonsProps {
   onNext: () => void;
   onFlip: () => void;
   onExit: () => void;
+  onOpen?: () => void;
   isHidden?: boolean;
 }
 
 /**
  * Coverflow 放大聚焦模式浮层控制条组件
- * 提供 3D 卡片翻页（上一个/下一个）、正反面翻转、退出聚焦视图按钮及页码指示
+ * 提供 3D 卡片翻页（上一个/下一个）、打开封面、正反面翻转、退出聚焦视图按钮及页码指示
  */
 export const ControlButtons: React.FC<ControlButtonsProps> = ({
   currentIndex,
@@ -25,49 +26,68 @@ export const ControlButtons: React.FC<ControlButtonsProps> = ({
   onNext,
   onFlip,
   onExit,
+  onOpen,
   isHidden = false,
 }) => {
   const { t } = useTranslation();
 
   return (
     <>
-      {/* 右上角控制条：翻转与返回列表 */}
+      {/* 右上角控制条：打开封面、翻转卡片与返回列表 */}
       <div
         className={cn(
-          'absolute top-3 right-3 gap-2 @3xl:top-5 @3xl:right-5 @3xl:gap-2.5 z-30 flex items-center transition-all duration-500 ease-in-out',
+          'absolute top-3 right-3 gap-2 @3xl:top-5 @3xl:right-5 @3xl:gap-2.5 z-30 flex items-center transition-all duration-300 ease-in-out',
           isHidden && 'opacity-0 -translate-y-4 pointer-events-none'
         )}
       >
+        {/* 打开封面 */}
+        {onOpen && (
+          <Button
+            size="sm"
+            variant="outline"
+            onPress={onOpen}
+            aria-label={t('coverflow.openCover', '打开封面')}
+            className="size-8 min-w-8 @3xl:size-auto @3xl:h-8 @3xl:px-3.5 p-0 gap-1.5 shadow-subtle 
+            bg-surface/80 dark:bg-zinc-900/80 backdrop-blur-md hover:bg-surface-hover active:scale-95"
+          >
+            <Icon icon="lucide:book-open" className="size-4 @3xl:size-3.5" />
+            <span className="hidden @3xl:inline text-xs font-medium">{t('coverflow.openCover', '展开')}</span>
+          </Button>
+        )}
+
         {/* 翻转卡片 */}
         <Button
-          variant="primary"
           size="sm"
+          variant="primary"
           onPress={onFlip}
-          className="flex items-center h-7 gap-1.5 rounded-full px-2.5 @3xl:px-3.5 @3xl:h-8 shadow-subtle cursor-pointer"
+          aria-label={t('coverflow.flip', '翻转')}
+          className="size-8 min-w-8 @3xl:size-auto @3xl:h-8 @3xl:px-3.5 p-0 gap-1.5 shadow-subtle active:scale-95"
         >
-          <Icon icon="lucide:rotate-cw" className="size-3.5" />
-          <span className="text-xs font-medium">{t('coverflow.flip', '翻转')}</span>
+          <Icon icon="lucide:rotate-cw" className="size-4 @3xl:size-3.5" />
+          <span className="hidden @3xl:inline text-xs font-medium">{t('coverflow.flip', '翻转')}</span>
         </Button>
 
         {/* 返回列表 */}
         <Button
-          variant="outline"
+          isIconOnly
           size="sm"
+          variant="outline"
           onPress={onExit}
-          className="flex items-center h-7 gap-1.5 rounded-full px-2.5 @3xl:px-3.5 @3xl:h-8 bg-surface/80 backdrop-blur-md border 
-          border-border shadow-subtle cursor-pointer hover:bg-surface-hover"
+          aria-label={t('coverflow.exit', '返回')}
+          className="size-8 shadow-subtle bg-surface/80 dark:bg-zinc-900/80 backdrop-blur-md hover:bg-surface-hover active:scale-95"
         >
-          <Icon icon="lucide:x" className="size-3.5" />
-          <span className="text-xs font-medium">{t('coverflow.exit', '返回')}</span>
+          <Icon icon="lucide:x" className="size-4 @3xl:size-3.5" />
         </Button>
       </div>
 
       {/* 浮动翻页按钮：上一个 */}
       <div
         className={cn(
-          'absolute z-30 size-9 @3xl:size-8 transition-all duration-500 ease-in-out',
+          'absolute z-30 size-9 @3xl:size-8 transition-all duration-300 ease-in-out',
           'left-5 top-[34%] -translate-y-1/2',
-          '@3xl:left-auto @3xl:right-57 @3xl:top-5 @3xl:translate-y-0',
+          onOpen
+            ? '@3xl:left-auto @3xl:right-67 @3xl:top-5 @3xl:translate-y-0'
+            : '@3xl:left-auto @3xl:right-57 @3xl:top-5 @3xl:translate-y-0',
           isHidden &&
             'pointer-events-none opacity-0 -translate-x-4 @3xl:-translate-y-4 @3xl:translate-x-0'
         )}
@@ -75,11 +95,10 @@ export const ControlButtons: React.FC<ControlButtonsProps> = ({
         <Button
           isIconOnly
           size="sm"
-          variant="secondary"
+          variant="outline"
           onPress={onPrev}
           aria-label={t('coverflow.prev', '上一个')}
-          className="size-full rounded-full bg-surface/80 dark:bg-zinc-900/80 backdrop-blur-md border border-border
-           shadow-subtle text-foreground hover:bg-surface-hover active:scale-95 cursor-pointer"
+          className="size-full shadow-subtle bg-surface/80 dark:bg-zinc-900/80 backdrop-blur-md hover:bg-surface-hover active:scale-95"
         >
           <Icon icon="lucide:chevron-left" className="size-5 @3xl:size-4" />
         </Button>
@@ -88,9 +107,11 @@ export const ControlButtons: React.FC<ControlButtonsProps> = ({
       {/* 浮动翻页按钮：下一个 */}
       <div
         className={cn(
-          'absolute z-30 size-9 @3xl:size-8 transition-all duration-500 ease-in-out',
+          'absolute z-30 size-9 @3xl:size-8 transition-all duration-300 ease-in-out',
           'right-5 top-[34%] -translate-y-1/2',
-          '@3xl:right-47 @3xl:top-5 @3xl:translate-y-0',
+          onOpen
+            ? '@3xl:right-57 @3xl:top-5 @3xl:translate-y-0'
+            : '@3xl:right-47 @3xl:top-5 @3xl:translate-y-0',
           isHidden &&
             'pointer-events-none opacity-0 translate-x-4 @3xl:-translate-y-4 @3xl:translate-x-0'
         )}
@@ -98,11 +119,10 @@ export const ControlButtons: React.FC<ControlButtonsProps> = ({
         <Button
           isIconOnly
           size="sm"
-          variant="secondary"
+          variant="outline"
           onPress={onNext}
           aria-label={t('coverflow.next', '下一个')}
-          className="size-full rounded-full bg-surface/80 dark:bg-zinc-900/80 backdrop-blur-md border border-border 
-           shadow-subtle text-foreground hover:bg-surface-hover active:scale-95 cursor-pointer"
+          className="size-full shadow-subtle bg-surface/80 dark:bg-zinc-900/80 backdrop-blur-md hover:bg-surface-hover active:scale-95"
         >
           <Icon icon="lucide:chevron-right" className="size-5 @3xl:size-4" />
         </Button>
@@ -111,11 +131,8 @@ export const ControlButtons: React.FC<ControlButtonsProps> = ({
       {/* 封面页码 */}
       <div
         className={cn(
-          'absolute z-30 pointer-events-none transition-all duration-500 ease-in-out ',
-          // 'top-2 left-1/2 -translate-x-1/2',
-          'top-4 left-6',
-          // '@3xl:top-[calc(100%-3.25rem)] @3xl:left-8 @3xl:translate-x-0',
-          '@3xl:top-7 @3xl:left-1/2 @3xl:-translate-x-1/2',
+          'absolute z-30 pointer-events-none transition-all duration-300 ease-in-out',
+          'top-4 left-6 @3xl:top-7 @3xl:left-1/2 @3xl:-translate-x-1/2',
           isHidden && 'opacity-0 -translate-y-4'
         )}
       >

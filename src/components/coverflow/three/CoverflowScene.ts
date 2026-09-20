@@ -32,6 +32,8 @@ export class CoverflowScene {
   private canvas: HTMLCanvasElement;
   private onMovieChange?: (movie: CoverflowMovie | null, index: number, total: number) => void;
   private onStateChange?: (state: ViewState) => void;
+  private onPlayVideo?: (videoId: string) => void;
+  private onCoverOpenChange?: (isOpen: boolean) => void;
   private currentLoadSession = 0;
 
   // Three.js 核心对象
@@ -104,18 +106,27 @@ export class CoverflowScene {
    * @param canvasElement WebGL Canvas 元素
    * @param onMovieChange 选中视频变更回调
    * @param onStateChange 视图状态变更回调
+   * @param onPlayVideo 播放视频回调
+   * @param onCoverOpenChange 封面展开状态变更回调
    */
   constructor(
     canvasElement: HTMLCanvasElement,
     onMovieChange?: (movie: CoverflowMovie | null, index: number, total: number) => void,
-    onStateChange?: (state: ViewState) => void
+    onStateChange?: (state: ViewState) => void,
+    onPlayVideo?: (videoId: string) => void,
+    onCoverOpenChange?: (isOpen: boolean) => void
   ) {
     this.canvas = canvasElement;
     this.onMovieChange = onMovieChange;
     this.onStateChange = onStateChange;
+    this.onPlayVideo = onPlayVideo;
+    this.onCoverOpenChange = onCoverOpenChange;
 
     this.cardManager = new CardManager();
     this.bookTransitionManager = new BookTransitionManager();
+    this.bookTransitionManager.onCoverStateChange = (isOpen) => {
+      this.onCoverOpenChange?.(isOpen);
+    };
 
     this.boundOnResize = this.onResize.bind(this);
     this.boundOnWheel = this.onWheel.bind(this);
@@ -375,13 +386,53 @@ export class CoverflowScene {
     this.canvas.addEventListener('click', this.boundOnClick);
   }
 
-  // 统一拖拽交互起始处理
+  /**
+   * 根据视口像素坐标更新归一化鼠标坐标与射线投射器
+   * @param clientX 视口 X 坐标
+   * @param clientY 视口 Y 坐标
+   * @returns 画布视口边界矩形
+   */
+  private updateRaycasterFromPointer(clientX: number, clientY: number): DOMRect {
+    const rect = this.canvas.getBoundingClientRect();
+    this.mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+    return rect;
+  }
+
+  // 隐藏背景卡片网格及其倒影，避免与 3D 书本翻开展开装配体穿模
+  private hideCardsForTransition = (): void => {
+    this.cardManager.getCardMeshes().forEach((mesh) => {
+      mesh.visible = false;
+      if (mesh.reflectionMesh) {
+        mesh.reflectionMesh.visible = false;
+      }
+    });
+  };
+
   private handleDragStart(clientX: number, clientY: number): void {
     this.startX = clientX;
+    if (this.bookTransitionManager.isCoverOpen) {
+      const rect = this.updateRaycasterFromPointer(clientX, clientY);
+
+      const hitDisc = this.bookTransitionManager.handlePointerDown(
+        this.raycaster,
+        this.camera,
+        clientX,
+        clientY,
+        rect
+      );
+      if (hitDisc) {
+        this.canvas.style.cursor = 'grabbing';
+        return;
+      }
+    }
+
     if (this.state === VIEW_STATES.LIST) {
       this.isDragging = true;
       this.dragStartScroll = this.targetScrollIndex;
     } else if (this.state === VIEW_STATES.EXPANDED || this.state === VIEW_STATES.DETAIL) {
+      if (this.bookTransitionManager.isCoverOpen) return;
       const selectedMesh = this.cardManager.getCardMeshes()[this.selectedIndex];
       if (selectedMesh) {
         this.isZoomDragging = true;
@@ -394,8 +445,20 @@ export class CoverflowScene {
     }
   }
 
-  // 统一拖拽交互移动处理
   private handleDragMove(clientX: number, clientY: number): void {
+    if (this.bookTransitionManager.isCoverOpen && this.bookTransitionManager.isDraggingDisc) {
+      const rect = this.updateRaycasterFromPointer(clientX, clientY);
+
+      this.bookTransitionManager.handlePointerMoveDrag(
+        this.raycaster,
+        this.camera,
+        clientX,
+        clientY,
+        rect
+      );
+      return;
+    }
+
     const movies = this.cardManager.getMovies();
     if (this.state === VIEW_STATES.LIST && this.isDragging) {
       if (!movies.length) return;
@@ -509,10 +572,17 @@ export class CoverflowScene {
     if (this.isDragging || this.isZoomDragging) {
       this.canvas.style.cursor = 'grabbing';
     } else {
-      const rect = this.canvas.getBoundingClientRect();
-      this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      this.raycaster.setFromCamera(this.mouse, this.camera);
+      this.updateRaycasterFromPointer(e.clientX, e.clientY);
+
+      if (this.bookTransitionManager.isCoverOpen) {
+        if (this.bookTransitionManager.isDraggingDisc) {
+          this.canvas.style.cursor = 'grabbing';
+          return;
+        }
+        const isOverDisc = this.bookTransitionManager.handlePointerMove(this.raycaster);
+        this.canvas.style.cursor = isOverDisc ? 'pointer' : 'default';
+        return;
+      }
 
       const visibleMeshes = this.cardManager.getCardMeshes().filter((m) => m.visible);
       const intersects = this.raycaster.intersectObjects(visibleMeshes, false);
@@ -520,8 +590,13 @@ export class CoverflowScene {
     }
   }
 
-  // 指针释放监听
   private onPointerRelease(): void {
+    if (this.bookTransitionManager.isCoverOpen && this.bookTransitionManager.isDraggingDisc) {
+      this.bookTransitionManager.handlePointerUp();
+      this.canvas.style.cursor = 'pointer';
+      return;
+    }
+
     if (this.isDragging) {
       this.isDragging = false;
       this.targetScrollIndex = Math.round(this.targetScrollIndex);
@@ -549,15 +624,35 @@ export class CoverflowScene {
   // 点击事件监听
   private onClick(e: MouseEvent): void {
     if (this.bookTransitionManager.isTransitioning) return;
+
+    // 展开状态下的点击分发：点击光盘播放，点击光盘以外其区域均恢复原状
+    if (this.bookTransitionManager.isCoverOpen) {
+      if (this.bookTransitionManager.consumeDiscDrag()) {
+        return;
+      }
+
+      this.updateRaycasterFromPointer(e.clientX, e.clientY);
+
+      const hitType = this.bookTransitionManager.handleClick(this.raycaster);
+      if (hitType === 'disc') {
+        const currentMovie = this.cardManager.getMovies()[this.selectedIndex];
+        if (currentMovie && this.onPlayVideo) {
+          this.onPlayVideo(currentMovie.id);
+        } else {
+          this.bookTransitionManager.playFromOpened();
+        }
+      } else {
+        this.closeCover();
+      }
+      return;
+    }
+
     if (this.zoomDragDistance > 6) {
       this.zoomDragDistance = 0;
       return;
     }
 
-    const rect = this.canvas.getBoundingClientRect();
-    this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-    this.raycaster.setFromCamera(this.mouse, this.camera);
+    this.updateRaycasterFromPointer(e.clientX, e.clientY);
 
     const visibleMeshes = this.cardManager.getCardMeshes().filter((m) => m.visible);
     const intersects = this.raycaster.intersectObjects(visibleMeshes, false);
@@ -631,6 +726,10 @@ export class CoverflowScene {
    */
   public setState(newState: ViewState): void {
     if (this.bookTransitionManager.isTransitioning) return;
+    if (this.bookTransitionManager.isCoverOpen) {
+      const selectedMesh = this.cardManager.getCardMeshes()[this.selectedIndex];
+      this.bookTransitionManager.reset(selectedMesh, this.scene);
+    }
     this.state = newState;
     this.boundaryBounceOffset = 0;
     this.boundaryBounceVelocity = 0;
@@ -870,6 +969,13 @@ export class CoverflowScene {
         }
       }
 
+      if (this.bookTransitionManager.isCoverOpen) {
+        mesh.visible = false;
+        if (mesh.reflectionMesh) {
+          mesh.reflectionMesh.visible = false;
+        }
+      }
+
       mesh.targetPosition.set(targetX, targetY, targetZ);
       if (!this.isZoomDragging || i !== this.selectedIndex) {
         mesh.targetRotationY = targetRotY;
@@ -877,7 +983,7 @@ export class CoverflowScene {
       }
       mesh.targetScale = targetScale;
 
-      if (immediate) {
+      if (immediate || this.bookTransitionManager.isCoverOpen) {
         mesh.position.copy(mesh.targetPosition);
         mesh.rotation.y = mesh.targetRotationY;
         mesh.rotation.x = mesh.targetRotationX;
@@ -894,7 +1000,8 @@ export class CoverflowScene {
     this.animId = requestAnimationFrame(this.animate.bind(this));
 
     // 书本翻开与光盘飞行动画接管渲染
-    if (this.bookTransitionManager.isTransitioning) {
+    if (this.bookTransitionManager.isCoverOpen || this.bookTransitionManager.isTransitioning) {
+      const selectedMesh = this.cardManager.getCardMeshes()[this.selectedIndex];
       this.bookTransitionManager.update(
         performance.now(),
         this.camera,
@@ -903,14 +1010,8 @@ export class CoverflowScene {
         this.cardManager.getPlasticEdgeMat(),
         this.currentThemeMode,
         this.scene,
-        () => {
-          this.cardManager.getCardMeshes().forEach((mesh) => {
-            mesh.visible = false;
-            if (mesh.reflectionMesh) {
-              mesh.reflectionMesh.visible = false;
-            }
-          });
-        }
+        selectedMesh,
+        this.hideCardsForTransition
       );
       this.renderer.render(this.scene, this.camera);
       return;
@@ -1077,6 +1178,9 @@ export class CoverflowScene {
     this.updateCameraTargetZ(isImmediate);
     this.updateCardPositions(isImmediate);
 
+    const selectedMesh = this.cardManager.getCardMeshes()[this.selectedIndex];
+    this.bookTransitionManager.onResize(selectedMesh, this.isMobile);
+
     const pixelRatio = this.renderer.getPixelRatio();
     const physicalWidth = Math.floor(width * pixelRatio);
     const physicalHeight = Math.floor(height * pixelRatio);
@@ -1099,14 +1203,7 @@ export class CoverflowScene {
       this.cardManager.getPlasticEdgeMat(),
       this.currentThemeMode,
       this.scene,
-      () => {
-        this.cardManager.getCardMeshes().forEach((mesh) => {
-          mesh.visible = false;
-          if (mesh.reflectionMesh) {
-            mesh.reflectionMesh.visible = false;
-          }
-        });
-      }
+      this.hideCardsForTransition
     );
   }
 
@@ -1118,10 +1215,38 @@ export class CoverflowScene {
     this.camera.position.set(0, 0.2, this.cameraTargetZ);
     this.camera.updateProjectionMatrix();
 
-    if (this.state === VIEW_STATES.DETAIL) {
-      this.updateCardPositions(true);
-    }
+    this.canvas.style.cursor = 'default';
+    this.updateCardPositions(true);
     this.renderer.render(this.scene, this.camera);
+  }
+
+  // 打开当前选中卡片的封面并展开停留
+  public openCover(): void {
+    if (this.state !== VIEW_STATES.DETAIL) {
+      this.setState(VIEW_STATES.DETAIL);
+    }
+    const currentMovie = this.cardManager.getMovies()[this.selectedIndex];
+    const selectedMesh = this.cardManager.getCardMeshes()[this.selectedIndex];
+    if (!currentMovie || !selectedMesh) return;
+
+    this.bookTransitionManager.openCover(
+      { movie: currentMovie },
+      selectedMesh,
+      this.cardManager.getPlasticEdgeMat(),
+      this.currentThemeMode,
+      this.scene,
+      this.hideCardsForTransition
+    );
+  }
+
+  // 关闭展开的封面
+  public closeCover(): void {
+    this.bookTransitionManager.closeCover();
+  }
+
+  // 获取封面当前是否已展开
+  public get isCoverOpen(): boolean {
+    return this.bookTransitionManager.isCoverOpen;
   }
 
   // 完全销毁场景并释放全部 WebGL 资源

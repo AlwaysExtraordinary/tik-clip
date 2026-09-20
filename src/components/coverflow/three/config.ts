@@ -94,6 +94,9 @@ export const BOOK_ANIM_CONFIG = {
     discSpinAngle: Math.PI * 2, // 旋转总弧度 (360 度一整圈)
     flightTiltX: 0.08, // 飞行中段 X 轴立体微俯仰倾角系数
     flightTiltY: 0.04, // 飞行中段 Y 轴立体微偏航倾角系数
+    edgeInertiaOffset: 0.09, // 光盘触碰/脱离封面边缘时封面的微小惯性位移幅度 (世界单位)
+    openInertiaDuration: 320, // 展开时光盘向下滑到边缘时封面惯性位移与恢复时长 (毫秒)
+    closeInertiaDuration: 320, // 收合时光盘向上滑接触边缘时封面惯性位移与恢复时长 (毫秒)
   },
 
   // 内页 Canvas 贴图尺寸与装饰边框参数 (双端通用)
