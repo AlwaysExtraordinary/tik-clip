@@ -9,7 +9,7 @@ import { parseTagList } from '@/utils/common';
 import { FONT_SERIF } from '@/utils/constants';
 import i18n from '@/i18n';
 import { CoverflowMovie } from '../types';
-import { BOOK_ANIM_CONFIG } from './config';
+import { BOOK_ANIM_CONFIG, getBookThemeColors } from './config';
 import { ThemeMode } from './types';
 
 /**
@@ -27,16 +27,15 @@ export function drawBookDecorativeBorder(
   isDark: boolean,
   withDiscShape: boolean = false
 ): void {
-  const bgColor = isDark ? '#1e293b' : '#e2e8f0';
-  const borderColor = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.1)';
+  const colors = getBookThemeColors(isDark);
   const { borderOuterPadding, borderInnerPadding, borderLineWidth } = BOOK_ANIM_CONFIG.canvas;
 
   // 1. 书籍衬纸底色
-  ctx.fillStyle = bgColor;
+  ctx.fillStyle = colors.pageBg;
   ctx.fillRect(0, 0, width, height);
 
   // 2. 双层浅灰/暗纹几何装饰边框
-  ctx.strokeStyle = borderColor;
+  ctx.strokeStyle = colors.border;
   ctx.lineWidth = borderLineWidth;
   ctx.strokeRect(
     borderOuterPadding,
@@ -70,6 +69,7 @@ export function drawLeftDiscShape(
   isDark: boolean
 ): void {
   const { disc } = BOOK_ANIM_CONFIG;
+  const colors = getBookThemeColors(isDark);
   const cx = width / 2;
   const cy = disc.centerY;
   const R_outer = disc.outerRadius;
@@ -77,28 +77,22 @@ export function drawLeftDiscShape(
   const R_hub = disc.hubRadius;
   const R_mirror = disc.mirrorRadius;
 
-  const borderColor = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.1)';
-  const accentColor = isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(0, 0, 0, 0.15)';
-  const faintColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.05)';
-  const recessBg = isDark ? 'rgba(0, 0, 0, 0.15)' : 'rgba(0, 0, 0, 0.04)';
-  const holeBg = isDark ? '#0f172a' : '#cbd5e1';
-
   ctx.save();
 
   // 1. 光盘圆形微凹槽衬底
   ctx.beginPath();
   ctx.arc(cx, cy, R_outer, 0, Math.PI * 2);
-  ctx.fillStyle = recessBg;
+  ctx.fillStyle = colors.recessBg;
   ctx.fill();
 
   // 2. 双层圆形外沿装饰轮廓（与矩形双层边框风格呼应）
-  ctx.strokeStyle = borderColor;
+  ctx.strokeStyle = colors.border;
   ctx.lineWidth = BOOK_ANIM_CONFIG.canvas.borderLineWidth;
   ctx.beginPath();
   ctx.arc(cx, cy, R_outer, 0, Math.PI * 2);
   ctx.stroke();
 
-  ctx.strokeStyle = faintColor;
+  ctx.strokeStyle = colors.borderFaint;
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.arc(cx, cy, R_outer - 8, 0, Math.PI * 2);
@@ -110,7 +104,7 @@ export function drawLeftDiscShape(
     R_hub + (R_outer - 8 - R_hub) * 0.65,
     R_hub + (R_outer - 8 - R_hub) * 0.85,
   ];
-  ctx.strokeStyle = faintColor;
+  ctx.strokeStyle = colors.borderFaint;
   ctx.lineWidth = 0.8;
   trackRadii.forEach((r) => {
     ctx.beginPath();
@@ -121,30 +115,30 @@ export function drawLeftDiscShape(
   // 4. 中央夹持透明环与金属压合圈
   ctx.beginPath();
   ctx.arc(cx, cy, R_hub, 0, Math.PI * 2);
-  ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)';
+  ctx.fillStyle = colors.borderFaint;
   ctx.fill();
-  ctx.strokeStyle = borderColor;
+  ctx.strokeStyle = colors.border;
   ctx.lineWidth = 1;
   ctx.stroke();
 
   ctx.beginPath();
   ctx.arc(cx, cy, R_mirror, 0, Math.PI * 2);
-  ctx.strokeStyle = accentColor;
+  ctx.strokeStyle = colors.borderAccent;
   ctx.lineWidth = 1.2;
   ctx.stroke();
 
   // 5. 托盘/光盘主轴透空中孔与微立体阴影
   ctx.beginPath();
   ctx.arc(cx, cy, R_hole, 0, Math.PI * 2);
-  ctx.fillStyle = holeBg;
+  ctx.fillStyle = colors.centerHole;
   ctx.fill();
-  ctx.strokeStyle = isDark ? 'rgba(0, 0, 0, 0.45)' : 'rgba(0, 0, 0, 0.18)';
+  ctx.strokeStyle = colors.holeShadow;
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
   ctx.beginPath();
   ctx.arc(cx, cy, R_hole + 1.5, 0, Math.PI * 2);
-  ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.6)';
+  ctx.strokeStyle = colors.highlight;
   ctx.lineWidth = 0.8;
   ctx.stroke();
 
@@ -303,6 +297,7 @@ export function createLeftInsideCanvas(
   ctx.scale(scale, scale);
 
   const isDark = themeMode === 'dark';
+  const colors = getBookThemeColors(isDark);
   drawBookDecorativeBorder(ctx, width, height, isDark, true);
 
   // 获取并规范化影片简介
@@ -311,8 +306,6 @@ export function createLeftInsideCanvas(
     return canvas;
   }
 
-  const textColor = isDark ? '#f8fafc' : '#0f172a';
-  const bodyColor = isDark ? 'rgba(255, 255, 255, 0.78)' : 'rgba(15, 23, 42, 0.78)';
   const cx = width / 2;
   const { typography } = BOOK_ANIM_CONFIG;
 
@@ -322,12 +315,12 @@ export function createLeftInsideCanvas(
 
   ctx.save();
   ctx.textAlign = 'center';
-  ctx.fillStyle = textColor;
+  ctx.fillStyle = colors.textPrimary;
   ctx.font = `bold ${typography.descHeaderFontSize}px ${FONT_SERIF}`;
   ctx.fillText(synopsisTitle, cx, typography.descHeaderY);
 
   // 标题下方装饰细线
-  ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)';
+  ctx.strokeStyle = colors.borderAccent;
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(cx - 24, typography.descHeaderY + 14);
@@ -348,7 +341,7 @@ export function createLeftInsideCanvas(
 
   if (lines.length > 0) {
     ctx.font = `${typography.descContentFontSize}px ${FONT_SERIF}`;
-    ctx.fillStyle = bodyColor;
+    ctx.fillStyle = colors.textBody;
     ctx.textAlign = 'center';
 
     lines.forEach((line, index) => {
@@ -382,10 +375,8 @@ export function createRightInsideCanvas(
   ctx.scale(scale, scale);
 
   const isDark = themeMode === 'dark';
+  const colors = getBookThemeColors(isDark);
   drawBookDecorativeBorder(ctx, width, height, isDark);
-
-  const textColor = isDark ? '#f8fafc' : '#0f172a';
-  const subtextColor = isDark ? '#94a3b8' : '#64748b';
 
   const { disc, typography } = BOOK_ANIM_CONFIG;
   const cx = width / 2;
@@ -398,15 +389,15 @@ export function createRightInsideCanvas(
   ctx.save();
   ctx.beginPath();
   ctx.arc(cx, cy, R_recess, 0, Math.PI * 2);
-  ctx.fillStyle = isDark ? 'rgba(0, 0, 0, 0.18)' : 'rgba(0, 0, 0, 0.05)';
+  ctx.fillStyle = colors.recessBg;
   ctx.fill();
 
   // 凹槽边缘微倒角立体内阴影与高光环
-  ctx.strokeStyle = isDark ? 'rgba(0, 0, 0, 0.35)' : 'rgba(0, 0, 0, 0.12)';
+  ctx.strokeStyle = colors.recessBorder;
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.5)';
+  ctx.strokeStyle = colors.highlight;
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.arc(cx, cy, R_recess + 1, Math.PI * 0.2, Math.PI * 0.8);
@@ -421,9 +412,9 @@ export function createRightInsideCanvas(
     ctx.save();
     ctx.beginPath();
     ctx.arc(nx, ny, notchRadius, 0, Math.PI * 2);
-    ctx.fillStyle = isDark ? 'rgba(0, 0, 0, 0.22)' : 'rgba(0, 0, 0, 0.06)';
+    ctx.fillStyle = colors.recessBg;
     ctx.fill();
-    ctx.strokeStyle = isDark ? 'rgba(0, 0, 0, 0.35)' : 'rgba(0, 0, 0, 0.12)';
+    ctx.strokeStyle = colors.recessBorder;
     ctx.lineWidth = 1;
     ctx.stroke();
     ctx.restore();
@@ -431,13 +422,13 @@ export function createRightInsideCanvas(
 
   // 5. 托盘中央空位圆孔与卡齿主轴 (Center Spindle Hub & Teeth)
   ctx.save();
-  ctx.fillStyle = isDark ? '#0f172a' : '#cbd5e1';
+  ctx.fillStyle = colors.centerHole;
   ctx.beginPath();
   ctx.arc(cx, cy, R_hole, 0, Math.PI * 2);
   ctx.fill();
 
   // 内孔壁立体阴影
-  ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
+  ctx.strokeStyle = colors.holeShadow;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.arc(cx, cy, R_hole, 0, Math.PI * 2);
@@ -452,9 +443,9 @@ export function createRightInsideCanvas(
     const ty = cy + Math.sin(angle) * (teethRadius - 4);
     ctx.beginPath();
     ctx.arc(tx, ty, 3.2, 0, Math.PI * 2);
-    ctx.fillStyle = isDark ? '#1e293b' : '#94a3b8';
+    ctx.fillStyle = colors.spindleTeeth;
     ctx.fill();
-    ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.15)';
+    ctx.strokeStyle = colors.borderAccent;
     ctx.lineWidth = 0.8;
     ctx.stroke();
   }
@@ -462,7 +453,7 @@ export function createRightInsideCanvas(
 
   // 6. 影片元数据典藏印刻
   if (movie.title) {
-    ctx.fillStyle = textColor;
+    ctx.fillStyle = colors.textPrimary;
     ctx.font = `bold ${typography.titleFontSize}px ${FONT_SERIF}`;
     ctx.textAlign = 'center';
     ctx.fillText(movie.title.toUpperCase().slice(0, 26), cx, typography.titleY);
@@ -493,8 +484,8 @@ export function createRightInsideCanvas(
       cx,
       typography.actorY,
       typography.actorValueY,
-      subtextColor,
-      textColor,
+      colors.textSecondary,
+      colors.textPrimary,
       labelFontSize,
       valueFontSize
     );
@@ -505,8 +496,8 @@ export function createRightInsideCanvas(
       cx,
       typography.categoryY,
       typography.categoryValueY,
-      subtextColor,
-      textColor,
+      colors.textSecondary,
+      colors.textPrimary,
       labelFontSize,
       valueFontSize
     );
@@ -518,8 +509,8 @@ export function createRightInsideCanvas(
       cx,
       typography.singleMetaY,
       typography.singleMetaValueY,
-      subtextColor,
-      textColor,
+      colors.textSecondary,
+      colors.textPrimary,
       labelFontSize,
       valueFontSize
     );
@@ -531,8 +522,8 @@ export function createRightInsideCanvas(
       cx,
       typography.singleMetaY,
       typography.singleMetaValueY,
-      subtextColor,
-      textColor,
+      colors.textSecondary,
+      colors.textPrimary,
       labelFontSize,
       valueFontSize
     );
@@ -561,6 +552,7 @@ export function createDiscCanvas(
   const cx = size / 2;
   const cy = size / 2;
   const isDark = themeMode === 'dark';
+  const colors = getBookThemeColors(isDark);
   const { disc } = BOOK_ANIM_CONFIG;
 
   // 缩放基准比例：根据 bookDiscOuterRadius 映射至 512 贴图空间
@@ -581,8 +573,8 @@ export function createDiscCanvas(
   ctx.arc(cx, cy, R_artwork, 0, Math.PI * 2, true);
   ctx.closePath();
   const rimGrad = ctx.createRadialGradient(cx, cy, R_artwork, cx, cy, R_outer);
-  rimGrad.addColorStop(0.0, isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.22)');
-  rimGrad.addColorStop(1.0, isDark ? 'rgba(255, 255, 255, 0.16)' : 'rgba(255, 255, 255, 0.42)');
+  rimGrad.addColorStop(0.0, colors.discRimInner);
+  rimGrad.addColorStop(1.0, colors.discRimOuter);
   ctx.fillStyle = rimGrad;
   ctx.fill();
   ctx.restore();
@@ -606,8 +598,8 @@ export function createDiscCanvas(
     ctx.drawImage(frontImage, drawX, drawY, drawW, drawH);
   } else {
     const fallbackGrad = ctx.createRadialGradient(cx, cy, 20, cx, cy, R_artwork);
-    fallbackGrad.addColorStop(0, isDark ? '#334155' : '#cbd5e1');
-    fallbackGrad.addColorStop(1, isDark ? '#0f172a' : '#94a3b8');
+    fallbackGrad.addColorStop(0, colors.discFallbackStart);
+    fallbackGrad.addColorStop(1, colors.discFallbackEnd);
     ctx.fillStyle = fallbackGrad;
     ctx.fill();
   }
@@ -616,7 +608,7 @@ export function createDiscCanvas(
 
   // 3. 单层塑料边框边缘轮廓（印刷交界线与最外沿边线）
   ctx.save();
-  ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.28)' : 'rgba(0, 0, 0, 0.12)';
+  ctx.strokeStyle = colors.borderAccent;
   ctx.lineWidth = 1 * scaleRatio;
   ctx.beginPath();
   ctx.arc(cx, cy, R_artwork, 0, Math.PI * 2);
@@ -629,18 +621,18 @@ export function createDiscCanvas(
 
   // 7. 中心透明亚克力夹持圈与金属压合环 (Transparent Hub & Mirror Ring)
   ctx.save();
-  ctx.fillStyle = isDark ? 'rgba(30, 41, 59, 0.94)' : 'rgba(226, 232, 240, 0.94)';
+  ctx.fillStyle = colors.discHub;
   ctx.beginPath();
   ctx.arc(cx, cy, R_hub, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.15)';
+  ctx.strokeStyle = colors.borderAccent;
   ctx.lineWidth = 1 * scaleRatio;
   ctx.beginPath();
   ctx.arc(cx, cy, R_hub, 0, Math.PI * 2);
   ctx.stroke();
 
-  ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.22)' : 'rgba(255, 255, 255, 0.6)';
+  ctx.strokeStyle = colors.discMirrorRing;
   ctx.lineWidth = 3.5 * scaleRatio;
   ctx.beginPath();
   ctx.arc(cx, cy, R_mirror, 0, Math.PI * 2);
@@ -656,7 +648,7 @@ export function createDiscCanvas(
 
   // 9. 内孔边缘立体反光微倒角
   ctx.save();
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.strokeStyle = colors.highlight;
   ctx.lineWidth = 1 * scaleRatio;
   ctx.beginPath();
   ctx.arc(cx, cy, R_hole + 0.5, 0, Math.PI * 2);
@@ -680,10 +672,9 @@ export function createDiscShadowCanvas(): HTMLCanvasElement {
   const radius = size * 0.46;
 
   const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-  grad.addColorStop(0, 'rgba(0, 0, 0, 0.65)');
-  grad.addColorStop(0.45, 'rgba(0, 0, 0, 0.35)');
-  grad.addColorStop(0.75, 'rgba(0, 0, 0, 0.1)');
-  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  BOOK_ANIM_CONFIG.colors.discShadow.forEach(({ stop, color }) => {
+    grad.addColorStop(stop, color);
+  });
 
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, size, size);

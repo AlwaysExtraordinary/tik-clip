@@ -65,9 +65,85 @@ export const THEME_CONFIG = {
   plasticEdgeLight: '#e2e8f0',
 } as const;
 
+/** 书本内页与实体光盘主题配色配置 (集中管理并归并同类色彩) */
+export const BOOK_COLOR_CONFIG = {
+  // 1. 书本衬纸底色与装饰线条
+  pageBg: { dark: THEME_CONFIG.plasticEdgeDark, light: THEME_CONFIG.plasticEdgeLight }, // 衬纸底色 (联动 3D 书脊边框)
+  border: { dark: 'rgba(255, 255, 255, 0.12)', light: 'rgba(0, 0, 0, 0.1)' }, // 双层几何装饰边框
+  borderAccent: { dark: 'rgba(255, 255, 255, 0.22)', light: 'rgba(0, 0, 0, 0.15)' }, // 重点线条 (简介下划线/光盘外圈)
+  borderFaint: { dark: 'rgba(255, 255, 255, 0.06)', light: 'rgba(0, 0, 0, 0.05)' }, // 微弱装饰线 (音轨同心光轨)
+  highlight: { dark: 'rgba(255, 255, 255, 0.15)', light: 'rgba(255, 255, 255, 0.55)' }, // 凹槽/孔洞倒角高光边
+
+  // 2. 文字排版配色 (标题、标签与正文)
+  textPrimary: { dark: '#f8fafc', light: '#0f172a' }, // 主要文本 (影片大标题/简介标题)
+  textSecondary: { dark: '#94a3b8', light: '#64748b' }, // 次要标签 (演员/类别)
+  textBody: { dark: 'rgba(255, 255, 255, 0.78)', light: 'rgba(15, 23, 42, 0.78)' }, // 简介正文内容
+
+  // 3. 模具托盘与凹槽底座 (同类凹槽底色与边框合并统一控制)
+  recessBg: { dark: 'rgba(0, 0, 0, 0.18)', light: 'rgba(0, 0, 0, 0.05)' }, // 凹槽衬底 (托盘凹槽/手指缺口/左印记)
+  recessBorder: { dark: 'rgba(0, 0, 0, 0.35)', light: 'rgba(0, 0, 0, 0.12)' }, // 凹槽边缘立体内阴影边框
+  centerHole: { dark: '#0f172a', light: '#cbd5e1' }, // 托盘及光盘主轴透空中孔底色
+  holeShadow: { dark: 'rgba(0, 0, 0, 0.45)', light: 'rgba(0, 0, 0, 0.18)' }, // 中孔内壁立体投影阴影
+  spindleTeeth: { dark: THEME_CONFIG.plasticEdgeDark, light: '#94a3b8' }, // 托盘中心 4 枚卡齿
+
+  // 4. 实体光盘材质与反光
+  discRim: {
+    darkInner: 'rgba(255, 255, 255, 0.08)', // 暗色外沿塑料内圈渐变色
+    darkOuter: 'rgba(255, 255, 255, 0.16)', // 暗色外沿塑料外圈渐变色
+    lightInner: 'rgba(255, 255, 255, 0.22)', // 亮色外沿塑料内圈渐变色
+    lightOuter: 'rgba(255, 255, 255, 0.42)', // 亮色外沿塑料外圈渐变色
+  },
+  discHub: { dark: 'rgba(30, 41, 59, 0.94)', light: 'rgba(226, 232, 240, 0.94)' }, // 光盘中心透明亚克力夹持圈
+  discMirrorRing: { dark: 'rgba(255, 255, 255, 0.22)', light: 'rgba(255, 255, 255, 0.6)' }, // 光盘中心金属压合环反光
+  discFallback: {
+    darkStart: '#334155', // 无封面暗色渐变内侧
+    darkEnd: '#0f172a', // 无封面暗色渐变外侧
+    lightStart: '#cbd5e1', // 无封面亮色渐变内侧
+    lightEnd: '#94a3b8', // 无封面亮色渐变外侧
+  },
+  discShadow: [
+    { stop: 0, color: 'rgba(0, 0, 0, 0.3)' }, // 投影中心最深阴影
+    { stop: 0.45, color: 'rgba(0, 0, 0, 0.35)' }, // 投影中段过渡阴影
+    { stop: 0.75, color: 'rgba(0, 0, 0, 0.1)' }, // 投影外圈弱阴影
+    { stop: 1, color: 'rgba(0, 0, 0, 0)' }, // 投影边缘完全透明
+  ],
+} as const;
+
+/**
+ * 获取对应主题下的书本内页与光盘渲染配色
+ * @param isDark 是否为暗色主题
+ * @returns 对应主题下的颜色值映射对象
+ */
+export function getBookThemeColors(isDark: boolean) {
+  const c = BOOK_COLOR_CONFIG;
+  return {
+    pageBg: isDark ? c.pageBg.dark : c.pageBg.light,
+    border: isDark ? c.border.dark : c.border.light,
+    borderAccent: isDark ? c.borderAccent.dark : c.borderAccent.light,
+    borderFaint: isDark ? c.borderFaint.dark : c.borderFaint.light,
+    highlight: isDark ? c.highlight.dark : c.highlight.light,
+    textPrimary: isDark ? c.textPrimary.dark : c.textPrimary.light,
+    textSecondary: isDark ? c.textSecondary.dark : c.textSecondary.light,
+    textBody: isDark ? c.textBody.dark : c.textBody.light,
+    recessBg: isDark ? c.recessBg.dark : c.recessBg.light,
+    recessBorder: isDark ? c.recessBorder.dark : c.recessBorder.light,
+    centerHole: isDark ? c.centerHole.dark : c.centerHole.light,
+    holeShadow: isDark ? c.holeShadow.dark : c.holeShadow.light,
+    spindleTeeth: isDark ? c.spindleTeeth.dark : c.spindleTeeth.light,
+    discRimInner: isDark ? c.discRim.darkInner : c.discRim.lightInner,
+    discRimOuter: isDark ? c.discRim.darkOuter : c.discRim.lightOuter,
+    discHub: isDark ? c.discHub.dark : c.discHub.light,
+    discMirrorRing: isDark ? c.discMirrorRing.dark : c.discMirrorRing.light,
+    discFallbackStart: isDark ? c.discFallback.darkStart : c.discFallback.lightStart,
+    discFallbackEnd: isDark ? c.discFallback.darkEnd : c.discFallback.lightEnd,
+    discShadow: c.discShadow,
+  };
+}
+
 /** 3D 播放过渡动画与实体光盘视觉调节参数 */
 export const BOOK_ANIM_CONFIG = {
   thickness: 0.03, // 封面单板物理厚度
+  colors: BOOK_COLOR_CONFIG, // 主题配色配置
 
   // 宽屏模式参数 (Wide Mode, >= @3xl: 768px, 左右布局)
   wide: {
@@ -95,7 +171,7 @@ export const BOOK_ANIM_CONFIG = {
     flightTiltX: 0.08, // 飞行中段 X 轴立体微俯仰倾角系数
     flightTiltY: 0.04, // 飞行中段 Y 轴立体微偏航倾角系数
     edgeInertiaOffset: 0.09, // 光盘触碰/脱离封面边缘时封面的微小惯性位移幅度 (世界单位)
-    openInertiaDuration: 320, // 展开时光盘向下滑到边缘时封面惯性位移与恢复时长 (毫秒)
+    openInertiaDuration: 400, // 展开时光盘向下滑到边缘时封面惯性位移与恢复时长 (毫秒)
     closeInertiaDuration: 320, // 收合时光盘向上滑接触边缘时封面惯性位移与恢复时长 (毫秒)
   },
 
