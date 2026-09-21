@@ -61,7 +61,8 @@
     "defaultSort": "默认排序",
     "sortByName": "默认排序",
     "sortByClipCount": "片段数量排序",
-    "noFilteredVideos": "未找到符合筛选条件的视频"
+    "noFilteredVideos": "未找到符合筛选条件的视频",
+    "searchPlaceholder": "搜索"
   },
   "videoDetail": {
     "videoNotFound": "未找到该视频",

@@ -20,9 +20,28 @@ export interface FilterSelectProps {
   ariaLabel?: string;
   /** 是否展示默认值文本 (可选) */
   isShowDefautText?: boolean;
+  /** 触发紧凑仅图标显示的宽度收缩断点（默认为 '500px'） */
+  shrinkPoint?: string | number;
   /** 自定义外层触发器容器样式（可选） */
   className?: string;
 }
+
+// 常见断点与 Tailwind 响应式隐藏类映射
+const shrinkClassMap: Record<string, string> = {
+  sm: 'max-sm:hidden',
+  md: 'max-md:hidden',
+  lg: 'max-lg:hidden',
+};
+
+/**
+ * 根据配置项获取收缩隐藏类名
+ * @param point 收缩断点（如 '500px', '768px', 768 等）
+ */
+const getShrinkPointClass = (point?: string | number): string => {
+  if (!point) return 'max-[500px]:hidden';
+  const str = typeof point === 'number' ? `${point}px` : point;
+  return shrinkClassMap[str] || `max-[${str}]:hidden`;
+};
 
 /**
  * 通用圆角胶囊风格筛选选择器组件
@@ -39,6 +58,7 @@ export const FilterSelect: React.FC<FilterSelectProps> = ({
   ariaLabel,
   className,
   isShowDefautText = true,
+  shrinkPoint = '500px',
 }) => {
   const isDefault = !value || value === 'all';
 
@@ -63,7 +83,8 @@ export const FilterSelect: React.FC<FilterSelectProps> = ({
           />
           <Select.Value
             className={cn(
-              'max-[500px]:hidden max-w-12 truncate text-[11px] sm:text-[12px] sm:max-w-20 lg:max-w-30',
+              getShrinkPointClass(shrinkPoint),
+              'max-w-12 truncate text-[11px] sm:text-[12px] sm:max-w-20 lg:max-w-30',
               isDefault
                 ? `text-foreground-muted ${isShowDefautText ? '' : 'hidden'}`
                 : 'text-foreground font-medium'

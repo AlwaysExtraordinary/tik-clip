@@ -61,7 +61,8 @@
     "defaultSort": "Default",
     "sortByName": "Default",
     "sortByClipCount": "Sort by Clip Count",
-    "noFilteredVideos": "No videos match the selected filters"
+    "noFilteredVideos": "No videos match the selected filters",
+    "searchPlaceholder": "Search"
   },
   "videoDetail": {
     "videoNotFound": "Video not found",

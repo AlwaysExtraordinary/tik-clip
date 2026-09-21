@@ -61,7 +61,8 @@
     "defaultSort": "デフォルト順",
     "sortByName": "デフォルト順",
     "sortByClipCount": "クリップ数順",
-    "noFilteredVideos": "条件に一致する動画がありません"
+    "noFilteredVideos": "条件に一致する動画がありません",
+    "searchPlaceholder": "検索"
   },
   "videoDetail": {
     "videoNotFound": "動画が見つかりません",

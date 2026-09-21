@@ -7,7 +7,7 @@ import { VideoThumbnail } from '@/components/video/VideoThumbnail';
 import { EmptyState } from '@/components/video/EmptyState';
 import { useDirectory } from '@/hooks/useDirectory';
 import { Icon } from '@iconify/react';
-import { Dropdown, Modal, useOverlayState } from '@heroui/react';
+import { Dropdown, Modal, useOverlayState, SearchField } from '@heroui/react';
 import { FilterSelect } from '@/components/general/FilterSelect';
 import { hideVideoInDataJson, isTauri, openPathInOs } from '@/services/fileSystem/index';
 import { ConfirmModal } from '@/components/general/ConfirmModal';
@@ -47,6 +47,9 @@ export const VideosPage: React.FC = () => {
   // 排序方式状态：默认为按名称排序 ('name')
   const [sortBy, setSortBy] = useState<'name' | 'clipsCount'>('name');
 
+  // 搜索关键字（支持按名称、演员、类别搜索过滤）
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
   // 统一归一化为 null（当选择 'all' 或空时）
   const setSelectedCategory = useCallback((cat: string | null) => {
     setSelectedCategoryState(!cat || cat === 'all' ? null : cat);
@@ -56,10 +59,11 @@ export const VideosPage: React.FC = () => {
     setSelectedActorState(!act || act === 'all' ? null : act);
   }, []);
 
-  // 重置筛选条件
+  // 重置筛选与搜索条件
   const resetFilters = useCallback(() => {
     setSelectedCategoryState(null);
     setSelectedActorState(null);
+    setSearchQuery('');
   }, []);
 
   // 检查视频库中是否有任何类别或演员（用于保持选择器结构稳定）
@@ -131,8 +135,10 @@ export const VideosPage: React.FC = () => {
     }
   }, [availableActors, selectedActor, setSelectedActor]);
 
-  // 依据筛选器与排序方式计算当前显示的视频列表
+  // 依据筛选器、搜索词与排序方式计算当前显示的视频列表
   const filteredVideos = useMemo(() => {
+    const queryTerms = searchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
+
     const list = videos.filter((v) => {
       const matchCategory =
         !selectedCategory || selectedCategory === 'all'
@@ -144,7 +150,16 @@ export const VideosPage: React.FC = () => {
           ? true
           : Boolean(v.actor && v.actor.includes(selectedActor));
 
-      return matchCategory && matchActor;
+      const matchSearch =
+        queryTerms.length === 0 ||
+        queryTerms.every(
+          (term) =>
+            (v.name && v.name.toLowerCase().includes(term)) ||
+            (v.actor && v.actor.toLowerCase().includes(term)) ||
+            (v.category && v.category.toLowerCase().includes(term))
+        );
+
+      return matchCategory && matchActor && matchSearch;
     });
 
     return list.sort((a, b) => {
@@ -154,7 +169,7 @@ export const VideosPage: React.FC = () => {
       }
       return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
     });
-  }, [videos, selectedCategory, selectedActor, sortBy]);
+  }, [videos, selectedCategory, selectedActor, searchQuery, sortBy]);
 
   // 卡片操作列表
   const videoActionList = [
@@ -280,59 +295,87 @@ export const VideosPage: React.FC = () => {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* 顶部筛选与排序工具栏 */}
-      <div className="flex items-center gap-3 px-4 md:px-6 lg:px-8 pt-4 pb-1 shrink-0 flex-wrap">
-        {/* 种类筛选 */}
-        {hasAnyCategory && (
-          <FilterSelect
-            value={selectedCategory}
-            onChange={setSelectedCategory}
-            icon="lucide:chart-column-stacked"
-            defaultLabel={t('videos.allCategories')}
-            options={availableCategories}
-            placeholder={t('videos.filterByCategory')}
-            ariaLabel={t('videos.filterByCategory')}
-          />
-        )}
+      <div className="flex items-center justify-between gap-2 sm:gap-3 px-4 md:px-6 lg:px-8 pt-4 pb-1 shrink-0 flex-nowrap min-w-0">
+        {/* 左侧筛选与排序项 */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 flex-nowrap">
+          {/* 种类筛选 */}
+          {hasAnyCategory && (
+            <FilterSelect
+              value={selectedCategory}
+              onChange={setSelectedCategory}
+              icon="lucide:chart-column-stacked"
+              defaultLabel={t('videos.allCategories')}
+              options={availableCategories}
+              placeholder={t('videos.filterByCategory')}
+              ariaLabel={t('videos.filterByCategory')}
+              shrinkPoint="768px"
+            />
+          )}
 
-        {/* 演员筛选 */}
-        {hasAnyActor && (
-          <FilterSelect
-            value={selectedActor}
-            onChange={setSelectedActor}
-            icon="lucide:user"
-            defaultLabel={t('videos.allActors')}
-            options={availableActors}
-            placeholder={t('videos.filterByActor')}
-            ariaLabel={t('videos.filterByActor')}
-          />
-        )}
+          {/* 演员筛选 */}
+          {hasAnyActor && (
+            <FilterSelect
+              value={selectedActor}
+              onChange={setSelectedActor}
+              icon="lucide:user"
+              defaultLabel={t('videos.allActors')}
+              options={availableActors}
+              placeholder={t('videos.filterByActor')}
+              ariaLabel={t('videos.filterByActor')}
+              shrinkPoint="768px"
+            />
+          )}
 
-        {/* 排序选择器 */}
-        <FilterSelect
-          value={sortBy === 'clipsCount' ? t('videos.sortByClipCount') : null}
-          onChange={(val) => setSortBy(val === t('videos.sortByClipCount') ? 'clipsCount' : 'name')}
-          icon="lucide:arrow-up-down"
-          defaultLabel={t('videos.defaultSort')}
-          options={[t('videos.sortByClipCount')]}
-          placeholder={t('videos.sortBy')}
-          ariaLabel={t('videos.sortBy')}
-        />
+          {/* 排序选择器 */}
+          <FilterSelect
+            value={sortBy === 'clipsCount' ? t('videos.sortByClipCount') : null}
+            onChange={(val) =>
+              setSortBy(val === t('videos.sortByClipCount') ? 'clipsCount' : 'name')
+            }
+            icon="lucide:arrow-up-down"
+            defaultLabel={t('videos.defaultSort')}
+            options={[t('videos.sortByClipCount')]}
+            placeholder={t('videos.sortBy')}
+            ariaLabel={t('videos.sortBy')}
+            shrinkPoint="768px"
+          />
+        </div>
+
+        {/* 右侧搜索框 */}
+        <div className="ml-auto min-w-30 max-w-64 flex-1 sm:flex-initial sm:w-56 md:w-64">
+          <SearchField
+            value={searchQuery}
+            onChange={setSearchQuery}
+            aria-label={t('videos.searchPlaceholder')}
+            className="w-full"
+          >
+            <SearchField.Group className="h-7.5 rounded-full text-xs min-h-0 py-1.5 pl-2 pr-2 flex items-center bg-field shadow-field">
+              <SearchField.SearchIcon className="size-3.5 text-foreground-muted shrink-0 me-1 ms-0.5 sm:ms-1">
+                <Icon icon="lucide:search" className="size-3.5" />
+              </SearchField.SearchIcon>
+              <SearchField.Input
+                placeholder={t('videos.searchPlaceholder')}
+                className="text-[11px] sm:text-[12px] py-0 px-0 flex-1 min-w-0 placeholder:text-foreground-muted focus:outline-none bg-transparent"
+              />
+              <SearchField.ClearButton
+                className="size-4.5 rounded-full p-0 flex items-center justify-center shrink-0 me-0.5 text-foreground-muted 
+                 hover:text-foreground hover:bg-surface-active/60 transition-colors cursor-pointer [&>svg]:m-0"
+              >
+                <Icon icon="lucide:x" className="size-3" />
+              </SearchField.ClearButton>
+            </SearchField.Group>
+          </SearchField>
+        </div>
       </div>
 
       {/* 可滚动网格容器 */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6 md:pt-4 lg:p-8 lg:pt-4">
         {filteredVideos.length === 0 ? (
-          <div className="flex flex-col items-center justify-center text-foreground-muted py-16 gap-2">
-            <Icon icon="lucide:folder-search" className="size-10" />
-            <p className="text-xs">{t('videos.noFilteredVideos')}</p>
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="text-xs text-accent hover:underline cursor-pointer mt-1"
-            >
-              {t('clipsFeed.default')}
-            </button>
-          </div>
+          <EmptyState
+            type="no-filter-results"
+            onAction={resetFilters}
+            className="bg-transparent"
+          />
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6 pb-8">
             {filteredVideos.map((video) => (
