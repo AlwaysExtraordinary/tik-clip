@@ -21,7 +21,8 @@
     "themeDark": "Dark",
     "themeSystem": "System",
     "done": "Done",
-    "thumbnailPreview": "Progress Bar Thumbnails"
+    "thumbnailPreview": "Progress Bar Thumbnails",
+    "coverflowPreview": "Coverflow Preview"
   },
   "languages": {
     "zh": "简体中文",

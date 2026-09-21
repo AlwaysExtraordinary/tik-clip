@@ -20,6 +20,18 @@ interface CoverflowPageProps {
   isVisible?: boolean;
 }
 
+const getInitialViewMode = (): ViewMode => {
+  try {
+    const saved = localStorage.getItem('tik_clip_coverflow_view_mode');
+    if (saved === 'front' || saved === 'angled' || saved === 'vertical') {
+      return saved;
+    }
+  } catch {
+    // 忽略存储错误
+  }
+  return 'front';
+};
+
 /**
  * 3D Coverflow 沉浸式封面流页面
  * 呈现类似经典 iTunes / 抖音的 3D 碟盒流式交互体验
@@ -27,7 +39,7 @@ interface CoverflowPageProps {
 export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { theme } = useSettingsStore();
+  const { theme, showCoverflowPreview } = useSettingsStore();
 
   const { directoryRef, directoryHandle, isScanning, hasDirectoryPermission } = useDirectory();
   const activeDirectory = useMemo(
@@ -49,7 +61,7 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
   const [currentIndex, setCurrentIndex] = useState(0);
   const [totalMovies, setTotalMovies] = useState(0);
   const [viewState, setViewState] = useState<ViewState>(VIEW_STATES.LIST);
-  const [viewMode, setViewMode] = useState<ViewMode>('front');
+  const [viewMode, setViewMode] = useState<ViewMode>(getInitialViewMode);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isTransitioningToVideo, setIsTransitioningToVideo] = useState<boolean>(false);
   const [isCoverOpen, setIsCoverOpen] = useState<boolean>(false);
@@ -265,10 +277,22 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
   const handleViewModeChange = useCallback(
     (mode: ViewMode) => {
       setViewMode(mode);
+      try {
+        localStorage.setItem('tik_clip_coverflow_view_mode', mode);
+      } catch {
+        // 忽略存储错误
+      }
       scene?.setListViewMode(mode);
     },
     [scene]
   );
+
+  // 保持与 Scene 内部视图模式同步（解决重新扫描或重建 Canvas 时视图模式被重置的问题）
+  useEffect(() => {
+    if (scene) {
+      scene.setListViewMode(viewMode);
+    }
+  }, [scene, viewMode]);
 
   // 6. 播放视频跳转（在详情模式下执行 3D 书本翻开展开动画并平滑过渡到播放）
   const handlePlayVideo = useCallback(
@@ -387,13 +411,17 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
       }
 
       if (e.key === 'ArrowLeft') {
-        scene.prevCard();
+        if (!isCoverOpen) {
+          scene.prevCard();
+        }
       } else if (e.key === 'ArrowRight') {
-        scene.nextCard();
+        if (!isCoverOpen) {
+          scene.nextCard();
+        }
       } else if (e.key === 'Enter') {
         e.preventDefault();
         if (viewState === VIEW_STATES.LIST) {
-          scene.setState(VIEW_STATES.EXPANDED);
+          scene.setState(showCoverflowPreview ? VIEW_STATES.EXPANDED : VIEW_STATES.DETAIL);
         } else if (viewState === VIEW_STATES.EXPANDED) {
           scene.setState(VIEW_STATES.DETAIL);
         } else if (viewState === VIEW_STATES.DETAIL) {
@@ -406,7 +434,7 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
       } else if (e.key === ' ') {
         e.preventDefault();
         if (viewState === VIEW_STATES.LIST) {
-          scene.setState(VIEW_STATES.EXPANDED);
+          scene.setState(showCoverflowPreview ? VIEW_STATES.EXPANDED : VIEW_STATES.DETAIL);
         } else if (viewState === VIEW_STATES.EXPANDED) {
           scene.setState(VIEW_STATES.DETAIL);
         } else if (viewState === VIEW_STATES.DETAIL) {
@@ -425,7 +453,7 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [scene, viewState, isCoverOpen, filteredMovies.length]);
+  }, [scene, viewState, isCoverOpen, filteredMovies.length, showCoverflowPreview]);
 
   // 空状态展示判定
   if (!hasDirectoryPermission) {
@@ -458,6 +486,8 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
     <div className="@container relative w-full h-full overflow-hidden select-none">
       {/* 3D WebGL 画布 */}
       <CoverflowCanvas
+        viewMode={viewMode}
+        showPreview={showCoverflowPreview}
         onSceneReady={(s) => setScene(s)}
         onMovieChange={(movie, index, total) => {
           setCurrentMovie(movie);

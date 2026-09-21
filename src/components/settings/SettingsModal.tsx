@@ -19,6 +19,8 @@ export const SettingsModal: React.FC = () => {
     setStartupPage,
     showThumbnailPreview,
     setShowThumbnailPreview,
+    showCoverflowPreview,
+    setShowCoverflowPreview,
   } = useSettingsStore();
   const {
     directoryName,
@@ -225,6 +227,27 @@ export const SettingsModal: React.FC = () => {
                   isSelected={showThumbnailPreview}
                   onChange={setShowThumbnailPreview}
                   aria-label={t('settings.thumbnailPreview')}
+                  size="md"
+                >
+                  <Switch.Content>
+                    <Switch.Control>
+                      <Switch.Thumb />
+                    </Switch.Control>
+                  </Switch.Content>
+                </Switch>
+              </div>
+
+              {/* 封面流展示预览 */}
+              <div className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <label className="text-sm font-medium text-foreground">
+                    {t('settings.coverflowPreview')}
+                  </label>
+                </div>
+                <Switch
+                  isSelected={showCoverflowPreview}
+                  onChange={setShowCoverflowPreview}
+                  aria-label={t('settings.coverflowPreview')}
                   size="md"
                 >
                   <Switch.Content>

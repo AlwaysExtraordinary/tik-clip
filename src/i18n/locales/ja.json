@@ -21,7 +21,8 @@
     "themeDark": "ダーク",
     "themeSystem": "システム",
     "done": "完了",
-    "thumbnailPreview": "プログレスバーでサムネイル表示"
+    "thumbnailPreview": "プログレスバーでサムネイル表示",
+    "coverflowPreview": "カバーフロープレビュー表示"
   },
   "languages": {
     "zh": "简体中文",

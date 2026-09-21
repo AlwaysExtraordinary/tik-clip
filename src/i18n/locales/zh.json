@@ -21,7 +21,8 @@
     "themeDark": "深色",
     "themeSystem": "跟随系统",
     "done": "完成",
-    "thumbnailPreview": "进度条显示缩略图"
+    "thumbnailPreview": "进度条显示缩略图",
+    "coverflowPreview": "封面流展示预览"
   },
   "languages": {
     "zh": "简体中文",

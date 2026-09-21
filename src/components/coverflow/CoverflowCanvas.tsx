@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { CoverflowScene } from './three/coverflowScene';
-import { CoverflowMovie, ViewState } from './types';
+import { CoverflowMovie, ViewMode, ViewState } from './types';
 
 interface CoverflowCanvasProps {
   onSceneReady?: (scene: CoverflowScene) => void;
@@ -8,6 +8,8 @@ interface CoverflowCanvasProps {
   onStateChange?: (state: ViewState) => void;
   onPlayVideo?: (videoId: string) => void;
   onCoverOpenChange?: (isOpen: boolean) => void;
+  showPreview?: boolean;
+  viewMode?: ViewMode;
   className?: string;
 }
 
@@ -21,6 +23,8 @@ export const CoverflowCanvas: React.FC<CoverflowCanvasProps> = ({
   onStateChange,
   onPlayVideo,
   onCoverOpenChange,
+  showPreview,
+  viewMode,
   className = '',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -32,6 +36,8 @@ export const CoverflowCanvas: React.FC<CoverflowCanvasProps> = ({
   const onSceneReadyRef = useRef(onSceneReady);
   const onPlayVideoRef = useRef(onPlayVideo);
   const onCoverOpenChangeRef = useRef(onCoverOpenChange);
+  const showPreviewRef = useRef(showPreview);
+  const viewModeRef = useRef(viewMode);
 
   useEffect(() => {
     onMovieChangeRef.current = onMovieChange;
@@ -39,7 +45,21 @@ export const CoverflowCanvas: React.FC<CoverflowCanvasProps> = ({
     onSceneReadyRef.current = onSceneReady;
     onPlayVideoRef.current = onPlayVideo;
     onCoverOpenChangeRef.current = onCoverOpenChange;
+    showPreviewRef.current = showPreview;
+    viewModeRef.current = viewMode;
   });
+
+  useEffect(() => {
+    if (sceneRef.current && showPreview !== undefined) {
+      sceneRef.current.setShowPreview(showPreview);
+    }
+  }, [showPreview]);
+
+  useEffect(() => {
+    if (sceneRef.current && viewMode) {
+      sceneRef.current.setListViewMode(viewMode);
+    }
+  }, [viewMode]);
 
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
@@ -60,6 +80,14 @@ export const CoverflowCanvas: React.FC<CoverflowCanvasProps> = ({
         onCoverOpenChangeRef.current?.(isOpen);
       }
     );
+
+    if (showPreviewRef.current !== undefined) {
+      scene.setShowPreview(showPreviewRef.current);
+    }
+
+    if (viewModeRef.current) {
+      scene.setListViewMode(viewModeRef.current);
+    }
 
     sceneRef.current = scene;
     onSceneReadyRef.current?.(scene);

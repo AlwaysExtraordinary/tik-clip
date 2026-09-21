@@ -19,6 +19,15 @@ const getInitialThumbnailPreview = (): boolean => {
   }
 };
 
+const getInitialCoverflowPreview = (): boolean => {
+  try {
+    const saved = localStorage.getItem('tik_clip_coverflow_preview');
+    return saved !== null ? saved === 'true' : true;
+  } catch {
+    return true;
+  }
+};
+
 const getInitialStartupPage = (): StartupPage => {
   try {
     const saved = localStorage.getItem('tik_clip_startup_page');
@@ -37,6 +46,7 @@ interface SettingsState {
   startupPage: StartupPage;
   isSettingsOpen: boolean; //设置侧边栏是否打开
   showThumbnailPreview: boolean; //是否显示进度条缩略图
+  showCoverflowPreview: boolean; //是否开启封面流展示预览
 
   setTheme: (theme: ThemeMode) => void;
   setLanguage: (language: SupportedLanguage) => void;
@@ -44,6 +54,8 @@ interface SettingsState {
   setIsSettingsOpen: (isOpen: boolean) => void;
   setShowThumbnailPreview: (show: boolean) => void;
   toggleShowThumbnailPreview: () => void;
+  setShowCoverflowPreview: (show: boolean) => void;
+  toggleShowCoverflowPreview: () => void;
   initTheme: () => Promise<void>;
   initLanguage: () => Promise<void>;
   initStartupPage: () => Promise<void>;
@@ -55,6 +67,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   startupPage: getInitialStartupPage(),
   isSettingsOpen: false,
   showThumbnailPreview: getInitialThumbnailPreview(),
+  showCoverflowPreview: getInitialCoverflowPreview(),
 
   setTheme: (theme) => {
     set({ theme });
@@ -92,6 +105,24 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         // 忽略存储错误
       }
       return { showThumbnailPreview: next };
+    }),
+  setShowCoverflowPreview: (show) => {
+    try {
+      localStorage.setItem('tik_clip_coverflow_preview', String(show));
+    } catch {
+      // 忽略存储错误
+    }
+    set({ showCoverflowPreview: show });
+  },
+  toggleShowCoverflowPreview: () =>
+    set((state) => {
+      const next = !state.showCoverflowPreview;
+      try {
+        localStorage.setItem('tik_clip_coverflow_preview', String(next));
+      } catch {
+        // 忽略存储错误
+      }
+      return { showCoverflowPreview: next };
     }),
   initTheme: async () => {
     try {

@@ -61,6 +61,10 @@ export class CoverflowScene {
   private isFlipped = false;
   private listViewMode: ViewMode = 'front';
   private transitionDirection: TransitionDirection = null;
+  private showPreview = true;
+  // 无预览模式下记录进入 DETAIL 前的列表滚动位置与初始卡片索引
+  private savedListScrollIndex: number | null = null;
+  private initialDetailIndex: number | null = null;
 
   // 边界弹性回弹状态 (物理弹簧阻尼模型)
   private boundaryBounceOffset = 0;
@@ -200,6 +204,14 @@ export class CoverflowScene {
     }
   }
 
+  /**
+   * 设置是否开启封面流展示预览模式
+   * @param show 是否开启预览
+   */
+  public setShowPreview(show: boolean): void {
+    this.showPreview = show;
+  }
+
   // 获取当前选中的电影数据
   public getSelectedMovie(): CoverflowMovie | null {
     const movies = this.cardManager.getMovies();
@@ -260,17 +272,31 @@ export class CoverflowScene {
    * @param targetIndex 可选的指定目标索引
    */
   public async setMovies(movieList: CoverflowMovie[], targetIndex?: number): Promise<void> {
-    const wasDetailOrExpanded = this.state !== VIEW_STATES.LIST;
-    if (wasDetailOrExpanded) {
+    const currentMovies = this.cardManager.getMovies();
+    const prevSelectedId = currentMovies[this.selectedIndex]?.id;
+    const foundIdx = prevSelectedId ? movieList.findIndex((m) => m.id === prevSelectedId) : -1;
+
+    // 仅在当前选中的影片在新列表中不再存在、列表为空或明确指定了 targetIndex 时，才强制退回列表模式
+    const shouldResetToList =
+      this.state !== VIEW_STATES.LIST &&
+      (foundIdx === -1 || movieList.length === 0 || targetIndex !== undefined);
+
+    if (shouldResetToList) {
       this.state = VIEW_STATES.LIST;
+      this.savedListScrollIndex = null;
+      this.initialDetailIndex = null;
       this.resetCardRotations();
       this.boundaryBounceOffset = 0;
       this.boundaryBounceVelocity = 0;
       this.updateCameraTargetZ(true);
       this.onStateChange?.(VIEW_STATES.LIST);
+    } else if (foundIdx !== -1) {
+      // 保持当前聚焦或展开状态，并同步更新 initialDetailIndex（若有）
+      if (this.initialDetailIndex !== null) {
+        this.initialDetailIndex = foundIdx;
+      }
     }
 
-    const currentMovies = this.cardManager.getMovies();
     const isSame =
       currentMovies.length === movieList.length &&
       currentMovies.every(
@@ -287,24 +313,25 @@ export class CoverflowScene {
           mesh.userData.movie = movieList[idx];
         }
       });
-      if (targetIndex !== undefined || wasDetailOrExpanded) {
-        const safeIdx =
-          targetIndex !== undefined
-            ? Math.max(0, Math.min(movieList.length - 1, targetIndex))
+      const safeIdx =
+        targetIndex !== undefined
+          ? Math.max(0, Math.min(movieList.length - 1, targetIndex))
+          : foundIdx !== -1
+            ? foundIdx
             : this.selectedIndex;
-        this.selectedIndex = safeIdx;
+      this.selectedIndex = safeIdx;
+      if (this.state === VIEW_STATES.LIST) {
         this.scrollIndex = safeIdx;
         this.targetScrollIndex = safeIdx;
         this.scrollVelocity = 0;
-        this.updateCardPositions(true);
-        this.renderer.render(this.scene, this.camera);
       }
+      this.updateCardPositions(true);
+      this.renderer.render(this.scene, this.camera);
       this.emitCurrentMovieChange();
       return;
     }
 
     const sessionId = ++this.currentLoadSession;
-    const prevSelectedId = currentMovies[this.selectedIndex]?.id;
 
     if (movieList.length === 0) {
       this.cardManager.disposeCards();
@@ -356,16 +383,18 @@ export class CoverflowScene {
     if (targetIndex !== undefined) {
       finalTargetIndex = Math.max(0, Math.min(newMovies.length - 1, targetIndex));
     } else if (prevSelectedId) {
-      const foundIdx = newMovies.findIndex((m) => m.id === prevSelectedId);
-      if (foundIdx !== -1) {
-        finalTargetIndex = foundIdx;
+      const foundIdxInNew = newMovies.findIndex((m) => m.id === prevSelectedId);
+      if (foundIdxInNew !== -1) {
+        finalTargetIndex = foundIdxInNew;
       }
     }
 
     this.selectedIndex = finalTargetIndex;
-    this.scrollIndex = finalTargetIndex;
-    this.targetScrollIndex = finalTargetIndex;
-    this.scrollVelocity = 0;
+    if (this.state === VIEW_STATES.LIST) {
+      this.scrollIndex = finalTargetIndex;
+      this.targetScrollIndex = finalTargetIndex;
+      this.scrollVelocity = 0;
+    }
 
     this.updateCardPositions(true);
     this.renderer.render(this.scene, this.camera);
@@ -502,8 +531,11 @@ export class CoverflowScene {
 
   // 滚轮事件处理
   private onWheel(e: WheelEvent): void {
-    if (this.bookTransitionManager.isTransitioning) return;
     e.preventDefault();
+    if (this.bookTransitionManager.isTransitioning || this.bookTransitionManager.isCoverOpen) {
+      this.wheelAccumulator = 0;
+      return;
+    }
 
     if (this.state === VIEW_STATES.LIST) {
       const delta =
@@ -674,15 +706,23 @@ export class CoverflowScene {
   }
 
   /**
-   * 点击卡片交互流转：LIST -> EXPANDED -> DETAIL -> 翻转
+   * 点击卡片交互流转：LIST -> (EXPANDED) -> DETAIL -> 翻转
    * @param index 卡片索引
    */
   public handleCardInteraction(index: number): void {
     if (this.state === VIEW_STATES.LIST) {
       this.resetCardRotations();
       this.selectedIndex = index;
-      this.targetScrollIndex = index;
-      this.setState(VIEW_STATES.EXPANDED);
+      if (this.showPreview) {
+        this.targetScrollIndex = index;
+        this.scrollIndex = index;
+        this.setState(VIEW_STATES.EXPANDED);
+      } else {
+        this.scrollVelocity = 0;
+        this.savedListScrollIndex = this.scrollIndex;
+        this.initialDetailIndex = index;
+        this.setState(VIEW_STATES.DETAIL);
+      }
     } else if (this.state === VIEW_STATES.EXPANDED) {
       if (index === this.selectedIndex) {
         this.setState(VIEW_STATES.DETAIL);
@@ -709,7 +749,13 @@ export class CoverflowScene {
 
   // 翻转选中的卡片 (DETAIL 模式下 180° 正反面切换)
   public toggleFlipCard(): void {
-    if (this.state !== VIEW_STATES.DETAIL || this.bookTransitionManager.isTransitioning) return;
+    if (
+      this.state !== VIEW_STATES.DETAIL ||
+      this.bookTransitionManager.isTransitioning ||
+      this.bookTransitionManager.isCoverOpen
+    ) {
+      return;
+    }
     this.isFlipped = !this.isFlipped;
 
     const selectedMesh = this.cardManager.getCardMeshes()[this.selectedIndex];
@@ -730,13 +776,32 @@ export class CoverflowScene {
       const selectedMesh = this.cardManager.getCardMeshes()[this.selectedIndex];
       this.bookTransitionManager.reset(selectedMesh, this.scene);
     }
+    if (this.state === VIEW_STATES.LIST && newState === VIEW_STATES.DETAIL) {
+      if (!this.showPreview && this.savedListScrollIndex === null) {
+        this.scrollVelocity = 0;
+        this.savedListScrollIndex = this.scrollIndex;
+        this.initialDetailIndex = this.selectedIndex;
+      }
+    }
     this.state = newState;
     this.boundaryBounceOffset = 0;
     this.boundaryBounceVelocity = 0;
     if (newState === VIEW_STATES.LIST) {
       this.resetCardRotations();
-      this.scrollIndex = this.selectedIndex;
-      this.targetScrollIndex = this.selectedIndex;
+      if (
+        !this.showPreview &&
+        this.savedListScrollIndex !== null &&
+        this.selectedIndex === this.initialDetailIndex
+      ) {
+        this.scrollIndex = this.savedListScrollIndex;
+        this.targetScrollIndex = this.savedListScrollIndex;
+        this.selectedIndex = Math.round(this.savedListScrollIndex);
+      } else {
+        this.scrollIndex = this.selectedIndex;
+        this.targetScrollIndex = this.selectedIndex;
+      }
+      this.savedListScrollIndex = null;
+      this.initialDetailIndex = null;
       this.scrollVelocity = 0;
     }
 
@@ -748,7 +813,7 @@ export class CoverflowScene {
 
   // 切换下一张卡片
   public nextCard(): void {
-    if (this.bookTransitionManager.isTransitioning) return;
+    if (this.bookTransitionManager.isTransitioning || this.bookTransitionManager.isCoverOpen) return;
     const count = this.cardManager.getMovies().length;
     if (this.selectedIndex >= 0 && this.selectedIndex < count - 1) {
       this.resetCardRotations();
@@ -765,7 +830,7 @@ export class CoverflowScene {
 
   // 切换上一张卡片
   public prevCard(): void {
-    if (this.bookTransitionManager.isTransitioning) return;
+    if (this.bookTransitionManager.isTransitioning || this.bookTransitionManager.isCoverOpen) return;
     if (this.selectedIndex > 0) {
       this.resetCardRotations();
       this.selectedIndex -= 1;
@@ -1222,6 +1287,7 @@ export class CoverflowScene {
 
   // 打开当前选中卡片的封面并展开停留
   public openCover(): void {
+    this.wheelAccumulator = 0;
     if (this.state !== VIEW_STATES.DETAIL) {
       this.setState(VIEW_STATES.DETAIL);
     }
@@ -1241,6 +1307,7 @@ export class CoverflowScene {
 
   // 关闭展开的封面
   public closeCover(): void {
+    this.wheelAccumulator = 0;
     this.bookTransitionManager.closeCover();
   }
 
