@@ -114,20 +114,30 @@ export const VideoProgressBar: React.FC<VideoProgressBarProps> = ({
       onMouseLeave={handleMouseLeave}
       className="relative flex items-center h-8 flex-1 cursor-pointer group py-2"
     >
-      {/* 进度条背景轨道 */}
-      <div className="w-full h-1.5 rounded-full bg-foreground/20 overflow-hidden relative transition-all duration-150 group-hover:h-2">
-        {/* 已播放进度填充 (无过渡延迟，绝对与圆点同步) */}
-        <div className="h-full bg-foreground rounded-full" style={{ width: `${percentage}%` }} />
+      {/* 进度条背景轨道 (仅高度参与过渡，杜绝任何全局过渡污染) */}
+      <div className="relative w-full h-1.5 rounded-full bg-foreground/20 transition-[height] duration-150 ease-out group-hover:h-2">
+        {/* 已播放进度填充柱 (零延迟绝对即时响应) */}
+        <div
+          className="h-full bg-foreground rounded-full transition-none"
+          style={{ width: `${percentage}%` }}
+        />
       </div>
 
-      {/* 进度滑块圆点 (中心严格位于 percentage 处，左右不出界) */}
+      {/* 进度滑块圆点：外层定位容器 + 内层正圆 + GPU 合成层提升，杜绝亚像素椭圆变形 */}
       <div
-        className={cn(
-          'absolute size-3.5 bg-foreground rounded-full shadow-subtle -translate-x-1/2 pointer-events-none transition-transform duration-100',
-          isDragging ? 'scale-125' : 'group-hover:scale-110'
-        )}
+        className="absolute top-1/2 w-0 h-0 pointer-events-none"
         style={{ left: `${percentage}%` }}
-      />
+      >
+        <div
+          className={cn(
+            'absolute -left-[6px] -top-[6px]',
+            'w-3 h-3 rounded-full bg-foreground shadow-sm',
+            'transition-[scale] duration-100 ease-out',
+            isDragging ? 'scale-125' : 'group-hover:scale-110'
+          )}
+          style={{ transform: 'translateZ(0)' }}
+        />
+      </div>
 
       {/* 悬停缩略图预览（带时间标签） */}
       {showThumbnail && (
