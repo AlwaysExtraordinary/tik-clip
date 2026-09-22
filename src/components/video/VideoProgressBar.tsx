@@ -130,7 +130,7 @@ export const VideoProgressBar: React.FC<VideoProgressBarProps> = ({
       >
         <div
           className={cn(
-            'absolute -left-[6px] -top-[6px]',
+            'absolute -left-1.5 -top-1.5',
             'w-3 h-3 rounded-full bg-foreground shadow-sm',
             'transition-[scale] duration-100 ease-out',
             isDragging ? 'scale-125' : 'group-hover:scale-110'

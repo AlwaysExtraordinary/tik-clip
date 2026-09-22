@@ -48,6 +48,7 @@ export const ClipsPage: React.FC = () => {
 
   const [totalVideoCount, setTotalVideoCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(() => allItems.length === 0);
+  const [feedEpoch, setFeedEpoch] = useState<number>(0);
 
   // 检查片段库中是否有任何类别、演员或标签（用于保持选择器结构稳定，防止组件闪烁消失）
   const hasAnyCategory = useMemo(() => {
@@ -287,16 +288,19 @@ export const ClipsPage: React.FC = () => {
     currentShuffleItemRef.current = currentShuffleItem;
   }, [currentShuffleItem]);
 
-  // 记录上一次生效的筛选条件，用于区分是主动切换筛选还是普通数据刷新/页面返回
-  const prevFiltersRef = useRef<{
-    tag: string | null;
-    category: string | null;
-    actor: string | null;
-  }>({
-    tag: selectedTag,
-    category: selectedCategory,
-    actor: selectedActor,
-  });
+  // 当前筛选条件唯一组合键
+  const currentFilterKey = `${selectedTag || 'all'}-${selectedCategory || 'all'}-${selectedActor || 'all'}-${feedEpoch}`;
+
+  // 记录上一次渲染时生效的筛选条件组合键，用于判断当前渲染帧是否处于筛选切换状态
+  const [prevFilterKey, setPrevFilterKey] = useState(currentFilterKey);
+  const filtersChanged = currentFilterKey !== prevFilterKey;
+
+  if (filtersChanged) {
+    setPrevFilterKey(currentFilterKey);
+  }
+
+  // 记录上一次完成数据与播放项同步的筛选条件组合键（仅在 Effect 中读写）
+  const syncedFilterKeyRef = useRef(currentFilterKey);
 
   // 当筛选目标片段列表发生变动时，自适应同步洗牌队列与当前播放项
   useEffect(() => {
@@ -317,27 +321,16 @@ export const ClipsPage: React.FC = () => {
       ? targetItems.find((it) => it.clip.id === existingItem.clip.id)
       : null;
 
-    const filtersChanged =
-      prevFiltersRef.current.tag !== selectedTag ||
-      prevFiltersRef.current.category !== selectedCategory ||
-      prevFiltersRef.current.actor !== selectedActor;
+    const isFilterChange = syncedFilterKeyRef.current !== currentFilterKey;
+    syncedFilterKeyRef.current = currentFilterKey;
 
-    prevFiltersRef.current = {
-      tag: selectedTag,
-      category: selectedCategory,
-      actor: selectedActor,
-    };
-
-    if (filtersChanged) {
-      // 筛选条件发生变动：重新以新的候选集构建队列
-      // 若当前项仍符合新条件，置于首位继续播放，其余所有符合项洗牌后紧随其后；否则全量洗牌
-      shuffleQueue.resetWithCurrent(targetItems, matchedItem?.clip.id);
-      const current = shuffleQueue.current();
-      if (current) {
-        setCurrentShuffleItem(current);
-        if (!matchedItem || current.clip.id !== matchedItem.clip.id) {
-          setLastPlaybackTime(current.clip.startTime);
-        }
+    if (isFilterChange) {
+      // 切换筛选条件（包括从筛选恢复到默认）：清空所有已观看状态，全量重新洗牌并从第 0 项开始播放
+      shuffleQueue.setItems(targetItems);
+      const first = shuffleQueue.current();
+      setCurrentShuffleItem(first);
+      if (first) {
+        setLastPlaybackTime(first.clip.startTime);
       }
     } else {
       // 非筛选变更（如从详情页返回或数据增量刷新）：原地同步，保持原队列顺序与当前播放项及进度稳定
@@ -355,9 +348,7 @@ export const ClipsPage: React.FC = () => {
     }
   }, [
     allItems.length,
-    selectedActor,
-    selectedCategory,
-    selectedTag,
+    currentFilterKey,
     setCurrentShuffleItem,
     setFileError,
     setLastPlaybackTime,
@@ -401,11 +392,29 @@ export const ClipsPage: React.FC = () => {
     [currentShuffleItem, setLastPlaybackTime]
   );
 
-  // 当前播放项变更时同步
+  // 刷新重看当前筛选条件下的片段列表（保持已有筛选条件不变，全量重新洗牌）
+  const handleRefreshAndRewatch = useCallback(() => {
+    if (targetItems.length === 0) return;
+    shuffleQueue.setItems(targetItems);
+    const first = shuffleQueue.current();
+    setCurrentShuffleItem(first);
+    if (first) {
+      setLastPlaybackTime(first.clip.startTime);
+    }
+    setFileError(null);
+    setFeedEpoch((prev) => prev + 1);
+  }, [shuffleQueue, targetItems, setCurrentShuffleItem, setLastPlaybackTime, setFileError]);
+
+  /**
+   * 当前播放项变更时同步
+   * @param item 当前激活的片段项（到达末尾提示卡片时为 null）
+   */
   const handleCurrentClipChange = useCallback(
-    (item: ShuffleItem) => {
+    (item: ShuffleItem | null) => {
       setCurrentShuffleItem(item);
-      setLastPlaybackTime(item.clip.startTime);
+      if (item) {
+        setLastPlaybackTime(item.clip.startTime);
+      }
       setFileError(null);
     },
     [setCurrentShuffleItem, setFileError, setLastPlaybackTime]
@@ -537,21 +546,24 @@ export const ClipsPage: React.FC = () => {
             description={fileError}
             onAction={handleSkipDeletedClip}
           />
-        ) : currentShuffleItem ? (
+        ) : targetItems.length > 0 ? (
           <ClipFeedContainer
-            key={`${activeDirectory.name}-${selectedTag || 'all'}-${selectedCategory || 'all'}-${selectedActor || 'all'}`}
+            key={`${activeDirectory.name}-${selectedTag || 'all'}-${selectedCategory || 'all'}-${selectedActor || 'all'}-${feedEpoch}`}
             shuffleQueue={shuffleQueue}
             loadMediaSource={loadVideoSource}
-            initialIndex={shuffleQueue.currentIndexValue}
+            initialIndex={filtersChanged ? 0 : shuffleQueue.currentIndexValue}
             initialTime={
-              lastPlaybackTime !== null && currentShuffleItem
-                ? Math.max(currentShuffleItem.clip.startTime, lastPlaybackTime)
-                : currentShuffleItem
-                  ? currentShuffleItem.clip.startTime
-                  : 0
+              filtersChanged
+                ? (shuffleQueue.current()?.clip.startTime ?? 0)
+                : lastPlaybackTime !== null && currentShuffleItem
+                  ? Math.max(currentShuffleItem.clip.startTime, lastPlaybackTime)
+                  : currentShuffleItem
+                    ? currentShuffleItem.clip.startTime
+                    : 0
             }
             onCurrentTimeChange={handleCurrentTimeChange}
             onCurrentClipChange={handleCurrentClipChange}
+            onRefresh={handleRefreshAndRewatch}
             onGoToVideoDetail={(item, time) => {
               usePlayerStore.getState().setEditingClip(item.clip);
               const targetTime =

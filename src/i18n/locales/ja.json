@@ -92,7 +92,10 @@
     "readError": "ディスクから動画ファイルを読み込めませんでした",
     "clipDeletedOrUnavailable": "直前に再生していたクリップは削除されたか利用できなくなりました。",
     "clipUnavailable": "クリップを利用できません",
-    "skipToNext": "次のクリップへスキップ"
+    "skipToNext": "次のクリップへスキップ",
+    "allWatchedTitle": "現在のクリップリストをすべて視聴しました",
+    "allWatchedDesc": "再読み込みしてもう一度視聴できます",
+    "refreshAndRewatch": "再読み込みして視聴"
   },
   "clipPanel": {
     "addClips": "クリップを追加",
@@ -138,7 +141,10 @@
     "selectAnotherFolder": "別のフォルダを選択",
     "selectFolderTitle": "ローカル動画フォルダを選択",
     "selectFolderDesc": "動画サブフォルダを含むルートフォルダを選択してください。すべてのクリップと処理はお使いのパソコン内でのみ保持されます。",
-    "selectFolderBtn": "フォルダを選択"
+    "selectFolderBtn": "フォルダを選択",
+    "allWatchedTitle": "現在のクリップリストをすべて視聴しました",
+    "allWatchedDesc": "再読み込みしてもう一度視聴できます",
+    "refreshAndRewatch": "再読み込みして視聴"
   },
   "player": {
     "loading": "動画を読み込み中...",

@@ -15,11 +15,12 @@ export type EmptyStateType =
   | 'permission-needed'
   | 'scanning'
   | 'loading'
-  | 'clip-unavailable';
+  | 'clip-unavailable'
+  | 'all-watched';
 
 /** 空状态组件属性 */
 export interface EmptyStateProps {
-  /** 空状态类型：未选目录 | 无视频 | 无片段 | 筛选无结果 | 需重新授权 | 目录扫描中 | 加载中 | 片段不可用 */
+  /** 空状态类型：未选目录 | 无视频 | 无片段 | 筛选无结果 | 需重新授权 | 目录扫描中 | 加载中 | 片段不可用 | 已看完 */
   type?: EmptyStateType;
   /** 自定义图标名称（可选） */
   icon?: string;
@@ -174,6 +175,15 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       defaultTitle: t('clipsFeed.clipUnavailable'),
       defaultActionText: t('clipsFeed.skipToNext'),
       defaultActionIcon: 'lucide:skip-forward',
+      defaultActionVariant: 'primary',
+    },
+    'all-watched': {
+      icon: 'lucide:rotate-cw',
+      iconWrapperClass: 'bg-primary/10 text-primary',
+      defaultTitle: t('emptyState.allWatchedTitle'),
+      defaultDescription: t('emptyState.allWatchedDesc'),
+      defaultActionText: t('emptyState.refreshAndRewatch'),
+      defaultActionIcon: 'lucide:rotate-cw',
       defaultActionVariant: 'primary',
     },
   };

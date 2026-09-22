@@ -152,57 +152,44 @@ export class ShuffleQueue {
   }
 
   /**
-   * 确保指定索引位置存在片段数据（按需动态追加洗牌批次）
-   */
-  private ensureCapacity(index: number) {
-    if (this.rawItems.length === 0) return;
-    while (this.playlist.length <= index + 5) {
-      const lastItem = this.playlist[this.playlist.length - 1];
-      const nextBatch = shuffleArray(this.rawItems);
-      // 避免新批次的首项与上一批次末项重复
-      if (nextBatch.length > 1 && nextBatch[0].clip.id === lastItem?.clip.id) {
-        const swapIdx = 1 + Math.floor(Math.random() * (nextBatch.length - 1));
-        [nextBatch[0], nextBatch[swapIdx]] = [nextBatch[swapIdx], nextBatch[0]];
-      }
-      this.playlist.push(...nextBatch);
-    }
-  }
-
-  /**
-   * 获取指定索引位置的片段项（确定性读取，保证预载与播放绝对一致）
+   * 获取指定索引位置的片段项（确定性读取，越界返回 null，保证已经看过的片段在当前轮次不重复出现）
+   * @param index 片段在当前洗牌队列中的索引
    */
   public getItemAt(index: number): ShuffleItem | null {
-    if (index < 0 || this.rawItems.length === 0) return null;
-    this.ensureCapacity(index);
+    if (index < 0 || index >= this.playlist.length) return null;
     return this.playlist[index] ?? null;
   }
 
   public get totalCount(): number {
-    return this.rawItems.length;
+    return this.playlist.length;
   }
 
   public get hasItems(): boolean {
-    return this.rawItems.length > 0;
+    return this.playlist.length > 0;
   }
 
   public get currentIndexValue(): number {
     return this.currentIndex;
   }
 
+  // 设置当前播放索引
   public setIndex(index: number) {
     this.currentIndex = Math.max(0, index);
   }
 
+  // 获取当前播放项
   public current(): ShuffleItem | null {
     return this.getItemAt(this.currentIndex);
   }
 
+  // 步进切换至下一个片段（到达末尾返回 null）
   public next(): ShuffleItem | null {
-    if (this.rawItems.length === 0) return null;
+    if (this.currentIndex >= this.playlist.length - 1) return null;
     this.currentIndex++;
     return this.getItemAt(this.currentIndex);
   }
 
+  // 步进切换至上一个片段
   public previous(): ShuffleItem | null {
     if (this.currentIndex <= 0) return this.getItemAt(0);
     this.currentIndex--;

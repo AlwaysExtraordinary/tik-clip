@@ -2,8 +2,10 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ShuffleItem } from '@/types/clip';
 import { ShuffleQueue } from '@/services/shuffle';
 import { VideoPlayer } from '@/components/video/VideoPlayer';
+import { EmptyState } from '@/components/video/EmptyState';
 import { usePlayerStore } from '@/stores/playerStore';
 import { toggleFullscreen } from '@/utils/fullscreen';
+import { cn } from '@/utils/cn';
 
 /** -------------------------------------------------------------
  *  手势、阈值与动画相关配置常量
@@ -26,11 +28,13 @@ interface ClipFeedContainerProps {
   initialIndex?: number;
   initialTime?: number;
   onCurrentTimeChange?: (time: number) => void;
-  onCurrentClipChange?: (item: ShuffleItem) => void;
+  onCurrentClipChange?: (item: ShuffleItem | null) => void;
   /** 在文件管理器中打开视频所在目录（仅 Tauri 环境） */
   onRevealInExplorer?: (item: ShuffleItem) => void;
   /** 跳转到视频详情页编辑当前片段 */
   onGoToVideoDetail?: (item: ShuffleItem, currentTime: number) => void;
+  /** 刷新重看回调（已看完当前片段列表时触发） */
+  onRefresh?: () => void;
 }
 
 /**
@@ -69,14 +73,21 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
   onCurrentClipChange,
   onRevealInExplorer,
   onGoToVideoDetail,
+  onRefresh,
 }) => {
   const { clipsFitMode, toggleClipsFitMode } = usePlayerStore();
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  // 安全约束初始索引：若超出有效片段范围（>= totalCount），强制回退至第 0 项，杜绝误停在末尾提示卡片
+  const safeInitialIndex =
+    initialIndex >= shuffleQueue.totalCount && shuffleQueue.totalCount > 0
+      ? 0
+      : Math.max(0, initialIndex);
+
+  const [currentIndex, setCurrentIndex] = useState(safeInitialIndex);
   const currentIndexRef = useRef(currentIndex);
 
-  const [maxRenderedIndex, setMaxRenderedIndex] = useState(() => Math.max(initialIndex + 3, 3));
+  const [maxRenderedIndex, setMaxRenderedIndex] = useState(() => Math.max(safeInitialIndex + 3, 3));
   const [, setContainerHeight] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -97,6 +108,15 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
   useEffect(() => {
     currentIndexRef.current = currentIndex;
   }, [currentIndex]);
+
+  // 当外部洗牌队列总数或内容重置，且当前索引超出有效边界时，自适应重置回首项
+  useEffect(() => {
+    if (currentIndex >= shuffleQueue.totalCount && shuffleQueue.totalCount > 0 && initialIndex === 0) {
+      currentIndexRef.current = 0;
+      setCurrentIndex(0);
+      containerRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }, [currentIndex, initialIndex, shuffleQueue.totalCount]);
 
   // 标记尺寸变更（全屏切换/窗口缩放）中，暂时静默滚动结算，防止过渡帧误触发跳集
   const markResizing = useCallback(() => {
@@ -125,9 +145,9 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
       // 初次挂载：若有指定非 0 起始索引则执行初始定位
       if (!isInitialMountedRef.current) {
         isInitialMountedRef.current = true;
-        if (initialIndex > 0) {
+        if (safeInitialIndex > 0) {
           container.scrollTo({
-            top: initialIndex * newHeight,
+            top: safeInitialIndex * newHeight,
             behavior: 'instant' as ScrollBehavior,
           });
         }
@@ -154,7 +174,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
         clearTimeout(resizeTimeoutRef.current);
       }
     };
-  }, [initialIndex, markResizing]);
+  }, [initialIndex, markResizing, safeInitialIndex]);
 
   /**
    * 后台异步预加载当前项及前后相邻项（前后各 2 项）的视频媒体源
@@ -168,7 +188,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
       currentIndex + 2,
       currentIndex - 1,
       currentIndex - 2,
-    ].filter((idx) => idx >= 0);
+    ].filter((idx) => idx >= 0 && idx < shuffleQueue.totalCount);
 
     for (const idx of preloadIndices) {
       const item = shuffleQueue.getItemAt(idx);
@@ -209,7 +229,8 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
     if (!container) return;
 
     const h = container.clientHeight || 1;
-    const targetIdx = Math.max(0, Math.round(container.scrollTop / h));
+    const maxIdx = shuffleQueue.totalCount;
+    const targetIdx = Math.min(maxIdx, Math.max(0, Math.round(container.scrollTop / h)));
 
     if (targetIdx !== currentIndexRef.current) {
       currentIndexRef.current = targetIdx;
@@ -220,20 +241,25 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
       const activeItem = shuffleQueue.getItemAt(targetIdx);
       if (activeItem) {
         onCurrentClipChange?.(activeItem);
+      } else if (targetIdx === shuffleQueue.totalCount) {
+        onCurrentClipChange?.(null);
       }
     }
   }, [onCurrentClipChange, shuffleQueue]);
 
-  // 程序化切换至下一个片段
+  // 程序化切换至下一个片段或末尾已看完卡片
   const triggerNext = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
+
+    const maxIdx = shuffleQueue.totalCount;
+    if (currentIndexRef.current >= maxIdx) return;
 
     const nextIdx = currentIndexRef.current + 1;
     setMaxRenderedIndex((prev) => Math.max(prev, nextIdx + 3));
     const h = container.clientHeight || 1;
     container.scrollTo({ top: nextIdx * h, behavior: 'smooth' });
-  }, []);
+  }, [shuffleQueue.totalCount]);
 
   // 程序化切换至上一个片段
   const triggerPrevious = useCallback(() => {
@@ -244,6 +270,32 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
     const h = container.clientHeight || 1;
     container.scrollTo({ top: Math.max(0, prevIdx * h), behavior: 'smooth' });
   }, []);
+
+  // 当处于末尾已看完提示卡片时，监听键盘向上键以返回上一片段
+  useEffect(() => {
+    if (currentIndex !== shuffleQueue.totalCount) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (e.code === 'ArrowUp') {
+        e.preventDefault();
+        triggerPrevious();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentIndex, shuffleQueue.totalCount, triggerPrevious]);
 
   /**
    * 传统鼠标滚轮独立分流拦截处理
@@ -323,9 +375,14 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, [markResizing]);
 
+  const totalCount = shuffleQueue.totalCount;
+  const hasEndCard = totalCount > 0;
+  const totalSlides = totalCount + (hasEndCard ? 1 : 0);
+  const maxIndex = Math.min(maxRenderedIndex, totalSlides - 1);
+
   // 生成要渲染的项目索引列表
   const renderedIndices: number[] = [];
-  for (let i = 0; i <= maxRenderedIndex; i++) {
+  for (let i = 0; i <= maxIndex; i++) {
     renderedIndices.push(i);
   }
 
@@ -341,6 +398,32 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
       }}
     >
       {renderedIndices.map((index) => {
+        // 末尾已看完提示卡片
+        if (index === totalCount) {
+          return (
+            <div
+              key="end-of-feed-card"
+              style={{
+                scrollSnapAlign: 'start',
+                scrollSnapStop: 'always',
+              }}
+              className="relative w-full h-full shrink-0 pb-2"
+            >
+              <div
+                className={cn(
+                  'w-full h-full overflow-hidden',
+                  isFullscreen ? 'rounded-none' : 'rounded-3xl'
+                )}
+              >
+                <EmptyState
+                  type="all-watched"
+                  onAction={onRefresh}
+                />
+              </div>
+            </div>
+          );
+        }
+
         const item = shuffleQueue.getItemAt(index);
         if (!item) return null;
 
@@ -370,7 +453,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
                 onNext={triggerNext}
                 onPrevious={triggerPrevious}
                 hasPrevious={currentIndex > 0}
-                hasNext={true}
+                hasNext={currentIndex < totalCount}
                 showScissorsButton={false}
                 enableKeyboardShortcuts={isActive}
                 isPreloading={!isActive}

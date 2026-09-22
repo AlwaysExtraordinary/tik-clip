@@ -92,7 +92,10 @@
     "readError": "Could not read video file from disk",
     "clipDeletedOrUnavailable": "The previously playing clip was deleted or is no longer available.",
     "clipUnavailable": "Clip Unavailable",
-    "skipToNext": "Skip to Next Clip"
+    "skipToNext": "Skip to Next Clip",
+    "allWatchedTitle": "Finished Watching Current Clips",
+    "allWatchedDesc": "Click refresh to re-watch",
+    "refreshAndRewatch": "Refresh & Re-watch"
   },
   "clipPanel": {
     "addClips": "Add Clips",
@@ -131,6 +134,9 @@
     "scanningTitle": "Scanning Video Directory...",
     "noClipsTitle": "No Clips Yet",
     "noClipsDesc": "Go to the Videos page, select a video, and use the scissors tool to create your first clip.",
+    "allWatchedTitle": "Finished Watching Current Clips",
+    "allWatchedDesc": "Click refresh to re-watch",
+    "refreshAndRewatch": "Refresh & Re-watch",
     "permissionRequiredTitle": "Permission Required",
     "permissionRequiredDesc": "Click below to re-authorize access to your local folder:",
     "permissionTip": "Tip: Select \"Allow on every visit\" in the browser prompt to keep access across sessions.",

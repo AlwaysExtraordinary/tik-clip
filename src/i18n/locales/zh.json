@@ -92,7 +92,10 @@
     "readError": "无法从磁盘读取视频文件",
     "clipDeletedOrUnavailable": "此前播放的片段已被删除或不再可用。",
     "clipUnavailable": "片段不可用",
-    "skipToNext": "跳至下一个片段"
+    "skipToNext": "跳至下一个片段",
+    "allWatchedTitle": "已看完当前片段列表",
+    "allWatchedDesc": "点击刷新重看",
+    "refreshAndRewatch": "刷新重看"
   },
   "clipPanel": {
     "addClips": "添加片段",
@@ -131,6 +134,9 @@
     "scanningTitle": "正在扫描视频目录...",
     "noClipsTitle": "暂无片段",
     "noClipsDesc": "前往视频页面，选择视频并使用剪刀工具创建您的第一个片段。",
+    "allWatchedTitle": "已看完当前片段列表",
+    "allWatchedDesc": "点击刷新重看",
+    "refreshAndRewatch": "刷新重看",
     "permissionRequiredTitle": "需要授予访问权限",
     "permissionRequiredDesc": "点击下方按钮重新授权访问本地文件夹：",
     "permissionTip": "提示：在浏览器权限弹窗中选择“每次访问时允许”，关闭标签页后将保持授权。",
