@@ -128,6 +128,120 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [volume, isMuted]);
 
+  // 填充模式下的画面平移偏移量（像素）
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+
+  // 是否按下了 Ctrl 键
+  const [isCtrlPressed, setIsCtrlPressed] = useState(false);
+
+  // 拖拽相关状态与引用
+  const isDraggingRef = useRef(false);
+  const hasDraggedRef = useRef(false);
+  const dragStartRef = useRef({ mouseX: 0, mouseY: 0, panX: 0, panY: 0 });
+  const rafIdRef = useRef<number | null>(null);
+
+  // 切换视频或更新视频源时重置平移偏移量
+  useEffect(() => {
+    setPanOffset({ x: 0, y: 0 });
+  }, [videoUrl]);
+
+  // 切换视频显示模式时恢复默认填充显示
+  useEffect(() => {
+    setPanOffset({ x: 0, y: 0 });
+  }, [activeFitMode]);
+
+  // 监听 Ctrl 键的按下、松开与窗口失焦
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Control' || e.ctrlKey) {
+        setIsCtrlPressed(true);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Control' || !e.ctrlKey) {
+        setIsCtrlPressed(false);
+      }
+    };
+
+    const handleWindowBlur = () => {
+      setIsCtrlPressed(false);
+      isDraggingRef.current = false;
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleWindowBlur);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleWindowBlur);
+    };
+  }, []);
+
+  /**
+   * 计算填充模式下画面允许的最大平移偏移量
+   * @returns 水平与垂直方向的最大偏移距离（像素）
+   */
+  const calculateMaxOffsets = useCallback(() => {
+    const video = videoRef.current;
+    const container = containerRef.current;
+    if (!video || !container || !video.videoWidth || !video.videoHeight) {
+      return { maxOffsetX: 0, maxOffsetY: 0 };
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    const containerWidth = containerRect.width;
+    const containerHeight = containerRect.height;
+    if (containerWidth <= 0 || containerHeight <= 0) {
+      return { maxOffsetX: 0, maxOffsetY: 0 };
+    }
+
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
+
+    // 在 cover 模式下，缩放比例取决于填满容器的最大维度
+    const scale = Math.max(containerWidth / videoWidth, containerHeight / videoHeight);
+    const renderedWidth = videoWidth * scale;
+    const renderedHeight = videoHeight * scale;
+
+    const maxOffsetX = Math.max(0, (renderedWidth - containerWidth) / 2);
+    const maxOffsetY = Math.max(0, (renderedHeight - containerHeight) / 2);
+
+    return { maxOffsetX, maxOffsetY };
+  }, []);
+
+  // 容器尺寸变动时重新校准平移边界，防止因尺寸变化露出黑边
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      if (activeFitMode !== 'cover') return;
+      setPanOffset((prev) => {
+        if (prev.x === 0 && prev.y === 0) return prev;
+        const { maxOffsetX, maxOffsetY } = calculateMaxOffsets();
+        const clampedX = Math.max(-maxOffsetX, Math.min(maxOffsetX, prev.x));
+        const clampedY = Math.max(-maxOffsetY, Math.min(maxOffsetY, prev.y));
+        if (clampedX === prev.x && clampedY === prev.y) return prev;
+        return { x: clampedX, y: clampedY };
+      });
+    });
+
+    resizeObserver.observe(container);
+    return () => resizeObserver.disconnect();
+  }, [activeFitMode, calculateMaxOffsets]);
+
+  // 组件卸载时清理动画帧
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+    };
+  }, []);
+
   const isClipMode = startTime !== undefined && endTime !== undefined;
   const clipDuration = isClipMode ? Math.max(0.1, (endTime || 0) - (startTime || 0)) : undefined;
 
@@ -231,6 +345,10 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   // 鼠标在播放容器内移动
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
+      // 保持 isCtrlPressed 状态同步
+      if (e.ctrlKey !== isCtrlPressed) {
+        setIsCtrlPressed(e.ctrlKey);
+      }
       // 过滤掉浏览器在 DOM 卸载或样式变更时自动派发的假 mousemove 事件
       if (e.clientX === lastMousePosRef.current.x && e.clientY === lastMousePosRef.current.y) {
         return;
@@ -239,7 +357,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       if (isHoveringControlsRef.current) return;
       showControlsWithTimeout();
     },
-    [showControlsWithTimeout]
+    [showControlsWithTimeout, isCtrlPressed]
   );
 
   // 鼠标移出播放区域立即隐藏
@@ -303,11 +421,79 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [isClipMode, startTime, endTime]);
 
+  /**
+   * 填充模式下按住 Ctrl 拖动画面
+   * @param e 鼠标事件
+   */
+  const handleVideoMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      // 仅在填充模式且按住 Ctrl 且为鼠标左键点击时生效
+      if (activeFitMode !== 'cover' || !e.ctrlKey || e.button !== 0) {
+        return;
+      }
+
+      e.preventDefault();
+      isDraggingRef.current = true;
+      hasDraggedRef.current = false;
+      dragStartRef.current = {
+        mouseX: e.clientX,
+        mouseY: e.clientY,
+        panX: panOffset.x,
+        panY: panOffset.y,
+      };
+
+      const onWindowMouseMove = (moveEvent: MouseEvent) => {
+        if (!isDraggingRef.current) return;
+
+        const deltaX = moveEvent.clientX - dragStartRef.current.mouseX;
+        const deltaY = moveEvent.clientY - dragStartRef.current.mouseY;
+
+        // 移动超过 2 像素即判定为实际拖动，避免阻止普通点击
+        if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
+          hasDraggedRef.current = true;
+        }
+
+        const { maxOffsetX, maxOffsetY } = calculateMaxOffsets();
+        const targetX = dragStartRef.current.panX + deltaX;
+        const targetY = dragStartRef.current.panY + deltaY;
+
+        const clampedX = Math.max(-maxOffsetX, Math.min(maxOffsetX, targetX));
+        const clampedY = Math.max(-maxOffsetY, Math.min(maxOffsetY, targetY));
+
+        if (rafIdRef.current !== null) {
+          cancelAnimationFrame(rafIdRef.current);
+        }
+        rafIdRef.current = requestAnimationFrame(() => {
+          setPanOffset({ x: clampedX, y: clampedY });
+          rafIdRef.current = null;
+        });
+      };
+
+      const onWindowMouseUp = () => {
+        isDraggingRef.current = false;
+        window.removeEventListener('mousemove', onWindowMouseMove);
+        window.removeEventListener('mouseup', onWindowMouseUp);
+      };
+
+      window.addEventListener('mousemove', onWindowMouseMove);
+      window.addEventListener('mouseup', onWindowMouseUp);
+    },
+    [activeFitMode, calculateMaxOffsets, panOffset]
+  );
+
   // 点击视频区域切换播放状态并唤出控制栏（1秒无操作自动隐藏）
-  const handleVideoClick = useCallback(() => {
-    handleTogglePlay();
-    showControlsWithTimeout();
-  }, [handleTogglePlay, showControlsWithTimeout]);
+  const handleVideoClick = useCallback(
+    (e: React.MouseEvent) => {
+      // 若当前按住 Ctrl 键或刚刚执行了画面拖拽，则不触发播放/暂停
+      if (e.ctrlKey || hasDraggedRef.current) {
+        hasDraggedRef.current = false;
+        return;
+      }
+      handleTogglePlay();
+      showControlsWithTimeout();
+    },
+    [handleTogglePlay, showControlsWithTimeout]
+  );
 
   /**
    * 跳转视频到指定时间点，片段模式下严格限制在 [startTime, endTime] 区间内
@@ -475,6 +661,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const video = videoRef.current;
     if (!video) return;
 
+    setPanOffset({ x: 0, y: 0 });
     setDuration(video.duration || 0);
     video.volume = volume;
     video.muted = isMuted;
@@ -608,8 +795,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     >
       {/* 视频播放器元素（独占全屏容器） */}
       <div
-        className="absolute inset-0 flex h-full w-full items-center justify-center overflow-hidden"
+        className={cn(
+          'absolute inset-0 flex h-full w-full items-center justify-center overflow-hidden',
+          activeFitMode === 'cover' && isCtrlPressed && 'cursor-move'
+        )}
         onClick={handleVideoClick}
+        onMouseDown={handleVideoMouseDown}
       >
         {videoUrl ? (
           <video
@@ -621,10 +812,18 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
             playsInline
-            style={{ objectFit: activeFitMode }}
-            className={`block h-full min-h-full w-full min-w-full ${
-              activeFitMode === 'cover' ? 'object-cover' : 'object-contain'
-            }`}
+            style={{
+              objectFit: activeFitMode,
+              objectPosition:
+                activeFitMode === 'cover'
+                  ? `calc(50% + ${panOffset.x}px) calc(50% + ${panOffset.y}px)`
+                  : undefined,
+            }}
+            className={cn(
+              'block h-full min-h-full w-full min-w-full',
+              activeFitMode === 'cover' ? 'object-cover' : 'object-contain',
+              activeFitMode === 'cover' && isCtrlPressed && 'cursor-move'
+            )}
           />
         ) : (
           <div className="text-foreground-muted flex flex-col items-center justify-center gap-2">

@@ -74,5 +74,6 @@ src-tauri/                # Tauri 桌面端后端 (Rust)
 3. 实现功能或优化过程中，删除无用代码，保持代码精简。
 4. 为方法添加注释，普通方法使用//单行注释，需要标注参数的方法则使用/** **/多行注释。
 5. 引入新的iconfy lucide icon时，在.src/utils/icons.ts中注册图标。
+6. 遵循 React 规范，严禁在组件渲染阶段（Render 阶段）直接读写 ref.current（避免出现 `Cannot access refs during render` 报错）。对 ref 的更新或访问应严格限定在 useEffect、useLayoutEffect 或事件处理函数（Event Handlers）中进行；若需在回调中获取最新状态，应优先将对应 state 作为依赖项引入或使用函数式更新，避免在顶层作用域进行无意义的 ref 状态同步代理。
 
 > **注意**：修改核心功能、架构或新增重要功能后，请同步维护更新此文档。
