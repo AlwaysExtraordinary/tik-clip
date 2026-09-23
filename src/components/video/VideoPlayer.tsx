@@ -818,7 +818,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             }}
             className={cn(
               'h-full w-full',
-              activeFitMode === 'cover' && isCtrlPressed && 'cursor-move'
+              activeFitMode === 'cover' && isCtrlPressed && 'cursor-move',
+              activeFitMode === 'contain' && 'bg-surface'
             )}
           />
         ) : (
