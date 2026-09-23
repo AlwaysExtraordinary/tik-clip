@@ -1,5 +1,5 @@
 /**
- * @file CoverflowScene.ts
+ * @file coverflowScene.ts
  * @description 3D Coverflow 渲染引擎核心调度器
  * 负责 WebGL 渲染管线生命周期、透视相机动态推拉与自适应、卡片三维流式布局算法（正面/斜角/侧面/单张聚焦）、
  * 统一触控与鼠标拖拽/滚轮切卡事件分发、边界弹性回弹模拟及 60FPS 渲染循环总协调。
