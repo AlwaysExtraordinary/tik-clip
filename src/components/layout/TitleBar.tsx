@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Icon } from '@iconify/react';
 import { isTauri } from '@/services/fileSystem/index';
+import { throttle } from '@/utils/common';
 
 /**
  * 桌面端自定义标题栏组件
@@ -10,7 +11,32 @@ import { isTauri } from '@/services/fileSystem/index';
 export const TitleBar: React.FC = () => {
   const [isMac, setIsMac] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
-  const lastToggleTimeRef = useRef(0);
+
+  // 切换最大化 / 还原窗口（增加 300ms 前置节流避免双击事件重复触发）
+  const throttledToggleMaximize = useMemo(
+    () =>
+      throttle(
+        async () => {
+          if (!isTauri()) return;
+          try {
+            const appWindow = getCurrentWindow();
+            await appWindow.toggleMaximize();
+          } catch (err) {
+            console.error('Failed to toggle maximize window:', err);
+          }
+        },
+        300,
+        { leading: true, trailing: false }
+      ),
+    []
+  );
+
+  // 组件卸载时清理节流定时器
+  useEffect(() => {
+    return () => {
+      throttledToggleMaximize.cancel();
+    };
+  }, [throttledToggleMaximize]);
 
   useEffect(() => {
     if (!isTauri()) return;
@@ -72,20 +98,10 @@ export const TitleBar: React.FC = () => {
     }
   };
 
-  // 切换最大化 / 还原窗口（增加 300ms 防抖避免双击事件重复触发）
-  const handleToggleMaximize = async (e?: React.MouseEvent) => {
+  // 最大化切换事件分发
+  const handleToggleMaximize = (e?: React.MouseEvent) => {
     e?.stopPropagation();
-    const now = Date.now();
-    if (now - lastToggleTimeRef.current < 300) {
-      return;
-    }
-    lastToggleTimeRef.current = now;
-
-    try {
-      await appWindow.toggleMaximize();
-    } catch (err) {
-      console.error('Failed to toggle maximize window:', err);
-    }
+    throttledToggleMaximize();
   };
 
   // 关闭窗口

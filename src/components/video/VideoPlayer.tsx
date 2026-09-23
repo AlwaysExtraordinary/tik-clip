@@ -296,8 +296,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   useEffect(() => {
     if (seekTargetTime !== null && videoRef.current) {
       const minTime = isClipMode && startTime !== undefined ? startTime : 0;
-      const maxTime =
-        isClipMode && endTime !== undefined ? endTime : (duration || 999999);
+      const maxTime = isClipMode && endTime !== undefined ? endTime : duration || 999999;
       const clamped = Math.max(minTime, Math.min(seekTargetTime, maxTime));
       videoRef.current.currentTime = clamped;
       setCurrentTime(clamped);
@@ -505,8 +504,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       if (!video) return;
 
       const minTime = isClipMode && startTime !== undefined ? startTime : 0;
-      const maxTime =
-        isClipMode && endTime !== undefined ? endTime : (duration || 999999);
+      const maxTime = isClipMode && endTime !== undefined ? endTime : duration || 999999;
       const clamped = Math.max(minTime, Math.min(target, maxTime));
 
       if (Math.abs(video.currentTime - clamped) > 0.05) {
@@ -529,8 +527,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       if (!video) return;
 
       const minTime = isClipMode && startTime !== undefined ? startTime : 0;
-      const maxTime =
-        isClipMode && endTime !== undefined ? endTime : (duration || 999999);
+      const maxTime = isClipMode && endTime !== undefined ? endTime : duration || 999999;
       const target = video.currentTime + offset;
 
       // 快退到达或超出起点时，定位到起点并暂停
@@ -820,8 +817,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                   : undefined,
             }}
             className={cn(
-              'block h-full min-h-full w-full min-w-full',
-              activeFitMode === 'cover' ? 'object-cover' : 'object-contain',
+              'h-full w-full',
               activeFitMode === 'cover' && isCtrlPressed && 'cursor-move'
             )}
           />

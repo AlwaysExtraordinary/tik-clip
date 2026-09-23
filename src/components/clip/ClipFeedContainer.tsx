@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/video/EmptyState';
 import { usePlayerStore } from '@/stores/playerStore';
 import { toggleFullscreen } from '@/utils/fullscreen';
 import { cn } from '@/utils/cn';
+import { debounce, throttle } from '@/utils/common';
 
 /** -------------------------------------------------------------
  *  手势、阈值与动画相关配置常量
@@ -91,18 +92,29 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
   const [, setContainerHeight] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // 引用与标志：记录容器上一已知高度、初次挂载状态、尺寸变更防抖定时器等
+  // 引用与标志：记录容器上一已知高度、初次挂载状态、尺寸变更防抖状态等
   const prevHeightRef = useRef<number>(0);
   const isInitialMountedRef = useRef<boolean>(false);
   const isResizingRef = useRef<boolean>(false);
-  const resizeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 媒体源状态映射：clipId -> MediaSourceData
   const [mediaMap, setMediaMap] = useState<Record<string, MediaSourceData>>({});
 
-  // 鼠标滚轮防抖标记
-  const isWheelThrottledRef = useRef(false);
-  const wheelThrottleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 尺寸变更防抖实例引用
+  const endResizingRef = useRef<((() => void) & { cancel: () => void }) | null>(null);
+
+  // 组件挂载时初始化尺寸变更防抖实例，卸载时清理
+  useEffect(() => {
+    const debounced = debounce(() => {
+      isResizingRef.current = false;
+    }, 200);
+    endResizingRef.current = debounced;
+
+    return () => {
+      debounced.cancel();
+      endResizingRef.current = null;
+    };
+  }, []);
 
   // 同步当前索引到 Ref 供事件监听读取
   useEffect(() => {
@@ -111,7 +123,11 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
 
   // 当外部洗牌队列总数或内容重置，且当前索引超出有效边界时，自适应重置回首项
   useEffect(() => {
-    if (currentIndex >= shuffleQueue.totalCount && shuffleQueue.totalCount > 0 && initialIndex === 0) {
+    if (
+      currentIndex >= shuffleQueue.totalCount &&
+      shuffleQueue.totalCount > 0 &&
+      initialIndex === 0
+    ) {
       currentIndexRef.current = 0;
       setCurrentIndex(0);
       containerRef.current?.scrollTo({ top: 0, behavior: 'instant' });
@@ -121,12 +137,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
   // 标记尺寸变更（全屏切换/窗口缩放）中，暂时静默滚动结算，防止过渡帧误触发跳集
   const markResizing = useCallback(() => {
     isResizingRef.current = true;
-    if (resizeTimeoutRef.current) {
-      clearTimeout(resizeTimeoutRef.current);
-    }
-    resizeTimeoutRef.current = setTimeout(() => {
-      isResizingRef.current = false;
-    }, 200);
+    endResizingRef.current?.();
   }, []);
 
   // 视口尺寸监听与同步：容器高度变更时自动按当前片段索引重算滚动偏移量，防止全屏或缩放时误切视频
@@ -170,9 +181,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
 
     return () => {
       observer.disconnect();
-      if (resizeTimeoutRef.current) {
-        clearTimeout(resizeTimeoutRef.current);
-      }
+      endResizingRef.current?.cancel();
     };
   }, [initialIndex, markResizing, safeInitialIndex]);
 
@@ -304,6 +313,19 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
     const container = containerRef.current;
     if (!container) return;
 
+    // 鼠标滚轮单格翻页节流调度器（前置节流，冷却期间丢弃快速滚轮事件）
+    const throttledWheelNavigate = throttle(
+      (deltaY: number) => {
+        if (deltaY > 0) {
+          triggerNext();
+        } else {
+          triggerPrevious();
+        }
+      },
+      MOUSE_WHEEL_THROTTLE_MS,
+      { leading: true, trailing: false }
+    );
+
     const handleWheel = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey || e.deltaY === 0 || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) {
         return;
@@ -311,22 +333,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
 
       if (isPhysicalMouseWheel(e)) {
         e.preventDefault();
-
-        if (isWheelThrottledRef.current) return;
-
-        isWheelThrottledRef.current = true;
-        if (wheelThrottleTimerRef.current) {
-          clearTimeout(wheelThrottleTimerRef.current);
-        }
-        wheelThrottleTimerRef.current = setTimeout(() => {
-          isWheelThrottledRef.current = false;
-        }, MOUSE_WHEEL_THROTTLE_MS);
-
-        if (e.deltaY > 0) {
-          triggerNext();
-        } else {
-          triggerPrevious();
-        }
+        throttledWheelNavigate(e.deltaY);
       }
       // 触控板手势放行至原生 CSS Scroll Snap 处理
     };
@@ -335,9 +342,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
 
     return () => {
       container.removeEventListener('wheel', handleWheel);
-      if (wheelThrottleTimerRef.current) {
-        clearTimeout(wheelThrottleTimerRef.current);
-      }
+      throttledWheelNavigate.cancel();
     };
   }, [triggerNext, triggerPrevious]);
 
@@ -407,7 +412,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
                 scrollSnapAlign: 'start',
                 scrollSnapStop: 'always',
               }}
-              className="relative w-full h-full shrink-0 pb-2"
+              className={cn('relative w-full h-full shrink-0', isFullscreen ? 'pb-0' : 'pb-2')}
             >
               <div
                 className={cn(
@@ -415,10 +420,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
                   isFullscreen ? 'rounded-none' : 'rounded-3xl'
                 )}
               >
-                <EmptyState
-                  type="all-watched"
-                  onAction={onRefresh}
-                />
+                <EmptyState type="all-watched" onAction={onRefresh} />
               </div>
             </div>
           );
@@ -439,7 +441,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
               scrollSnapAlign: 'start',
               scrollSnapStop: 'always',
             }}
-            className="relative w-full h-full shrink-0 pb-2"
+            className={cn('relative w-full h-full shrink-0', isFullscreen ? 'pb-0' : 'pb-2')}
           >
             {isNearCurrent ? (
               <VideoPlayer

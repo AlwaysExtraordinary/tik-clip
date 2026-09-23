@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { cn } from '@/utils/cn';
 import { formatTime } from '@/utils/time';
+import { debounce } from '@/utils/common';
 
 interface VideoProgressThumbnailProps {
   /** 视频源 URL（与主播放器共享同一 Object URL 或 Tauri 资源 URL） */
@@ -43,7 +44,7 @@ export const VideoProgressThumbnail: React.FC<VideoProgressThumbnailProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const cacheRef = useRef<Map<number, string>>(new Map());
   const lastSeekTimeRef = useRef<number>(-1);
-  const throttleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedSeekRef = useRef<(((time: number) => void) & { cancel: () => void }) | null>(null);
   const seekTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSeeking = useRef(false);
   const pendingTimeRef = useRef<number | null>(null);
@@ -117,10 +118,8 @@ export const VideoProgressThumbnail: React.FC<VideoProgressThumbnailProps> = ({
       offscreenVideoRef.current = null;
       canvasRef.current = null;
 
-      // 清理节流定时器
-      if (throttleTimerRef.current) {
-        clearTimeout(throttleTimerRef.current);
-      }
+      // 清理防抖定时器
+      debouncedSeekRef.current?.cancel();
     };
   }, [videoUrl]);
 
@@ -254,13 +253,27 @@ export const VideoProgressThumbnail: React.FC<VideoProgressThumbnailProps> = ({
     }
   }, [doSeek, isReady]);
 
-  // 响应 hoverTime 变化，节流后调用 doSeek
+  // 初始化 seek 防抖调用器，卸载时取消
+  useEffect(() => {
+    const debounced = debounce((targetTime: number) => {
+      doSeekRef.current(targetTime);
+    }, THROTTLE_MS);
+    debouncedSeekRef.current = debounced;
+
+    return () => {
+      debounced.cancel();
+      debouncedSeekRef.current = null;
+    };
+  }, []);
+
+  // 响应 hoverTime 变化，防抖后调用 doSeek
   useEffect(() => {
     const quantized = Math.floor(hoverTime / TIME_QUANTUM) * TIME_QUANTUM;
 
-    // 缓存命中：立即展示，无需 seek
+    // 缓存命中：立即展示，无需 seek，并取消挂起的防抖请求
     const cached = cacheRef.current.get(quantized);
     if (cached) {
+      debouncedSeekRef.current?.cancel();
       setThumbnailSrc(cached);
       return;
     }
@@ -276,21 +289,13 @@ export const VideoProgressThumbnail: React.FC<VideoProgressThumbnailProps> = ({
       return;
     }
 
-    // 节流：取消上一个定时器，延迟执行
-    if (throttleTimerRef.current) {
-      clearTimeout(throttleTimerRef.current);
-    }
-
-    throttleTimerRef.current = setTimeout(() => {
-      doSeek(quantized);
-    }, THROTTLE_MS);
+    // 防抖调度 seek 请求
+    debouncedSeekRef.current?.(quantized);
 
     return () => {
-      if (throttleTimerRef.current) {
-        clearTimeout(throttleTimerRef.current);
-      }
+      debouncedSeekRef.current?.cancel();
     };
-  }, [hoverTime, doSeek]);
+  }, [hoverTime]);
 
   // 计算缩略图位置（居中于悬浮位置，并限制不超出容器边界）
   const clampedLeft = Math.max(0, Math.min(position, containerWidth));

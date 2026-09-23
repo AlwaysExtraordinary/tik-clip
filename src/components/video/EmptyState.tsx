@@ -218,7 +218,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   return (
     <div
       className={cn(
-        'flex-1 flex flex-col items-center justify-center p-8 text-center bg-surface/50 h-full',
+        'flex-1 flex flex-col items-center justify-center p-8 text-center bg-surface h-full',
         className
       )}
     >
@@ -250,11 +250,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       ) : config.customActionRenderer ? (
         config.customActionRenderer()
       ) : resolvedActionText && resolvedOnAction ? (
-        <Button
-          variant={resolvedActionVariant}
-          onPress={resolvedOnAction}
-          className="gap-1.5"
-        >
+        <Button variant={resolvedActionVariant} onPress={resolvedOnAction} className="gap-1.5">
           {resolvedActionIcon && <Icon icon={resolvedActionIcon} className="size-4" />}
           <span>{resolvedActionText}</span>
         </Button>

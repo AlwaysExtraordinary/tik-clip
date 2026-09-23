@@ -1,23 +1,17 @@
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { invoke } from '@tauri-apps/api/core';
 import { isTauri } from '@/services/fileSystem/index';
 
-// 记录进入全屏前窗口是否处于最大化状态
-let wasMaximizedBeforeFullscreen = false;
 // 全屏切换防抖锁，防止快速连击触发竞态异常
 let isTogglingFullscreen = false;
 
-// 全局监听全屏退出：若此前处于最大化状态，退出全屏后自动恢复最大化
+// 全局监听全屏退出：当用户按 Esc 或通过系统原生行为退出 DOM 全屏时，同步退出 Tauri 原生窗口全屏并恢复原状态
 if (typeof document !== 'undefined') {
   document.addEventListener('fullscreenchange', async () => {
-    if (!document.fullscreenElement && wasMaximizedBeforeFullscreen) {
-      wasMaximizedBeforeFullscreen = false;
-      if (isTauri()) {
-        try {
-          const appWindow = getCurrentWindow();
-          await appWindow.maximize();
-        } catch (err) {
-          console.error('Failed to restore window maximize state after fullscreen:', err);
-        }
+    if (!document.fullscreenElement && isTauri()) {
+      try {
+        await invoke('set_app_fullscreen', { fullscreen: false });
+      } catch (err) {
+        console.error('Failed to exit window fullscreen on fullscreenchange:', err);
       }
     }
   });
@@ -25,10 +19,9 @@ if (typeof document !== 'undefined') {
 
 /**
  * 切换指定容器元素的全屏状态
- * 针对 Tauri Windows 桌面环境进行适配：
- * 当窗口处于最大化状态时，由于无边框窗口 (decorations: false) 与 Windows 任务栏工作区限制，
- * 直接调用 HTML5 requestFullscreen 会导致画面下方留有一段与任务栏高度相同的黑色区域。
- * 解决方案：在进入全屏前先调用 unmaximize 还原窗口，退出全屏时再自动恢复最大化。
+ * - Web 端：使用标准 HTML5 Fullscreen API
+ * - Tauri 桌面端：调用自定义原生 set_app_fullscreen 命令，在 Windows 下直接原子化清除 WS_MAXIMIZE 样式，
+ *   彻底消除 unmaximize 导致的“先缩小再放大”跳变，平滑铺满包括任务栏在内的全部屏幕区域。
  *
  * @param container 目标 DOM 容器元素
  */
@@ -38,43 +31,43 @@ export async function toggleFullscreen(container: HTMLElement | null): Promise<v
 
   try {
     if (!document.fullscreenElement) {
+      // 1. Tauri 桌面端：调用原生全屏控制命令，彻底无感平滑展开并覆盖任务栏
       if (isTauri()) {
         try {
-          const appWindow = getCurrentWindow();
-          const isMaximized = await appWindow.isMaximized();
-          if (isMaximized) {
-            wasMaximizedBeforeFullscreen = true;
-            await appWindow.unmaximize();
-            // 短暂延时确保操作系统窗口状态变更与 WebView 视口尺寸完全同步
-            await new Promise((resolve) => setTimeout(resolve, 30));
-          }
+          await invoke('set_app_fullscreen', { fullscreen: true });
         } catch (err) {
-          console.error('Failed to handle window state before fullscreen:', err);
+          console.error('Failed to set Tauri window fullscreen:', err);
         }
       }
 
+      // 2. 将目标 DOM 容器提升至全屏顶层展示
       try {
         await container.requestFullscreen();
       } catch (err) {
-        console.error('Failed to request fullscreen:', err);
-        // 若全屏请求失败且此前执行了 unmaximize，则立即还原最大化状态
-        if (wasMaximizedBeforeFullscreen) {
-          wasMaximizedBeforeFullscreen = false;
-          if (isTauri()) {
-            try {
-              const appWindow = getCurrentWindow();
-              await appWindow.maximize();
-            } catch (restoreErr) {
-              console.error('Failed to re-maximize window:', restoreErr);
-            }
+        console.error('Failed to request DOM fullscreen:', err);
+        // 若 DOM 全屏请求失败，回滚 Tauri 窗口全屏状态
+        if (isTauri()) {
+          try {
+            await invoke('set_app_fullscreen', { fullscreen: false });
+          } catch (restoreErr) {
+            console.error('Failed to rollback window fullscreen:', restoreErr);
           }
         }
       }
     } else {
+      // 退出全屏流程
       try {
         await document.exitFullscreen();
       } catch (err) {
-        console.error('Failed to exit fullscreen:', err);
+        console.error('Failed to exit DOM fullscreen:', err);
+      }
+
+      if (isTauri()) {
+        try {
+          await invoke('set_app_fullscreen', { fullscreen: false });
+        } catch (err) {
+          console.error('Failed to restore Tauri window fullscreen:', err);
+        }
       }
     }
   } finally {

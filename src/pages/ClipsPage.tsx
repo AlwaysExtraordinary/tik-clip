@@ -48,7 +48,6 @@ export const ClipsPage: React.FC = () => {
 
   const [totalVideoCount, setTotalVideoCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(() => allItems.length === 0);
-  const [feedEpoch, setFeedEpoch] = useState<number>(0);
 
   // 检查片段库中是否有任何类别、演员或标签（用于保持选择器结构稳定，防止组件闪烁消失）
   const hasAnyCategory = useMemo(() => {
@@ -289,7 +288,7 @@ export const ClipsPage: React.FC = () => {
   }, [currentShuffleItem]);
 
   // 当前筛选条件唯一组合键
-  const currentFilterKey = `${selectedTag || 'all'}-${selectedCategory || 'all'}-${selectedActor || 'all'}-${feedEpoch}`;
+  const currentFilterKey = `${selectedTag || 'all'}-${selectedCategory || 'all'}-${selectedActor || 'all'}`;
 
   // 记录上一次渲染时生效的筛选条件组合键，用于判断当前渲染帧是否处于筛选切换状态
   const [prevFilterKey, setPrevFilterKey] = useState(currentFilterKey);
@@ -402,7 +401,6 @@ export const ClipsPage: React.FC = () => {
       setLastPlaybackTime(first.clip.startTime);
     }
     setFileError(null);
-    setFeedEpoch((prev) => prev + 1);
   }, [shuffleQueue, targetItems, setCurrentShuffleItem, setLastPlaybackTime, setFileError]);
 
   /**
@@ -548,7 +546,7 @@ export const ClipsPage: React.FC = () => {
           />
         ) : targetItems.length > 0 ? (
           <ClipFeedContainer
-            key={`${activeDirectory.name}-${selectedTag || 'all'}-${selectedCategory || 'all'}-${selectedActor || 'all'}-${feedEpoch}`}
+            key={`${activeDirectory.name}-${selectedTag || 'all'}-${selectedCategory || 'all'}-${selectedActor || 'all'}`}
             shuffleQueue={shuffleQueue}
             loadMediaSource={loadVideoSource}
             initialIndex={filtersChanged ? 0 : shuffleQueue.currentIndexValue}
