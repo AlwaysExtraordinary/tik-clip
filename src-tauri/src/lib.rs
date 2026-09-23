@@ -121,23 +121,8 @@ fn open_folder(path: String) -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(target_os = "windows")]
-#[link(name = "user32")]
-extern "system" {
-    fn GetWindowLongPtrW(hWnd: isize, nIndex: i32) -> isize;
-    fn SetWindowLongPtrW(hWnd: isize, nIndex: i32, dwNewLong: isize) -> isize;
-    fn SetWindowPos(
-        hWnd: isize,
-        hWndInsertAfter: isize,
-        X: i32,
-        Y: i32,
-        cx: i32,
-        cy: i32,
-        uFlags: u32,
-    ) -> i32;
-}
-
-// 原生窗口全屏控制命令：在 Windows 最大化状态下直接移除 WS_MAXIMIZE 样式，避免常规 unmaximize 产生的先缩小再放大跳变
+// 原生窗口全屏控制
+// Windows 下若窗口已最大化，先隐藏再还原再全屏再显示，既避免 unmaximize 跳变，又确保全屏覆盖任务栏
 #[tauri::command]
 fn set_app_fullscreen(window: tauri::WebviewWindow, fullscreen: bool) -> Result<(), String> {
     #[cfg(target_os = "windows")]
@@ -149,39 +134,22 @@ fn set_app_fullscreen(window: tauri::WebviewWindow, fullscreen: bool) -> Result<
             let is_max = window.is_maximized().unwrap_or(false);
             WAS_MAXIMIZED.store(is_max, Ordering::SeqCst);
             if is_max {
-                if let Ok(hwnd) = window.hwnd() {
-                    let raw_hwnd = hwnd.0 as isize;
-                    const GWL_STYLE: i32 = -16;
-                    const WS_MAXIMIZE: isize = 0x01000000;
-                    const SWP_NOMOVE: u32 = 0x0002;
-                    const SWP_NOSIZE: u32 = 0x0001;
-                    const SWP_NOZORDER: u32 = 0x0004;
-                    const SWP_NOACTIVATE: u32 = 0x0010;
-                    const SWP_FRAMECHANGED: u32 = 0x0020;
-
-                    unsafe {
-                        let mut style = GetWindowLongPtrW(raw_hwnd, GWL_STYLE);
-                        if (style & WS_MAXIMIZE) != 0 {
-                            style &= !WS_MAXIMIZE;
-                            SetWindowLongPtrW(raw_hwnd, GWL_STYLE, style);
-                            SetWindowPos(
-                                raw_hwnd,
-                                0,
-                                0,
-                                0,
-                                0,
-                                0,
-                                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
-                            );
-                        }
-                    }
-                }
+                let _ = window.hide();
+                let _ = window.unmaximize();
             }
             window.set_fullscreen(true).map_err(|e| e.to_string())?;
+            if is_max {
+                let _ = window.show();
+            }
         } else {
+            let was_max = WAS_MAXIMIZED.swap(false, Ordering::SeqCst);
+            if was_max {
+                let _ = window.hide();
+            }
             window.set_fullscreen(false).map_err(|e| e.to_string())?;
-            if WAS_MAXIMIZED.swap(false, Ordering::SeqCst) {
+            if was_max {
                 let _ = window.maximize();
+                let _ = window.show();
             }
         }
     }

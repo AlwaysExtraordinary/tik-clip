@@ -20,8 +20,8 @@ if (typeof document !== 'undefined') {
 /**
  * 切换指定容器元素的全屏状态
  * - Web 端：使用标准 HTML5 Fullscreen API
- * - Tauri 桌面端：调用自定义原生 set_app_fullscreen 命令，在 Windows 下直接原子化清除 WS_MAXIMIZE 样式，
- *   彻底消除 unmaximize 导致的“先缩小再放大”跳变，平滑铺满包括任务栏在内的全部屏幕区域。
+ * - Tauri 桌面端：调用自定义原生 set_app_fullscreen 命令。Windows 下若窗口已最大化，
+ *   会先隐藏窗口再执行 unmaximize → fullscreen → show，既消除跳变又确保全屏覆盖任务栏。
  *
  * @param container 目标 DOM 容器元素
  */
