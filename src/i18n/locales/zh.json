@@ -21,8 +21,13 @@
     "themeDark": "深色",
     "themeSystem": "跟随系统",
     "done": "完成",
+    "tabGeneral": "通用",
+    "tabPlayback": "播放",
+    "tabCoverflow": "封面流",
     "thumbnailPreview": "进度条显示缩略图",
-    "coverflowPreview": "封面流展示预览"
+    "thumbnailPreviewDesc": "鼠标悬停进度条时显示缩略图预览",
+    "coverflowPreview": "封面流展示预览",
+    "coverflowPreviewDesc": "封面流点击放大预览封面"
   },
   "languages": {
     "zh": "简体中文",

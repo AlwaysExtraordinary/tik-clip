@@ -21,8 +21,13 @@
     "themeDark": "Dark",
     "themeSystem": "System",
     "done": "Done",
+    "tabGeneral": "General",
+    "tabPlayback": "Playback",
+    "tabCoverflow": "Coverflow",
     "thumbnailPreview": "Progress Bar Thumbnails",
-    "coverflowPreview": "Coverflow Preview"
+    "thumbnailPreviewDesc": "Show thumbnail preview when hovering the progress bar",
+    "coverflowPreview": "Coverflow Preview",
+    "coverflowPreviewDesc": "Click cover in coverflow to zoom in and preview"
   },
   "languages": {
     "zh": "简体中文",
