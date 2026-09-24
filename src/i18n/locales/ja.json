@@ -21,8 +21,13 @@
     "themeDark": "ダーク",
     "themeSystem": "システム",
     "done": "完了",
+    "tabGeneral": "一般",
+    "tabPlayback": "再生",
+    "tabCoverflow": "カバース",
     "thumbnailPreview": "プログレスバーでサムネイル表示",
-    "coverflowPreview": "カバーフロープレビュー表示"
+    "thumbnailPreviewDesc": "プログレスバーのホバー時にサムネイルを表示",
+    "coverflowPreview": "カバーフロープレビュー表示",
+    "coverflowPreviewDesc": "カバーフローでカバーをクリックして拡大プレビュー"
   },
   "languages": {
     "zh": "简体中文",

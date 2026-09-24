@@ -22,9 +22,9 @@ src/
 │   ├── video/            # 视频播放器 (VideoPlayer)、控制器、进度条及悬停缩略图预览
 │   ├── clip/             # 片段 Feed 流容器 (ClipFeedContainer)、表单、列表与标签面板
 │   ├── coverflow/        # 3D 封面流组件 (CoverflowCanvas, CoverflowNavbar, MovieInfoPanel, ControlButtons)
-│   │   └── three/        # 3D 引擎内核 (CoverflowScene 调度器, cardManager 卡片池, bookTransitionManager 动画过渡, bookCanvasGenerators 贴图生成)
+│   │   └── three/        # 3D 引擎内核 (coverflowScene 调度器, cardManager 卡片池, bookTransitionManager 动画过渡, bookCanvasGenerators 贴图生成)
 │   ├── layout/           # 布局框架 (MainLayout, Sidebar)
-│   └── settings/         # 设置弹窗
+│   └── settings/         # 设置弹窗与分类模块 (SettingsModal, GeneralSettings, PlaybackSettings, CoverflowSettings)
 ├── services/             # 核心服务层
 │   ├── fileSystem/       # 跨端文件系统适配器 (Web API / Tauri Plugin 双端抽象)
 │   ├── videoScanner.ts   # 本地视频/缩略图扫描
