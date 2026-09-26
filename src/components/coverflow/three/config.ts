@@ -48,7 +48,10 @@ export const CARD_CONFIG = {
   height: 4.2,
   width: 4.2 * (379.5 / 537), // 约 2.97
   depth: 4.2 * (41 / 537), // 约 0.32
-  spacing: 2, // 列表卡片默认间距
+  spacing: 2, // 默认基准间距
+  spacingFront: 4.2 * (379.5 / 537) + 0.65, // 正面模式 (front, 0°) 间距 (约 3.62)
+  spacingAngled: 2.0, // 斜角模式 (angled, 56°) 间距
+  spacingVertical: 1.5, // 侧面模式 (vertical, 90°) 间距
 } as const;
 
 /** 相机与场景基础参数 */

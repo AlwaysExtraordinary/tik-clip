@@ -65,7 +65,7 @@ export const SettingsModal: React.FC = () => {
                 </Tabs.ListContainer>
               </div>
 
-              <Modal.Body className="py-5 overflow-y-auto max-h-[60vh] min-h-62">
+              <Modal.Body className="py-5 overflow-y-auto max-h-[60vh] min-h-50">
                 {/* 通用设置 */}
                 <Tabs.Panel id="general" className="p-0 outline-none m-0">
                   <GeneralSettings />

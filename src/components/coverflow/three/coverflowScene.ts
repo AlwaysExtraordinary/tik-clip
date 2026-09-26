@@ -813,7 +813,8 @@ export class CoverflowScene {
 
   // 切换下一张卡片
   public nextCard(): void {
-    if (this.bookTransitionManager.isTransitioning || this.bookTransitionManager.isCoverOpen) return;
+    if (this.bookTransitionManager.isTransitioning || this.bookTransitionManager.isCoverOpen)
+      return;
     const count = this.cardManager.getMovies().length;
     if (this.selectedIndex >= 0 && this.selectedIndex < count - 1) {
       this.resetCardRotations();
@@ -830,7 +831,8 @@ export class CoverflowScene {
 
   // 切换上一张卡片
   public prevCard(): void {
-    if (this.bookTransitionManager.isTransitioning || this.bookTransitionManager.isCoverOpen) return;
+    if (this.bookTransitionManager.isTransitioning || this.bookTransitionManager.isCoverOpen)
+      return;
     if (this.selectedIndex > 0) {
       this.resetCardRotations();
       this.selectedIndex -= 1;
@@ -896,11 +898,20 @@ export class CoverflowScene {
 
       if (this.state === VIEW_STATES.LIST) {
         mesh.visible = true;
-        let currentSpacing = CARD_CONFIG.spacing;
+        // 计算封面卡片间距
+        let currentSpacing: number;
         if (this.listViewMode === 'front') {
-          currentSpacing = CARD_CONFIG.width + (this.isMobile ? 0.35 : 0.65);
-        } else if (this.isMobile) {
-          currentSpacing = CARD_CONFIG.spacing * 0.85;
+          currentSpacing = this.isMobile
+            ? CARD_CONFIG.spacingFront - 0.3
+            : CARD_CONFIG.spacingFront;
+        } else if (this.listViewMode === 'vertical') {
+          currentSpacing = this.isMobile
+            ? CARD_CONFIG.spacingVertical * 0.85
+            : CARD_CONFIG.spacingVertical;
+        } else {
+          currentSpacing = this.isMobile
+            ? CARD_CONFIG.spacingAngled * 0.85
+            : CARD_CONFIG.spacingAngled;
         }
 
         targetX = dx * currentSpacing;

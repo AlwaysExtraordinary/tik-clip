@@ -26,7 +26,7 @@ const MAX_CACHE_SIZE = 60;
 const TIME_QUANTUM = 1;
 
 /** seek 节流间隔（毫秒） */
-const THROTTLE_MS = 100;
+const THROTTLE_MS = 70;
 
 /**
  * 视频进度条缩略图预览组件
