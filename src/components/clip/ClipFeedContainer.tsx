@@ -100,6 +100,15 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
   // 媒体源状态映射：clipId -> MediaSourceData
   const [mediaMap, setMediaMap] = useState<Record<string, MediaSourceData>>({});
 
+  // 保持最新 mediaMap 引用，供异步预加载回调中读取最新映射，避免作为 Effect 依赖项引起卸载/取消链式抖动
+  const mediaMapRef = useRef(mediaMap);
+  useEffect(() => {
+    mediaMapRef.current = mediaMap;
+  }, [mediaMap]);
+
+  // 正在请求中的媒体源 ID 集合，避免重复并发发起相同片段的加载
+  const loadingClipIdsRef = useRef<Set<string>>(new Set());
+
   // 尺寸变更防抖实例引用
   const endResizingRef = useRef<((() => void) & { cancel: () => void }) | null>(null);
 
@@ -189,8 +198,6 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
    * 后台异步预加载当前项及前后相邻项（前后各 2 项）的视频媒体源
    */
   useEffect(() => {
-    let cancelled = false;
-
     const preloadIndices = [
       currentIndex,
       currentIndex + 1,
@@ -204,12 +211,14 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
       if (!item) continue;
 
       const clipId = item.clip.id;
-      if (mediaMap[clipId]) continue;
+      if (mediaMapRef.current[clipId] || loadingClipIdsRef.current.has(clipId)) continue;
+
+      loadingClipIdsRef.current.add(clipId);
 
       void (async () => {
         try {
           const source = await loadMediaSource(item);
-          if (cancelled || !source) return;
+          if (!source) return;
 
           setMediaMap((prev) => {
             if (prev[clipId]) return prev;
@@ -220,14 +229,12 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
           });
         } catch (err) {
           console.warn(`Failed to preload media for clip ${clipId}:`, err);
+        } finally {
+          loadingClipIdsRef.current.delete(clipId);
         }
       })();
     }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [currentIndex, loadMediaSource, mediaMap, shuffleQueue]);
+  }, [currentIndex, loadMediaSource, shuffleQueue, shuffleQueue.totalCount]);
 
   // 滚动吸附完成结算
   const handleScrollSettle = useCallback(() => {

@@ -706,9 +706,16 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     // 非预加载状态下自动播放，预加载状态下确保暂停在起始位置
     if (!isPreloading && !isExiting) {
-      video.play().catch(() => {
-        // 带音频的自动播放可能需要用户手势交互，受阻时由用户手动点击播放
-      });
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          // 浏览器/系统可能因没有用户手势阻拦带声播放，降级为静音播放以确保画面正常呈现
+          if (err && (err.name === 'NotAllowedError' || err.name === 'NotSupportedError')) {
+            video.muted = true;
+            video.play().catch(() => {});
+          }
+        });
+      }
     } else {
       video.pause();
     }
@@ -808,6 +815,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             onTimeUpdate={handleTimeUpdate}
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
+            onError={(e) => {
+              console.error('Video element playback error:', e.currentTarget.error, videoUrl);
+            }}
             playsInline
             style={{
               objectFit: activeFitMode,

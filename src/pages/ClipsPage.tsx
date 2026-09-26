@@ -252,12 +252,33 @@ export const ClipsPage: React.FC = () => {
           }
         }
 
-        setAllItems(items);
-
         if (items.length === 0) {
+          setAllItems([]);
           resetFeed();
           return;
         }
+
+        // 若当前未初始化洗牌队列或当前播放项为空，立即初始化队列，确保首次渲染时队列与播放项已就绪
+        const state = useClipsFeedStore.getState();
+        const currentItem = state.currentShuffleItem;
+        if (!currentItem || shuffleQueue.totalCount === 0) {
+          const initialTargetItems = filterItems(
+            items,
+            state.selectedTag,
+            state.selectedCategory,
+            state.selectedActor
+          );
+          if (initialTargetItems.length > 0) {
+            shuffleQueue.setItems(initialTargetItems);
+            const first = shuffleQueue.current();
+            setCurrentShuffleItem(first);
+            if (first) {
+              setLastPlaybackTime(first.clip.startTime);
+            }
+          }
+        }
+
+        setAllItems(items);
       } catch (err) {
         console.error('Error loading clips feed:', err);
       } finally {
@@ -269,7 +290,7 @@ export const ClipsPage: React.FC = () => {
 
     if (!isScanning && activeDirectory && hasDirectoryPermission) {
       loadData();
-    } else if (!activeDirectory || !hasDirectoryPermission) {
+    } else if (!isHandleRestoring && (!activeDirectory || !hasDirectoryPermission)) {
       setAllItems([]);
       setTotalVideoCount(0);
       setIsLoading(false);
@@ -279,7 +300,18 @@ export const ClipsPage: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [activeDirectory, hasDirectoryPermission, isScanning, resetFeed, setAllItems]);
+  }, [
+    activeDirectory,
+    filterItems,
+    hasDirectoryPermission,
+    isHandleRestoring,
+    isScanning,
+    resetFeed,
+    setAllItems,
+    setCurrentShuffleItem,
+    setLastPlaybackTime,
+    shuffleQueue,
+  ]);
 
   // 同步当前播放片段到 Ref，避免普通播放滑动时重新触发队列同步 Effect
   const currentShuffleItemRef = useRef(currentShuffleItem);
@@ -544,7 +576,7 @@ export const ClipsPage: React.FC = () => {
             description={fileError}
             onAction={handleSkipDeletedClip}
           />
-        ) : targetItems.length > 0 ? (
+        ) : targetItems.length > 0 && currentShuffleItem && shuffleQueue.totalCount > 0 ? (
           <ClipFeedContainer
             key={`${activeDirectory.name}-${selectedTag || 'all'}-${selectedCategory || 'all'}-${selectedActor || 'all'}`}
             shuffleQueue={shuffleQueue}
@@ -571,6 +603,8 @@ export const ClipsPage: React.FC = () => {
               navigate(`/videos/${item.video.id}`, { state: { initialTime: targetTime } });
             }}
           />
+        ) : targetItems.length > 0 ? (
+          <EmptyState type="loading" />
         ) : (
           <EmptyState
             type="no-clips"

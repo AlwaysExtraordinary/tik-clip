@@ -11,12 +11,16 @@ export { TauriFileSystemAdapter } from './tauriAdapter';
 
 export function isTauri(): boolean {
   try {
-    return checkTauri();
+    if (checkTauri()) return true;
   } catch {
-    return (
-      typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window)
-    );
+    // 忽略异常
   }
+  return (
+    typeof window !== 'undefined' &&
+    ('__TAURI_INTERNALS__' in window ||
+      '__TAURI__' in window ||
+      Boolean((window as unknown as { isTauri?: boolean }).isTauri))
+  );
 }
 
 const webAdapter = new WebFileSystemAdapter();
