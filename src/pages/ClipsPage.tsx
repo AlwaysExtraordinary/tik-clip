@@ -576,7 +576,7 @@ export const ClipsPage: React.FC = () => {
             description={fileError}
             onAction={handleSkipDeletedClip}
           />
-        ) : targetItems.length > 0 && currentShuffleItem && shuffleQueue.totalCount > 0 ? (
+        ) : targetItems.length > 0 && shuffleQueue.totalCount > 0 ? (
           <ClipFeedContainer
             key={`${activeDirectory.name}-${selectedTag || 'all'}-${selectedCategory || 'all'}-${selectedActor || 'all'}`}
             shuffleQueue={shuffleQueue}

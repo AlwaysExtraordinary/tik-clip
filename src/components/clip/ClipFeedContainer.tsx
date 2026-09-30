@@ -387,6 +387,14 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, [markResizing]);
 
+  // 刷新重看处理：重置容器滚动位置与当前索引，并触发外部重新洗牌
+  const handleRefresh = useCallback(() => {
+    currentIndexRef.current = 0;
+    setCurrentIndex(0);
+    containerRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+    onRefresh?.();
+  }, [onRefresh]);
+
   const totalCount = shuffleQueue.totalCount;
   const hasEndCard = totalCount > 0;
   const totalSlides = totalCount + (hasEndCard ? 1 : 0);
@@ -427,7 +435,7 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
                   isFullscreen ? 'rounded-none' : 'rounded-3xl'
                 )}
               >
-                <EmptyState type="all-watched" onAction={onRefresh} />
+                <EmptyState type="all-watched" onAction={handleRefresh} />
               </div>
             </div>
           );
