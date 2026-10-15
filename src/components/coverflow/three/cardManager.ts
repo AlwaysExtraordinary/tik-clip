@@ -19,6 +19,7 @@ import { CardMesh, ThemeMode } from './types';
 export class CardManager {
   private cardMeshes: CardMesh[] = [];
   private movies: CoverflowMovie[] = [];
+  private meshCache: Map<string, CardMesh> = new Map();
 
   // Three.js 核心几何体与共享材质
   private boxGeometry!: THREE.BoxGeometry;
@@ -217,6 +218,34 @@ export class CardManager {
   }
 
   /**
+   * 获取指定电影 ID 对应的缓存卡片网格
+   * @param movieId 视频/电影唯一标识
+   */
+  public getCachedMesh(movieId: string): CardMesh | undefined {
+    return this.meshCache.get(movieId);
+  }
+
+  /**
+   * 构建并缓存单个电影的 3D 卡片实体与倒影模型
+   * @param movie 电影数据
+   * @param index 卡片索引
+   */
+  public async createAndCacheCardMesh(
+    movie: CoverflowMovie,
+    index: number
+  ): Promise<CardMesh | null> {
+    const existing = this.meshCache.get(movie.id);
+    if (existing) {
+      this.disposeMesh(existing);
+    }
+    const mesh = await this.createCardMesh(movie, index);
+    if (mesh) {
+      this.meshCache.set(movie.id, mesh);
+    }
+    return mesh;
+  }
+
+  /**
    * 切换亮色/暗色主题，同步材质颜色与倒影透明度
    * @param themeMode 主题模式
    */
@@ -237,7 +266,8 @@ export class CardManager {
       this.reflectionPlasticEdgeMat.opacity = this.reflectionBaseOpacity;
     }
 
-    this.cardMeshes.forEach((mesh) => {
+    // 同步更新缓存中所有网格的倒影材质透明度
+    this.meshCache.forEach((mesh) => {
       if (mesh.reflectionMaterials) {
         mesh.reflectionMaterials.forEach((mat) => {
           mat.opacity = this.reflectionBaseOpacity;
@@ -259,6 +289,18 @@ export class CardManager {
       movie.description = updatedVideo.description;
       movie.links = updatedVideo.links;
       movie.video = updatedVideo;
+    }
+    const cachedMesh = this.meshCache.get(updatedVideo.id);
+    if (cachedMesh && cachedMesh.userData?.movie) {
+      cachedMesh.userData.movie = {
+        ...cachedMesh.userData.movie,
+        title: updatedVideo.name || updatedVideo.folderName,
+        category: updatedVideo.category,
+        actor: updatedVideo.actor,
+        description: updatedVideo.description,
+        links: updatedVideo.links,
+        video: updatedVideo,
+      };
     }
     for (const mesh of this.cardMeshes) {
       if (mesh.userData?.movie?.id === updatedVideo.id) {
@@ -308,30 +350,15 @@ export class CardManager {
   }
 
   /**
-   * 释放指定网格模型数组及其绑定的倒影、材质与纹理
-   * @param meshes 要释放的网格列表
+   * 释放单个网格模型及其绑定的倒影、材质与纹理
+   * @param mesh 要释放的网格对象
    */
-  public disposeMeshList(meshes: CardMesh[]): void {
-    meshes.forEach((mesh) => {
-      if (mesh.reflectionMesh) {
-        mesh.remove(mesh.reflectionMesh);
-        if (Array.isArray(mesh.reflectionMesh.material)) {
-          mesh.reflectionMesh.material.forEach((mat) => {
-            if (mat !== this.reflectionPlasticEdgeMat) {
-              if ('map' in mat && mat.map) {
-                (mat.map as THREE.Texture).dispose();
-              }
-              mat.dispose();
-            }
-          });
-        }
-      }
-      if (mesh.parent) {
-        mesh.parent.remove(mesh);
-      }
-      if (Array.isArray(mesh.material)) {
-        mesh.material.forEach((mat) => {
-          if (mat !== this.plasticEdgeMat) {
+  public disposeMesh(mesh: CardMesh): void {
+    if (mesh.reflectionMesh) {
+      mesh.remove(mesh.reflectionMesh);
+      if (Array.isArray(mesh.reflectionMesh.material)) {
+        mesh.reflectionMesh.material.forEach((mat) => {
+          if (mat !== this.reflectionPlasticEdgeMat) {
             if ('map' in mat && mat.map) {
               (mat.map as THREE.Texture).dispose();
             }
@@ -339,32 +366,88 @@ export class CardManager {
           }
         });
       }
+    }
+    if (mesh.parent) {
+      mesh.parent.remove(mesh);
+    }
+    if (Array.isArray(mesh.material)) {
+      mesh.material.forEach((mat) => {
+        if (mat !== this.plasticEdgeMat) {
+          if ('map' in mat && mat.map) {
+            (mat.map as THREE.Texture).dispose();
+          }
+          mat.dispose();
+        }
+      });
+    }
+  }
+
+  /**
+   * 释放指定网格模型数组及其绑定的倒影、材质与纹理
+   * @param meshes 要释放的网格列表
+   */
+  public disposeMeshList(meshes: CardMesh[]): void {
+    meshes.forEach((mesh) => {
+      this.disposeMesh(mesh);
+      if (mesh.userData?.movie?.id) {
+        this.meshCache.delete(mesh.userData.movie.id);
+      }
     });
   }
 
-  // 释放所有卡片的网格、材质与纹理
-  public disposeCards(): void {
-    this.disposeMeshList(this.cardMeshes);
+  // 清空所有卡片网格缓存并释放材质与纹理显存
+  public clearCache(): void {
+    this.meshCache.forEach((mesh) => {
+      this.disposeMesh(mesh);
+    });
+    this.meshCache.clear();
     this.cardMeshes = [];
+    this.movies = [];
+  }
+
+  // 释放所有当前卡片的网格、材质与纹理
+  public disposeCards(): void {
+    this.clearCache();
   }
 
   /**
    * 设置并挂载新的卡片模型数组
+   * 仅将当前不展示的网格从场景中移除，已创建的网格保留在缓存中以便后续筛选极速复用
    * @param movies 电影数据列表
    * @param meshes 生成的网格模型列表
    * @param scene Three.js 场景对象
    */
   public mountCards(movies: CoverflowMovie[], meshes: CardMesh[], scene: THREE.Scene): void {
-    this.disposeCards();
+    const newMeshSet = new Set(meshes);
+
+    // 从当前场景中移除不再展示的网格，保留在 meshCache 中
+    this.cardMeshes.forEach((mesh) => {
+      if (!newMeshSet.has(mesh)) {
+        if (mesh.parent) {
+          mesh.parent.remove(mesh);
+        }
+        mesh.visible = false;
+        if (mesh.reflectionMesh) {
+          mesh.reflectionMesh.visible = false;
+        }
+      }
+    });
+
     this.movies = movies;
     this.cardMeshes = meshes;
 
+    // 挂载并在场景中激活当前列表网格
     meshes.forEach((mesh, idx) => {
       mesh.userData.index = idx;
+      mesh.userData.movie = movies[idx];
+      mesh.visible = true;
       if (mesh.reflectionMesh) {
         mesh.reflectionMesh.userData.index = idx;
+        mesh.reflectionMesh.visible = true;
       }
-      scene.add(mesh);
+      if (mesh.parent !== scene) {
+        scene.add(mesh);
+      }
     });
   }
 
@@ -390,7 +473,7 @@ export class CardManager {
 
   // 完全销毁卡片管理器与几何体
   public destroy(): void {
-    this.disposeCards();
+    this.clearCache();
     if (this.boxGeometry) this.boxGeometry.dispose();
     if (this.reflectionGeometry) this.reflectionGeometry.dispose();
     if (this.reflectionAlphaMap) this.reflectionAlphaMap.dispose();

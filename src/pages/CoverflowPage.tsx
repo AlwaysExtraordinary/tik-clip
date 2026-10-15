@@ -50,8 +50,13 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
   );
 
   const [scene, setScene] = useState<CoverflowScene | null>(null);
+  const sceneRef = useRef<CoverflowScene | null>(null);
   const [movies, setMovies] = useState<CoverflowMovie[]>([]);
   const moviesRef = useRef<CoverflowMovie[]>([]);
+
+  useEffect(() => {
+    sceneRef.current = scene;
+  }, [scene]);
 
   useEffect(() => {
     moviesRef.current = movies;
@@ -160,9 +165,10 @@ export const CoverflowPage: React.FC<CoverflowPageProps> = ({ isVisible = true }
         (v: Video) => v.hasCover === true && Boolean(v.thumbnail)
       );
 
-      // 清理旧 ObjectURL
+      // 清理旧 ObjectURL 与场景网格缓存
       createdUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
       createdUrlsRef.current = [];
+      sceneRef.current?.clearCache();
 
       // 构建 Coverflow 展示对象，直接使用持久化在 Dexie 的元数据（名称、类别、演员、描述）
       const loadedMovies: CoverflowMovie[] = coverVideos.map((video: Video) => {

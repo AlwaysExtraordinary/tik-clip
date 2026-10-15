@@ -265,9 +265,14 @@ export class CoverflowScene {
     this.emitCurrentMovieChange();
   }
 
+  // 清空所有卡片网格缓存
+  public clearCache(): void {
+    this.cardManager.clearCache();
+  }
+
   /**
    * 载入电影列表并生成 3D 实体模型与倒影
-   * 采用后台异步并发批处理与无闪烁原子置换机制
+   * 采用后台异步并发批处理与网格缓存极速复用机制
    * @param movieList 视频封面数据数组
    * @param targetIndex 可选的指定目标索引
    */
@@ -295,6 +300,15 @@ export class CoverflowScene {
       if (this.initialDetailIndex !== null) {
         this.initialDetailIndex = foundIdx;
       }
+    }
+
+    if (movieList.length === 0) {
+      this.cardManager.mountCards([], [], this.scene);
+      this.selectedIndex = 0;
+      this.scrollIndex = 0;
+      this.targetScrollIndex = 0;
+      this.emitCurrentMovieChange();
+      return;
     }
 
     const isSame =
@@ -326,64 +340,103 @@ export class CoverflowScene {
         this.scrollVelocity = 0;
       }
       this.updateCardPositions(true);
-      this.renderer.render(this.scene, this.camera);
       this.emitCurrentMovieChange();
       return;
     }
 
     const sessionId = ++this.currentLoadSession;
 
-    if (movieList.length === 0) {
-      this.cardManager.disposeCards();
-      this.selectedIndex = 0;
-      this.scrollIndex = 0;
-      this.targetScrollIndex = 0;
+    // 检查缓存状态
+    const uncachedMovies: { movie: CoverflowMovie; index: number }[] = [];
+    const meshes: (CardMesh | null)[] = new Array(movieList.length);
+
+    movieList.forEach((movie, idx) => {
+      const cached = this.cardManager.getCachedMesh(movie.id);
+      if (cached && cached.userData?.movie?.textureUrl === movie.textureUrl) {
+        meshes[idx] = cached;
+      } else {
+        uncachedMovies.push({ movie, index: idx });
+      }
+    });
+
+    // 快速路径：所有影片均已缓存（切换演员筛选时的核心路径，毫秒级无感知切换）
+    if (uncachedMovies.length === 0) {
+      const validMeshes = meshes.filter(Boolean) as CardMesh[];
+      this.cardManager.mountCards(movieList, validMeshes, this.scene);
+
+      let finalTargetIndex = 0;
+      if (targetIndex !== undefined) {
+        finalTargetIndex = Math.max(0, Math.min(validMeshes.length - 1, targetIndex));
+      } else if (prevSelectedId) {
+        const foundIdxInNew = movieList.findIndex((m) => m.id === prevSelectedId);
+        if (foundIdxInNew !== -1) {
+          finalTargetIndex = foundIdxInNew;
+        }
+      }
+
+      this.selectedIndex = finalTargetIndex;
+      if (this.state === VIEW_STATES.LIST) {
+        this.scrollIndex = finalTargetIndex;
+        this.targetScrollIndex = finalTargetIndex;
+        this.scrollVelocity = 0;
+      }
+
+      this.updateCardPositions(true);
       this.emitCurrentMovieChange();
       return;
     }
 
-    const newMeshes: CardMesh[] = [];
-    const newMovies: CoverflowMovie[] = [];
+    // 存在未缓存的封面时，分批异步并发加载生成网格
+    const newlyCreatedMeshes: CardMesh[] = [];
     const BATCH_SIZE = 6;
 
-    for (let i = 0; i < movieList.length; i += BATCH_SIZE) {
+    for (let i = 0; i < uncachedMovies.length; i += BATCH_SIZE) {
       if (this.isDestroyed || this.currentLoadSession !== sessionId) {
-        this.cardManager.disposeMeshList(newMeshes);
+        this.cardManager.disposeMeshList(newlyCreatedMeshes);
         return;
       }
 
-      const batch = movieList.slice(i, i + BATCH_SIZE);
+      const batch = uncachedMovies.slice(i, i + BATCH_SIZE);
       const batchMeshes = await Promise.all(
-        batch.map((movie, batchIdx) => this.cardManager.createCardMesh(movie, i + batchIdx))
+        batch.map(({ movie, index }) => this.cardManager.createAndCacheCardMesh(movie, index))
       );
 
       if (this.isDestroyed || this.currentLoadSession !== sessionId) {
-        this.cardManager.disposeMeshList(newMeshes);
+        this.cardManager.disposeMeshList(newlyCreatedMeshes);
         this.cardManager.disposeMeshList(batchMeshes.filter(Boolean) as CardMesh[]);
         return;
       }
 
       batchMeshes.forEach((mesh, batchIdx) => {
         if (mesh) {
-          newMeshes.push(mesh);
-          newMovies.push(batch[batchIdx]);
+          const originalIdx = batch[batchIdx].index;
+          meshes[originalIdx] = mesh;
+          newlyCreatedMeshes.push(mesh);
         }
       });
     }
 
     if (this.isDestroyed || this.currentLoadSession !== sessionId) {
-      this.cardManager.disposeMeshList(newMeshes);
+      this.cardManager.disposeMeshList(newlyCreatedMeshes);
       return;
     }
 
-    // 原子挂载新卡片列表
-    this.cardManager.mountCards(newMovies, newMeshes, this.scene);
+    const finalMeshes: CardMesh[] = [];
+    const finalMovies: CoverflowMovie[] = [];
+    meshes.forEach((mesh, idx) => {
+      if (mesh) {
+        finalMeshes.push(mesh);
+        finalMovies.push(movieList[idx]);
+      }
+    });
+
+    this.cardManager.mountCards(finalMovies, finalMeshes, this.scene);
 
     let finalTargetIndex = 0;
     if (targetIndex !== undefined) {
-      finalTargetIndex = Math.max(0, Math.min(newMovies.length - 1, targetIndex));
+      finalTargetIndex = Math.max(0, Math.min(finalMeshes.length - 1, targetIndex));
     } else if (prevSelectedId) {
-      const foundIdxInNew = newMovies.findIndex((m) => m.id === prevSelectedId);
+      const foundIdxInNew = finalMovies.findIndex((m) => m.id === prevSelectedId);
       if (foundIdxInNew !== -1) {
         finalTargetIndex = foundIdxInNew;
       }
@@ -397,7 +450,6 @@ export class CoverflowScene {
     }
 
     this.updateCardPositions(true);
-    this.renderer.render(this.scene, this.camera);
     this.emitCurrentMovieChange();
   }
 
