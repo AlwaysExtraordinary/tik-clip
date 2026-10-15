@@ -10,7 +10,12 @@ import { useSettingsStore } from '@/stores/settingsStore';
 
 export const PlaybackSettings: React.FC = () => {
   const { t } = useTranslation();
-  const { showThumbnailPreview, setShowThumbnailPreview } = useSettingsStore();
+  const {
+    showThumbnailPreview,
+    setShowThumbnailPreview,
+    showSinglePageCover,
+    setShowSinglePageCover,
+  } = useSettingsStore();
 
   return (
     <div className="space-y-5">
@@ -28,6 +33,30 @@ export const PlaybackSettings: React.FC = () => {
           isSelected={showThumbnailPreview}
           onChange={setShowThumbnailPreview}
           aria-label={t('settings.thumbnailPreview')}
+          size="md"
+        >
+          <Switch.Content>
+            <Switch.Control>
+              <Switch.Thumb />
+            </Switch.Control>
+          </Switch.Content>
+        </Switch>
+      </div>
+
+      {/* 视频页显示单页封面 */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-0.5 min-w-0">
+          <label className="text-sm font-medium text-foreground">
+            {t('settings.singlePageCover')}
+          </label>
+          <span className="text-xs text-foreground-muted">
+            {t('settings.singlePageCoverDesc')}
+          </span>
+        </div>
+        <Switch
+          isSelected={showSinglePageCover}
+          onChange={setShowSinglePageCover}
+          aria-label={t('settings.singlePageCover')}
           size="md"
         >
           <Switch.Content>

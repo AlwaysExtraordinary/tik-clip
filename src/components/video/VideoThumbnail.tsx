@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import { cn } from '@/utils/cn';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 interface VideoThumbnailProps {
   thumbnailBlob?: Blob;
   alt: string;
   className?: string;
+  hasCover?: boolean; // 是否拥有独立封面图片文件
   onOpenCoverPreview?: () => void;
 }
 
@@ -13,10 +15,13 @@ export const VideoThumbnail: React.FC<VideoThumbnailProps> = ({
   thumbnailBlob,
   alt,
   className = '',
+  hasCover = false,
   onOpenCoverPreview,
 }) => {
+  const { showSinglePageCover } = useSettingsStore();
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const [isSpread, setIsSpread] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // 懒加载观察器
@@ -53,21 +58,50 @@ export const VideoThumbnail: React.FC<VideoThumbnailProps> = ({
     };
   }, [thumbnailBlob, isVisible]);
 
+  // 检测图片是否为宽幅封套展开图 (宽高比 > 1.25)
+  useEffect(() => {
+    if (!imageUrl) {
+      setIsSpread(false);
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      if (img.naturalWidth && img.naturalHeight) {
+        setIsSpread(img.naturalWidth / img.naturalHeight > 1.25);
+      }
+    };
+    img.src = imageUrl;
+  }, [imageUrl]);
+
+  // 判断是否应用 Coverflow 正面单页封面裁剪（开启单页封面、有真实封面且为展开图）
+  const isFrontCoverCropped = showSinglePageCover && hasCover && isSpread;
+
   return (
     <div
       ref={containerRef}
       className={cn(
-        `bg-surface border-border shadow-subtle group/cover hover:shadow-card relative flex aspect-800/540 w-full 
+        `bg-surface border-border shadow-subtle group/cover hover:shadow-card relative flex w-full 
         cursor-pointer items-center justify-center overflow-hidden rounded-lg border transition-all
-        duration-300 ease-out hover:-translate-y-1 ${className}`
+        duration-300 ease-out hover:-translate-y-1`,
+        showSinglePageCover ? 'aspect-379.5/540' : 'aspect-800/540',
+        className
       )}
     >
       {imageUrl ? (
         <img
           src={imageUrl}
           alt={alt}
-          className="h-full w-full object-cover transition-transform"
+          className={cn(
+            'h-full w-full object-cover transition-transform duration-300',
+            isFrontCoverCropped ? 'object-right' : 'object-center'
+          )}
           loading="lazy"
+          onLoad={(e) => {
+            const img = e.currentTarget;
+            if (img.naturalWidth && img.naturalHeight) {
+              setIsSpread(img.naturalWidth / img.naturalHeight > 1.25);
+            }
+          }}
         />
       ) : (
         <div className="text-foreground-muted flex flex-col items-center justify-center gap-1">

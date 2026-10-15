@@ -26,6 +26,8 @@
     "tabCoverflow": "カバース",
     "thumbnailPreview": "プログレスバーでサムネイル表示",
     "thumbnailPreviewDesc": "プログレスバーのホバー時にサムネイルを表示",
+    "singlePageCover": "ビデオページで単一ページ表紙を表示",
+    "singlePageCoverDesc": "オンにすると正面の単一ページ表紙のみを表示します（デフォルトは全体表示）",
     "coverflowPreview": "カバーフロープレビュー表示",
     "coverflowPreviewDesc": "カバーフローでカバーをクリックして拡大プレビュー"
   },

@@ -26,6 +26,8 @@
     "tabCoverflow": "封面流",
     "thumbnailPreview": "进度条显示缩略图",
     "thumbnailPreviewDesc": "鼠标悬停进度条时显示缩略图预览",
+    "singlePageCover": "视频页显示单页封面",
+    "singlePageCoverDesc": "开启后封面图仅显示正面单页封面，默认显示完整封面",
     "coverflowPreview": "封面流展示预览",
     "coverflowPreviewDesc": "封面流点击放大预览封面"
   },

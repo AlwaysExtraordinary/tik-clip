@@ -28,6 +28,15 @@ const getInitialCoverflowPreview = (): boolean => {
   }
 };
 
+const getInitialSinglePageCover = (): boolean => {
+  try {
+    const saved = localStorage.getItem('tik_clip_single_page_cover');
+    return saved !== null ? saved === 'true' : false;
+  } catch {
+    return false;
+  }
+};
+
 const getInitialStartupPage = (): StartupPage => {
   try {
     const saved = localStorage.getItem('tik_clip_startup_page');
@@ -47,6 +56,7 @@ interface SettingsState {
   isSettingsOpen: boolean; //设置侧边栏是否打开
   showThumbnailPreview: boolean; //是否显示进度条缩略图
   showCoverflowPreview: boolean; //是否开启封面流展示预览
+  showSinglePageCover: boolean; //视频页是否显示正面单页封面
 
   setTheme: (theme: ThemeMode) => void;
   setLanguage: (language: SupportedLanguage) => void;
@@ -56,6 +66,8 @@ interface SettingsState {
   toggleShowThumbnailPreview: () => void;
   setShowCoverflowPreview: (show: boolean) => void;
   toggleShowCoverflowPreview: () => void;
+  setShowSinglePageCover: (show: boolean) => void;
+  toggleShowSinglePageCover: () => void;
   initTheme: () => Promise<void>;
   initLanguage: () => Promise<void>;
   initStartupPage: () => Promise<void>;
@@ -68,6 +80,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   isSettingsOpen: false,
   showThumbnailPreview: getInitialThumbnailPreview(),
   showCoverflowPreview: getInitialCoverflowPreview(),
+  showSinglePageCover: getInitialSinglePageCover(),
 
   setTheme: (theme) => {
     set({ theme });
@@ -123,6 +136,24 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         // 忽略存储错误
       }
       return { showCoverflowPreview: next };
+    }),
+  setShowSinglePageCover: (show) => {
+    try {
+      localStorage.setItem('tik_clip_single_page_cover', String(show));
+    } catch {
+      // 忽略存储错误
+    }
+    set({ showSinglePageCover: show });
+  },
+  toggleShowSinglePageCover: () =>
+    set((state) => {
+      const next = !state.showSinglePageCover;
+      try {
+        localStorage.setItem('tik_clip_single_page_cover', String(next));
+      } catch {
+        // 忽略存储错误
+      }
+      return { showSinglePageCover: next };
     }),
   initTheme: async () => {
     try {

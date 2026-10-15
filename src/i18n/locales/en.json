@@ -26,6 +26,8 @@
     "tabCoverflow": "Coverflow",
     "thumbnailPreview": "Progress Bar Thumbnails",
     "thumbnailPreviewDesc": "Show thumbnail preview when hovering the progress bar",
+    "singlePageCover": "Display Front Cover on Videos Page",
+    "singlePageCoverDesc": "Show only the front single-page cover, full cover by default",
     "coverflowPreview": "Coverflow Preview",
     "coverflowPreviewDesc": "Click cover in coverflow to zoom in and preview"
   },

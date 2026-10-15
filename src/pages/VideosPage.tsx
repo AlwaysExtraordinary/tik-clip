@@ -13,9 +13,11 @@ import { hideVideoInDataJson, isTauri, openPathInOs } from '@/services/fileSyste
 import { ConfirmModal } from '@/components/general/ConfirmModal';
 import { VideoDetailsModal } from '@/components/video/VideoDetailsModal';
 import { cn } from '@/utils/cn';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 export const VideosPage: React.FC = () => {
   const { t } = useTranslation();
+  const { showSinglePageCover } = useSettingsStore();
   const [videos, setVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const navigate = useNavigate();
@@ -377,7 +379,14 @@ export const VideosPage: React.FC = () => {
             className="bg-transparent"
           />
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6 pb-8">
+          <div
+            className={cn(
+              'grid gap-4 sm:gap-6 pb-8 transition-all duration-300',
+              showSinglePageCover
+                ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7'
+                : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+            )}
+          >
             {filteredVideos.map((video) => (
               <div key={video.id} className="flex flex-col transition-transform duration-200 group">
                 {/* 缩略图容器 */}
@@ -385,6 +394,7 @@ export const VideosPage: React.FC = () => {
                   <VideoThumbnail
                     thumbnailBlob={video.thumbnail}
                     alt={video.name}
+                    hasCover={video.hasCover}
                     // 查看封面
                     onOpenCoverPreview={() => setPreviewCoverVideo(video)}
                   />
