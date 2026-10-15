@@ -21,7 +21,7 @@ export interface FilterSelectProps {
   /** 是否展示默认值文本 (可选) */
   isShowDefautText?: boolean;
   /** 触发紧凑仅图标显示的宽度收缩断点（默认为 '500px'） */
-  shrinkPoint?: string | number;
+  shrinkPoint?: string;
   /** 自定义外层触发器容器样式（可选） */
   className?: string;
 }
@@ -35,12 +35,11 @@ const shrinkClassMap: Record<string, string> = {
 
 /**
  * 根据配置项获取收缩隐藏类名
- * @param point 收缩断点（如 '500px', '768px', 768 等）
+ * @param point 收缩断点（如 'sm', 'md', '768px' 等）
  */
-const getShrinkPointClass = (point?: string | number): string => {
+const getShrinkPointClass = (point?: string): string => {
   if (!point) return 'max-[500px]:hidden';
-  const str = typeof point === 'number' ? `${point}px` : point;
-  return shrinkClassMap[str] || `max-[${str}]:hidden`;
+  return shrinkClassMap[point] || 'max-[500px]:hidden';
 };
 
 /**

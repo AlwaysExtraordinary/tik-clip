@@ -308,7 +308,7 @@ export const VideosPage: React.FC = () => {
               options={availableCategories}
               placeholder={t('videos.filterByCategory')}
               ariaLabel={t('videos.filterByCategory')}
-              shrinkPoint="768px"
+              shrinkPoint="md"
             />
           )}
 
@@ -322,7 +322,7 @@ export const VideosPage: React.FC = () => {
               options={availableActors}
               placeholder={t('videos.filterByActor')}
               ariaLabel={t('videos.filterByActor')}
-              shrinkPoint="768px"
+              shrinkPoint="md"
             />
           )}
 
@@ -337,7 +337,7 @@ export const VideosPage: React.FC = () => {
             options={[t('videos.sortByClipCount')]}
             placeholder={t('videos.sortBy')}
             ariaLabel={t('videos.sortBy')}
-            shrinkPoint="768px"
+            shrinkPoint="md"
           />
         </div>
 

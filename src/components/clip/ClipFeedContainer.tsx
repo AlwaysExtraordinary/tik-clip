@@ -195,15 +195,13 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
   }, [initialIndex, markResizing, safeInitialIndex]);
 
   /**
-   * 后台异步预加载当前项及前后相邻项（前后各 2 项）的视频媒体源
+   * 后台异步预加载当前项及前后相邻项（前后各 1 项）的视频媒体源
    */
   useEffect(() => {
     const preloadIndices = [
       currentIndex,
       currentIndex + 1,
-      currentIndex + 2,
       currentIndex - 1,
-      currentIndex - 2,
     ].filter((idx) => idx >= 0 && idx < shuffleQueue.totalCount);
 
     for (const idx of preloadIndices) {
@@ -444,8 +442,8 @@ export const ClipFeedContainer: React.FC<ClipFeedContainerProps> = ({
         const item = shuffleQueue.getItemAt(index);
         if (!item) return null;
 
-        // 预渲染前后各 2 项（共维持 5 个播放器实例），保证快速/惯性滑动越级时直接展示真实的起始视频帧
-        const isNearCurrent = Math.abs(index - currentIndex) <= 2;
+        // 预渲染前后各 1 项（共维持 3 个播放器实例），保证滑动切换时展示真实的起始视频帧
+        const isNearCurrent = Math.abs(index - currentIndex) <= 1;
         const mediaSource = mediaMap[item.clip.id];
         const isActive = index === currentIndex;
 
